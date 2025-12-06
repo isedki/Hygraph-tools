@@ -204,6 +204,17 @@
       body: JSON.stringify({ query })
     }).then(r => r.json()).then(d => { if(d.errors) throw new Error(d.errors[0].message); return d.data; });
     
+    // Batch processing utility - runs promises in parallel with concurrency limit
+    async function runInBatches(items, fn, batchSize = 10) {
+      const results = [];
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.allSettled(batch.map(fn));
+        results.push(...batchResults);
+      }
+      return results;
+    }
+    
     const isSystem = name => {
       if (!name || name.startsWith('_')) return true;
       if (['Asset','User','ScheduledOperation','ScheduledRelease'].includes(name)) return true;
@@ -251,26 +262,34 @@
       const now = new Date();
       const threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       
-      for (const model of models) {
-        try {
-          const countData = await gql(`{ count: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } } }`);
-          const count = countData.count?.aggregate?.count || 0;
+      // Process models in PARALLEL (batches of 10)
+      const processModel = async (model) => {
+        const countData = await gql(`{ count: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } } }`);
+        const count = countData.count?.aggregate?.count || 0;
+        
+        let staleEntries = [];
+        if (count > 0 && model.hasUpdatedAt) {
+          const entryData = await gql(`{ entries: ${model.pluralApiId}(stage: DRAFT, first: 100, where: { updatedAt_lt: "${threshold.toISOString()}" }, orderBy: updatedAt_ASC) { id updatedAt ${model.titleField} } }`);
+          for (const entry of (entryData.entries || [])) {
+            const updated = new Date(entry.updatedAt);
+            const days = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
+            staleEntries.push({ id: entry.id, title: entry[model.titleField] || entry.id, model: model.name, updatedAt: updated, daysOld: days });
+          }
+        }
+        
+        return { model: model.name, count, staleEntries };
+      };
+      
+      const results = await runInBatches(models, processModel, 10);
+      
+      // Process results
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          const { model, count, staleEntries } = result.value;
           totalEntries += count;
-          
-          if (count === 0) {
-            unusedModels.push(model.name);
-            continue;
-          }
-          
-          if (model.hasUpdatedAt) {
-            const entryData = await gql(`{ entries: ${model.pluralApiId}(stage: DRAFT, first: 100, where: { updatedAt_lt: "${threshold.toISOString()}" }, orderBy: updatedAt_ASC) { id updatedAt ${model.titleField} } }`);
-            for (const entry of (entryData.entries || [])) {
-              const updated = new Date(entry.updatedAt);
-              const days = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
-              allStaleDrafts.push({ id: entry.id, title: entry[model.titleField] || entry.id, model: model.name, updatedAt: updated, daysOld: days });
-            }
-          }
-        } catch (e) { console.warn('Error with', model.name, e.message); }
+          if (count === 0) unusedModels.push(model);
+          allStaleDrafts.push(...staleEntries);
+        }
       }
       
       allStaleDrafts.sort((a, b) => b.daysOld - a.daysOld);
@@ -334,7 +353,7 @@
       $('#unused-content').innerHTML = `<div class="model-list">${unusedModels.map(n => `<div class="model-chip empty">${n}</div>`).join('')}</div>`;
     }
     
-    // SEPARATE DASHBOARD: runs independently, won't break health metrics
+    // SEPARATE DASHBOARD: runs independently, won't break health metrics - PARALLEL version
     async function fetchDashboard() {
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -345,34 +364,46 @@
       let ageFresh = 0, ageMid = 0, ageOld = 0;
       let modelCounts = [];
       
-      for (const model of models) {
-        try {
-          // Draft count (already have from main analysis but re-fetch for dashboard isolation)
-          const draftData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } } }`);
-          const dc = draftData.c?.aggregate?.count || 0;
+      // Process each model in PARALLEL
+      const processModel = async (model) => {
+        // Draft and Published counts
+        const draftData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } } }`);
+        const pubData = await gql(`{ c: ${model.pluralApiId}Connection(stage: PUBLISHED) { aggregate { count } } }`);
+        
+        const dc = draftData.c?.aggregate?.count || 0;
+        const pc = pubData.c?.aggregate?.count || 0;
+        
+        let newCount = 0, fresh = 0, mid = 0, old = 0;
+        
+        if (model.hasUpdatedAt) {
+          const newData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${weekAgo.toISOString()}" }) { aggregate { count } } }`);
+          const freshData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${monthAgo.toISOString()}" }) { aggregate { count } } }`);
+          const midData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${quarter.toISOString()}", createdAt_lt: "${monthAgo.toISOString()}" }) { aggregate { count } } }`);
+          const oldData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_lt: "${quarter.toISOString()}" }) { aggregate { count } } }`);
+          
+          newCount = newData.c?.aggregate?.count || 0;
+          fresh = freshData.c?.aggregate?.count || 0;
+          mid = midData.c?.aggregate?.count || 0;
+          old = oldData.c?.aggregate?.count || 0;
+        }
+        
+        return { name: model.name, dc, pc, newCount, fresh, mid, old };
+      };
+      
+      const results = await runInBatches(models, processModel, 8);
+      
+      // Aggregate results
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          const { name, dc, pc, newCount, fresh, mid, old } = result.value;
           draftCount += dc;
-          
-          // Published count
-          const pubData = await gql(`{ c: ${model.pluralApiId}Connection(stage: PUBLISHED) { aggregate { count } } }`);
-          const pc = pubData.c?.aggregate?.count || 0;
           pubCount += pc;
-          
-          modelCounts.push({ name: model.name, count: dc });
-          
-          // New this week + age distribution (only if has createdAt)
-          if (model.hasUpdatedAt) {
-            const newData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${weekAgo.toISOString()}" }) { aggregate { count } } }`);
-            newThisWeek += newData.c?.aggregate?.count || 0;
-            
-            const freshData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${monthAgo.toISOString()}" }) { aggregate { count } } }`);
-            const midData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${quarter.toISOString()}", createdAt_lt: "${monthAgo.toISOString()}" }) { aggregate { count } } }`);
-            const oldData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_lt: "${quarter.toISOString()}" }) { aggregate { count } } }`);
-            
-            ageFresh += freshData.c?.aggregate?.count || 0;
-            ageMid += midData.c?.aggregate?.count || 0;
-            ageOld += oldData.c?.aggregate?.count || 0;
-          }
-        } catch (e) { console.warn('Dashboard error for', model.name, e.message); }
+          newThisWeek += newCount;
+          ageFresh += fresh;
+          ageMid += mid;
+          ageOld += old;
+          modelCounts.push({ name, count: dc });
+        }
       }
       
       // Render dashboard

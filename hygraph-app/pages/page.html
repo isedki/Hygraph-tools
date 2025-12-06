@@ -377,6 +377,17 @@ const show=(id)=>{ $('#token-view').style.display=id==='token'?'block':'none'; $
 const getToken=()=>{ try{return localStorage.getItem(TOKEN_KEY);}catch{return null;} };
 const saveToken=(t)=>{ try{localStorage.setItem(TOKEN_KEY,t);}catch{} };
 const clearToken=()=>{ try{localStorage.removeItem(TOKEN_KEY);}catch{} };
+
+// Batch processing utility - runs promises in parallel with concurrency limit
+async function runInBatches(items, fn, batchSize = 8) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
 const extractProjId=(ep)=>{ const m=ep.match(/\/v2\/([^/]+)/); return m?m[1]:''; };
 const extractRegion=(ep)=>{ 
   // Extract region from: https://api-ca-central-1.hygraph.com/v2/... or https://ca-central-1.cdn.hygraph.com/...
@@ -1005,34 +1016,99 @@ async function findUsage() {
   btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Find Content Usage';
 }
 
+// Standalone function to find usage for a single element (no global state)
+async function findUsageFor(el, unions) {
+  const targetName = el.name;
+  const targetType = el.type;
+  const results = [];
+  
+  const containingComps = targetType === 'component' ? findPathsToComponent(targetName, unions) : new Set();
+  const allRelevantTypes = new Set([targetName, ...containingComps]);
+  const SYS_FIELDS = new Set(['stage','id','createdAt','updatedAt','publishedAt','documentInStages','history','publishedBy','createdBy','updatedBy','scheduledIn','locale','localizations']);
+  
+  for (const model of schema.models) {
+    try {
+      const modelFields = await discoverModelFields(model.name);
+      const componentFields = [];
+      
+      for (const field of modelFields) {
+        if (SYS_FIELDS.has(field.name)) continue;
+        
+        if (targetType === 'enum') {
+          if (field.typeName === targetName) componentFields.push({ name: field.name, isUnion: false });
+        } else {
+          if (allRelevantTypes.has(field.typeName)) {
+            componentFields.push({ name: field.name, isUnion: field.isUnion });
+          } else if (field.isUnion) {
+            const union = unions.find(u => u.name === field.typeName);
+            if (union?.types.some(t => allRelevantTypes.has(t))) componentFields.push({ name: field.name, isUnion: true });
+          } else if (schema.components.some(c => c.name === field.typeName)) {
+            componentFields.push({ name: field.name, isUnion: false });
+          }
+        }
+      }
+      
+      if (componentFields.length === 0) continue;
+      
+      const titleField = model.fields.find(f => ['title','name','heading','label','slug'].includes(f.name.toLowerCase()) && f.type === 'String')?.name || '';
+      
+      // Simplified query - just check if fields exist
+      const fieldSelections = componentFields.map(cf => targetType === 'enum' ? cf.name : `${cf.name} { __typename }`).join(' ');
+      const query = `query { entries: ${model.pluralApiId}(first: 50, stage: DRAFT) { id ${titleField} ${fieldSelections} } }`;
+      
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ query }) });
+      const r = await res.json();
+      if (r.errors) continue;
+      
+      for (const entry of (r.data?.entries || [])) {
+        for (const cf of componentFields) {
+          if (entry[cf.name]) {
+            results.push({ id: entry.id, modelName: model.name });
+            break;
+          }
+        }
+      }
+    } catch (e) { /* continue */ }
+  }
+  
+  return { name: el.name, type: el.type, count: results.length, models: [...new Set(results.map(r => r.modelName))] };
+}
+
 async function scanAllUsage() {
   const btn = $('#scan-btn');
   const prog = $('#scan-progress');
-  const results = $('#scan-results');
+  const resultsDiv = $('#scan-results');
   
   btn.disabled = true;
   prog.style.display = 'block';
-  results.innerHTML = '';
+  resultsDiv.innerHTML = '';
   usageData = new Map();
   
   const elements = [...schema.components.map(c => ({ ...c, type: 'component' })), ...schema.enums.map(e => ({ ...e, type: 'enum' }))];
   const total = elements.length;
   
-  for (let i = 0; i < elements.length; i++) {
-    const el = elements[i];
+  // Pre-fetch union types once
+  const unions = await discoverUnionTypes();
+  
+  let done = 0;
+  
+  // Process in PARALLEL batches of 5 (balance between speed and API limits)
+  const processElement = async (el) => {
+    const result = await findUsageFor(el, unions);
+    done++;
     $('#scan-text').textContent = `Scanning ${el.name}...`;
-    $('#scan-count').textContent = `${i + 1}/${total}`;
-    $('#scan-fill').style.width = `${((i + 1) / total) * 100}%`;
-    
-    selected = { ...el, type: el.type };
-    usageResult = null;
-    await findUsage();
-    
-    if (usageResult && usageResult.length > 0) {
-      usageData.set(el.name, { type: el.type, count: usageResult.length, models: [...new Set(usageResult.map(u => u.modelName))] });
+    $('#scan-count').textContent = `${done}/${total}`;
+    $('#scan-fill').style.width = `${(done / total) * 100}%`;
+    return result;
+  };
+  
+  const results = await runInBatches(elements, processElement, 5);
+  
+  // Collect results
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value && result.value.count > 0) {
+      usageData.set(result.value.name, result.value);
     }
-    
-    await new Promise(r => setTimeout(r, 50));
   }
   
   selected = null;
@@ -1044,7 +1120,7 @@ async function scanAllUsage() {
   const sorted = [...usageData.entries()].sort((a, b) => b[1].count - a[1].count);
   const unused = elements.filter(e => !usageData.has(e.name));
   
-  results.innerHTML = `
+  resultsDiv.innerHTML = `
     <div class="section" style="margin-top:20px;">
       <div class="section-title">Usage Summary</div>
       <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Scanned ${total} elements. <strong style="color:#22c55e;">${sorted.length}</strong> in use, <strong style="color:#f87171;">${unused.length}</strong> unused.</p>
@@ -1105,24 +1181,37 @@ async function scanVariantUsage() {
   const total = schema.models.length;
   let done = 0;
   
-  for (const model of schema.models) {
+  // Process models in PARALLEL
+  const processModel = async (model) => {
+    const fields = await discoverModelFields(model.name);
+    const variantFields = [];
+    for (const field of fields) {
+      if (variantUsage.has(field.typeName)) {
+        variantFields.push({ model: model.name, field: field.name, typeName: field.typeName, isList: field.isList });
+      }
+    }
+    done++;
     $('#variant-scan-text').textContent = `Scanning ${model.name}...`;
     $('#variant-scan-count').textContent = `${done}/${total}`;
     $('#variant-scan-fill').style.width = `${(done/total)*100}%`;
-    
-    try {
-      const fields = await discoverModelFields(model.name);
-      for (const field of fields) {
-        if (variantUsage.has(field.typeName)) {
-          const usage = variantUsage.get(field.typeName);
-          usage.models.push({ model: model.name, field: field.name, isList: field.isList });
+    return variantFields;
+  };
+  
+  const results_arr = await runInBatches(schema.models, processModel, 8);
+  
+  // Aggregate results
+  for (const result of results_arr) {
+    if (result.status === 'fulfilled' && result.value) {
+      for (const vf of result.value) {
+        const usage = variantUsage.get(vf.typeName);
+        if (usage) {
+          usage.models.push({ model: vf.model, field: vf.field, isList: vf.isList });
           usage.count++;
-          modelsWithVariants.add(model.name);
+          modelsWithVariants.add(vf.model);
           totalUsage++;
         }
       }
-    } catch (e) { console.warn('Error scanning', model.name, e); }
-    done++;
+    }
   }
   
   // Also check for variants in union types
