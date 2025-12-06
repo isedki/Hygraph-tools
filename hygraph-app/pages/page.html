@@ -341,8 +341,14 @@ function isSystemEnum(name) {
   if (name.includes('FromAnotherProject')) return true;
   if (isSystemType(name)) return true;
   if (name.endsWith('Stage') || name.endsWith('OrderByInput')) return true;
-  if (['DocumentFileTypes','ImageFit','Locale','Stage','ScheduledOperationStatus','ScheduledReleaseStatus','SystemDateTimeFieldVariation','EntityTypeName','UserKind'].includes(name)) return true;
+  if (['DocumentFileTypes','ImageFit','Locale','Stage','ScheduledOperationStatus','ScheduledReleaseStatus','SystemDateTimeFieldVariation','EntityTypeName','UserKind','Workflow'].includes(name)) return true;
   if (name.endsWith('Variation')) return true;
+  // System enum patterns (case-insensitive)
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes('_asset')) return true;
+  if (lowerName.includes('_scheduled')) return true;
+  if (lowerName.endsWith('_locale')) return true;
+  if (lowerName.includes('_user')) return true;
   // Filter localization system enums
   if (name.toLowerCase().includes('localize') || name.toLowerCase().includes('smartling')) return true;
   return false;
@@ -361,12 +367,9 @@ function isSystemComponent(name) {
   if (name.endsWith('RichText') && name !== 'RichText') return true;
   // System component suffixes (case-insensitive)
   const lowerName = name.toLowerCase();
-  if (lowerName.endsWith('_assetupload')) return true;
-  if (lowerName.endsWith('_assetuploadurl')) return true;
-  if (lowerName.endsWith('_assetuploaderror')) return true;
-  if (lowerName.endsWith('_scheduledoperation')) return true;
-  if (lowerName.endsWith('_scheduledrelease')) return true;
-  if (lowerName.endsWith('_user')) return true;
+  if (lowerName.includes('_asset')) return true;  // Catches _Asset, _AssetUpload, etc.
+  if (lowerName.includes('_scheduled')) return true;  // Catches _ScheduledOperation, _ScheduledRelease
+  if (lowerName.includes('_user')) return true;
   if (lowerName.endsWith('_version')) return true;
   return false;
 }
