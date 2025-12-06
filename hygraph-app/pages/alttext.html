@@ -14,7 +14,6 @@
       --text-muted: #94a3b8;
       --border: #e2e8f0;
       --accent: #8b5cf6;
-      --accent-light: #ede9fe;
       --success: #10b981;
       --success-bg: #ecfdf5;
       --warning: #f59e0b;
@@ -26,15 +25,17 @@
     .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
     
     .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
-    .header h1 { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-    .header-actions { display: flex; gap: 12px; align-items: center; }
+    .header h1 { font-size: 24px; font-weight: 700; }
+    .header-actions { display: flex; gap: 12px; }
     
     .stats-bar { display: flex; gap: 24px; margin-bottom: 24px; padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
-    .stat { display: flex; flex-direction: column; }
     .stat-value { font-size: 24px; font-weight: 700; }
     .stat-value.warning { color: var(--warning); }
     .stat-value.success { color: var(--success); }
     .stat-label { font-size: 13px; color: var(--text-muted); }
+    
+    .alert { padding: 16px 20px; border-radius: 12px; margin-bottom: 24px; }
+    .alert.warning { background: var(--warning-bg); border: 1px solid var(--warning); color: #92400e; }
     
     .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
     .image-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -47,33 +48,27 @@
     .image-status.has-alt { background: var(--success-bg); color: var(--success); }
     
     .alt-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; resize: vertical; min-height: 60px; font-family: inherit; }
-    .alt-input:focus { outline: none; border-color: var(--accent); }
-    .alt-preview { background: var(--bg-secondary); padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--text-secondary); min-height: 60px; }
+    .alt-preview { background: var(--bg-secondary); padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--text-secondary); }
     
-    .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover:not(:disabled) { background: #7c3aed; }
     .btn-secondary { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); }
-    .btn-secondary:hover:not(:disabled) { background: var(--border); }
     .btn-success { background: var(--success); color: white; }
     .btn-sm { padding: 6px 12px; font-size: 12px; }
     .btn-block { width: 100%; justify-content: center; }
     
     .image-actions { display: flex; gap: 8px; margin-top: 12px; }
     
-    .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 24px; }
-    .page-btn { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); cursor: pointer; font-size: 14px; }
-    .page-btn:hover { background: var(--bg-secondary); }
+    .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 24px; }
+    .page-btn { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); cursor: pointer; }
     .page-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
     .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .page-info { font-size: 13px; color: var(--text-muted); margin: 0 12px; }
     
     .setup-card { max-width: 500px; margin: 60px auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
     .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
-    .form-group input:focus { outline: none; border-color: var(--accent); }
     .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
     .error-msg { color: var(--danger); font-size: 13px; margin-top: 8px; }
     
@@ -84,14 +79,12 @@
     .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .empty-icon { font-size: 48px; margin-bottom: 12px; }
     
-    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text-primary); color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 1000; animation: slideIn 0.3s ease; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text-primary); color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 1000; }
     .toast.success { background: var(--success); }
     .toast.error { background: var(--danger); }
-    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     
     .filter-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
     .filter-tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); cursor: pointer; font-size: 13px; }
-    .filter-tab:hover { background: var(--bg-secondary); }
     .filter-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
   </style>
 </head>
@@ -137,6 +130,13 @@
         </div>
       </div>
       
+      <div id="no-alt-field-alert" class="alert warning" style="display:none;">
+        <strong>⚠️ No alt text field found on Asset model!</strong><br>
+        Add a String field (alt, altText, description, or caption) to your Asset model.
+      </div>
+      
+      <div id="field-info" style="margin-bottom:16px;font-size:13px;color:var(--text-muted);"></div>
+      
       <div class="stats-bar">
         <div class="stat">
           <div class="stat-value" id="total-images">-</div>
@@ -181,6 +181,7 @@
     let endpoint = null, token = null, openaiKey = null;
     let allImages = [], filteredImages = [];
     let currentFilter = 'missing', currentPage = 1;
+    let altFieldName = null;
     const PAGE_SIZE = 12;
     
     const STORAGE_KEY = 'alttext_generator_creds';
@@ -198,45 +199,118 @@
       return data.data;
     }
     
+    // Detect what alt text field exists on Asset
+    async function detectAltField() {
+      try {
+        const data = await gql(`{ __type(name: "Asset") { fields { name } } }`);
+        const fields = data.__type?.fields?.map(f => f.name) || [];
+        console.log('Asset fields:', fields);
+        
+        // Check for common alt text field names (in order of preference)
+        const candidates = ['altText', 'alt', 'alternativeText', 'description', 'caption'];
+        for (const name of candidates) {
+          if (fields.includes(name)) {
+            console.log('Found alt field:', name);
+            return name;
+          }
+        }
+      } catch (e) {
+        console.error('Error detecting alt field:', e);
+      }
+      return null;
+    }
+    
     async function fetchAllImages() {
       $('#images-container').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       allImages = [];
+      
+      // Detect the alt field first
+      altFieldName = await detectAltField();
+      console.log('Using alt field:', altFieldName);
+      
+      if (!altFieldName) {
+        $('#no-alt-field-alert').style.display = 'block';
+        $('#field-info').textContent = '';
+        $('#generate-all-btn').disabled = true;
+      } else {
+        $('#no-alt-field-alert').style.display = 'none';
+        $('#field-info').textContent = `Using field: ${altFieldName}`;
+        $('#generate-all-btn').disabled = false;
+      }
+      
       let hasMore = true, after = null;
       
       while (hasMore) {
         const afterClause = after ? `, after: "${after}"` : '';
-        const data = await gql(`{
+        // Only include alt field if it exists
+        const altQuery = altFieldName || '';
+        
+        const query = `{
           assetsConnection(first: 100${afterClause}, where: { mimeType_starts_with: "image/" }, stage: DRAFT) {
-            edges { node { id fileName url width height size mimeType alt } cursor }
+            edges { 
+              node { 
+                id 
+                fileName 
+                url 
+                width 
+                height 
+                size 
+                ${altQuery}
+              } 
+              cursor 
+            }
             pageInfo { hasNextPage endCursor }
           }
-        }`);
+        }`;
         
-        allImages.push(...(data.assetsConnection.edges || []).map(e => e.node));
-        hasMore = data.assetsConnection.pageInfo.hasNextPage;
-        after = data.assetsConnection.pageInfo.endCursor;
+        try {
+          const data = await gql(query);
+          allImages.push(...(data.assetsConnection.edges || []).map(e => e.node));
+          hasMore = data.assetsConnection.pageInfo.hasNextPage;
+          after = data.assetsConnection.pageInfo.endCursor;
+        } catch (e) {
+          console.error('Error fetching images:', e);
+          hasMore = false;
+        }
       }
       
+      console.log('Fetched', allImages.length, 'images');
       updateStats();
       applyFilter();
     }
     
+    function getAltValue(img) {
+      if (!altFieldName) return null;
+      return img[altFieldName];
+    }
+    
     function updateStats() {
-      const missing = allImages.filter(img => !img.alt || img.alt.trim() === '').length;
+      const missing = allImages.filter(img => {
+        const alt = getAltValue(img);
+        return !alt || (typeof alt === 'string' && alt.trim() === '');
+      }).length;
       const hasAlt = allImages.length - missing;
       const coverage = allImages.length > 0 ? Math.round((hasAlt / allImages.length) * 100) : 0;
       
       $('#total-images').textContent = allImages.length;
-      $('#missing-alt').textContent = missing;
-      $('#has-alt').textContent = hasAlt;
-      $('#coverage').textContent = coverage + '%';
+      $('#missing-alt').textContent = altFieldName ? missing : '-';
+      $('#has-alt').textContent = altFieldName ? hasAlt : '-';
+      $('#coverage').textContent = altFieldName ? coverage + '%' : '-';
     }
     
     function applyFilter() {
-      if (currentFilter === 'missing') {
-        filteredImages = allImages.filter(img => !img.alt || img.alt.trim() === '');
+      if (!altFieldName) {
+        filteredImages = [...allImages];
+      } else if (currentFilter === 'missing') {
+        filteredImages = allImages.filter(img => {
+          const alt = getAltValue(img);
+          return !alt || (typeof alt === 'string' && alt.trim() === '');
+        });
       } else if (currentFilter === 'has') {
-        filteredImages = allImages.filter(img => img.alt && img.alt.trim() !== '');
+        filteredImages = allImages.filter(img => {
+          const alt = getAltValue(img);
+          return alt && (typeof alt !== 'string' || alt.trim() !== '');
+        });
       } else {
         filteredImages = [...allImages];
       }
@@ -254,15 +328,21 @@
         return;
       }
       
-      $('#images-container').innerHTML = `<div class="image-grid">${pageImages.map(img => `
+      $('#images-container').innerHTML = `<div class="image-grid">${pageImages.map(img => {
+        const altValue = getAltValue(img);
+        const hasAltText = altValue && (typeof altValue !== 'string' || altValue.trim());
+        
+        return `
         <div class="image-card" data-id="${img.id}">
           <img src="${img.url}?width=400" alt="" class="image-preview" loading="lazy" onerror="this.style.display='none'">
           <div class="image-info">
             <div class="image-filename" title="${img.fileName}">${img.fileName}</div>
             <div class="image-meta">${img.width || '?'}×${img.height || '?'} • ${formatSize(img.size)}</div>
-            ${img.alt && img.alt.trim() ? `
+            ${!altFieldName ? `
+              <div class="image-status missing">⚠️ No alt field</div>
+            ` : hasAltText ? `
               <div class="image-status has-alt">✅ Has alt text</div>
-              <div class="alt-preview">${escapeHtml(img.alt)}</div>
+              <div class="alt-preview">${escapeHtml(String(altValue))}</div>
             ` : `
               <div class="image-status missing">⚠️ Missing alt text</div>
               <textarea class="alt-input" placeholder="Enter alt text or click Generate..." data-id="${img.id}"></textarea>
@@ -273,7 +353,7 @@
             `}
           </div>
         </div>
-      `).join('')}</div>`;
+      `}).join('')}</div>`;
       
       $$('.generate-btn').forEach(btn => { btn.onclick = () => generateAltText(btn.dataset.id, btn.dataset.url); });
       $$('.apply-btn').forEach(btn => { btn.onclick = () => applyAltText(btn.dataset.id); });
@@ -288,7 +368,7 @@
         if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
           html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
         } else if (i === currentPage - 3 || i === currentPage + 3) {
-          html += `<span class="page-info">...</span>`;
+          html += `<span style="color:var(--text-muted)">...</span>`;
         }
       }
       html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">→</button>`;
@@ -342,6 +422,11 @@
     }
     
     async function applyAltText(imageId) {
+      if (!altFieldName) {
+        showToast('No alt field on Asset model', 'error');
+        return;
+      }
+      
       const textarea = $(`.alt-input[data-id="${imageId}"]`);
       const applyBtn = $(`.apply-btn[data-id="${imageId}"]`);
       const altText = textarea.value.trim();
@@ -352,9 +437,14 @@
       applyBtn.textContent = '⏳ Saving...';
       
       try {
-        await gql(`mutation($id: ID!, $alt: String!) { updateAsset(where: { id: $id }, data: { alt: $alt }) { id } }`, { id: imageId, alt: altText });
+        // Use the detected field name in the mutation
+        const mutation = `mutation UpdateAssetAlt($id: ID!, $altValue: String!) { 
+          updateAsset(where: { id: $id }, data: { ${altFieldName}: $altValue }) { id } 
+        }`;
+        await gql(mutation, { id: imageId, altValue: altText });
+        
         const img = allImages.find(i => i.id === imageId);
-        if (img) img.alt = altText;
+        if (img) img[altFieldName] = altText;
         updateStats();
         applyFilter();
         showToast('Alt text saved!', 'success');
@@ -366,7 +456,16 @@
     }
     
     async function generateAllMissing() {
-      const missing = allImages.filter(img => !img.alt || img.alt.trim() === '');
+      if (!altFieldName) {
+        showToast('No alt field on Asset model', 'error');
+        return;
+      }
+      
+      const missing = allImages.filter(img => {
+        const alt = getAltValue(img);
+        return !alt || (typeof alt === 'string' && alt.trim() === '');
+      });
+      
       if (missing.length === 0) { showToast('All images have alt text!', 'success'); return; }
       if (!confirm(`Generate alt text for ${missing.length} images? (~$${(missing.length * 0.01).toFixed(2)} API cost)`)) return;
       
@@ -391,8 +490,11 @@
           const data = await response.json();
           if (!data.error) {
             const altText = data.choices[0].message.content.trim();
-            await gql(`mutation($id: ID!, $alt: String!) { updateAsset(where: { id: $id }, data: { alt: $alt }) { id } }`, { id: img.id, alt: altText });
-            img.alt = altText;
+            const mutation = `mutation UpdateAssetAlt($id: ID!, $altValue: String!) { 
+              updateAsset(where: { id: $id }, data: { ${altFieldName}: $altValue }) { id } 
+            }`;
+            await gql(mutation, { id: img.id, altValue: altText });
+            img[altFieldName] = altText;
           }
           completed++;
           await new Promise(r => setTimeout(r, 500));
