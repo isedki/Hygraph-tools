@@ -359,6 +359,15 @@ function isSystemComponent(name) {
   if (isSystemType(name)) return true;
   // RichText variants
   if (name.endsWith('RichText') && name !== 'RichText') return true;
+  // System component suffixes (case-insensitive)
+  const lowerName = name.toLowerCase();
+  if (lowerName.endsWith('_assetupload')) return true;
+  if (lowerName.endsWith('_assetuploadurl')) return true;
+  if (lowerName.endsWith('_assetuploaderror')) return true;
+  if (lowerName.endsWith('_scheduledoperation')) return true;
+  if (lowerName.endsWith('_scheduledrelease')) return true;
+  if (lowerName.endsWith('_user')) return true;
+  if (lowerName.endsWith('_version')) return true;
   return false;
 }
 
