@@ -898,7 +898,6 @@ async function findUsage() {
   btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div> Searching...';
   
   try {
-    const results = [];
     const targetName = selected.name;
     const targetType = selected.type;
     const unions = await discoverUnionTypes();
@@ -910,108 +909,92 @@ async function findUsage() {
     // System fields to skip
     const SYS_FIELDS = new Set(['stage','id','createdAt','updatedAt','publishedAt','documentInStages','history','publishedBy','createdBy','updatedBy','scheduledIn','locale','localizations']);
     
-    for (const model of schema.models) {
-      // Discover actual field types from introspection
+    // Process each model in PARALLEL
+    const processModel = async (model) => {
+      const modelResults = [];
       const modelFields = await discoverModelFields(model.name);
-      
-      // Find ALL component/union fields (query everything, search results)
       const componentFields = [];
       
       for (const field of modelFields) {
         if (SYS_FIELDS.has(field.name)) continue;
         
         if (targetType === 'enum') {
-          // For enums, only include fields of that enum type
           if (field.typeName === targetName) {
             componentFields.push({ name: field.name, isUnion: false });
           }
         } else {
-          // For components: check if field type is relevant
           if (allRelevantTypes.has(field.typeName)) {
             componentFields.push({ name: field.name, isUnion: field.isUnion, unionTypes: field.isUnion ? unions.find(u => u.name === field.typeName)?.types : undefined });
-            continue;
-          }
-          
-          // Check if field type is a union containing relevant types
-          if (field.isUnion) {
+          } else if (field.isUnion) {
             const union = unions.find(u => u.name === field.typeName);
-            if (union && union.types.some(t => allRelevantTypes.has(t))) {
+            if (union?.types.some(t => allRelevantTypes.has(t))) {
               componentFields.push({ name: field.name, isUnion: true, unionTypes: union.types });
-              continue;
             }
-          }
-          
-          // Also query any component field (might contain target nested)
-          const isComponent = schema.components.some(c => c.name === field.typeName);
-          if (isComponent) {
+          } else if (schema.components.some(c => c.name === field.typeName)) {
             componentFields.push({ name: field.name, isUnion: false });
           }
         }
       }
       
-      if (componentFields.length === 0) continue;
+      if (componentFields.length === 0) return modelResults;
       
-      // Get title field
       const titleField = model.fields.find(f => ['title','name','heading','label','slug'].includes(f.name.toLowerCase()) && f.type === 'String')?.name || '';
       
-      // Build field selections with deep nesting
       const fieldSelections = componentFields.map(cf => {
         if (targetType === 'enum') return cf.name;
-        
         if (cf.isUnion && cf.unionTypes) {
           const fragments = cf.unionTypes.map(type => {
             const typeComp = schema.components.find(c => c.name === type);
-            if (typeComp) {
-              return `... on ${type} { ${buildDeepQuery(type, unions)} }`;
-            }
-            return `... on ${type} { __typename }`;
+            return typeComp ? `... on ${type} { ${buildDeepQuery(type, unions)} }` : `... on ${type} { __typename }`;
           }).join('\n          ');
-          return `${cf.name} {\n          __typename\n          ${fragments}\n        }`;
+          return `${cf.name} { __typename ${fragments} }`;
         } else {
-          // Direct component field - build deep query
           const fieldDef = modelFields.find(f => f.name === cf.name);
-          const fieldTypeName = fieldDef?.typeName || '';
-          return `${cf.name} { ${buildDeepQuery(fieldTypeName, unions)} }`;
+          return `${cf.name} { ${buildDeepQuery(fieldDef?.typeName || '', unions)} }`;
         }
-      }).join('\n        ');
+      }).join(' ');
       
-      // Execute query
       const query = `query { entries: ${model.pluralApiId}(first: 100, stage: DRAFT) { id ${titleField} ${fieldSelections} } }`;
       
       try {
         const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ query }) });
         const r = await res.json();
+        if (r.errors) return modelResults;
         
-        if (r.errors) continue;
-        
-        const entries = r.data?.entries || [];
-        
-        for (const entry of entries) {
+        for (const entry of (r.data?.entries || [])) {
           for (const cf of componentFields) {
             const fieldValue = entry[cf.name];
             if (!fieldValue) continue;
             
             if (targetType === 'enum') {
-              // For enums, check if value matches
               const values = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
               const enumDef = schema.enums.find(e => e.name === targetName);
               for (const v of values) {
                 if (!enumDef || enumDef.values.includes(v)) {
-                  results.push({ id: entry.id, title: entry[titleField] || entry.id, modelName: model.name, pluralApiId: model.pluralApiId, field: cf.name });
+                  modelResults.push({ id: entry.id, title: entry[titleField] || entry.id, modelName: model.name, pluralApiId: model.pluralApiId, field: cf.name });
                   break;
                 }
               }
             } else {
-              // For components, deep search
               const locations = findInValue(fieldValue, targetName, [cf.name]);
               for (const loc of locations) {
-                results.push({ id: entry.id, title: entry[titleField] || entry.id, modelName: model.name, pluralApiId: model.pluralApiId, field: loc.path.join(' → ') });
+                modelResults.push({ id: entry.id, title: entry[titleField] || entry.id, modelName: model.name, pluralApiId: model.pluralApiId, field: loc.path.join(' → ') });
               }
             }
           }
         }
-      } catch (e) { /* continue to next model */ }
-    }
+      } catch (e) { /* continue */ }
+      
+      return modelResults;
+    };
+    
+    // Run in parallel batches of 8
+    const batchResults = await runInBatches(schema.models, processModel, 8);
+    
+    // Flatten results
+    const results = batchResults
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value || []);
     
     // Dedupe
     const seen = new Set();
