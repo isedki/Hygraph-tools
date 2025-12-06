@@ -1,0 +1,26 @@
+{
+  "buildCommand": "",
+  "outputDirectory": "pages",
+  "framework": null,
+  "rewrites": [
+    { "source": "/", "destination": "/setup.html" },
+    { "source": "/setup", "destination": "/setup.html" },
+    { "source": "/page", "destination": "/page.html" },
+    { "source": "/sidebar", "destination": "/sidebar.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.hygraph.com https://app.hygraph.com"
+        }
+      ]
+    }
+  ]
+}

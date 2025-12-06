@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entry References</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff;
+      color: #1f2937;
+      padding: 16px;
+      min-height: 150px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .header svg {
+      width: 20px;
+      height: 20px;
+      color: #f97316;
+    }
+    
+    h2 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .subtitle {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 16px;
+    }
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .success {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      text-align: center;
+    }
+    
+    .success-icon {
+      width: 40px;
+      height: 40px;
+      background: #dcfce7;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    
+    .success-icon svg {
+      width: 20px;
+      height: 20px;
+      color: #16a34a;
+    }
+    
+    .success h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #16a34a;
+      margin-bottom: 4px;
+    }
+    
+    .success p {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    
+    .warning {
+      padding: 12px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .warning-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: #ea580c;
+    }
+    
+    .warning-sub {
+      font-size: 11px;
+      color: #9a3412;
+      margin-top: 4px;
+    }
+    
+    .references {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .ref-item {
+      padding: 10px 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+    
+    .ref-item:hover {
+      border-color: #f97316;
+    }
+    
+    .ref-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .ref-meta {
+      font-size: 11px;
+      color: #6b7280;
+    }
+    
+    .ref-meta .model {
+      color: #f97316;
+    }
+    
+    .ref-meta .field {
+      color: #0891b2;
+    }
+    
+    .error {
+      padding: 12px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      color: #dc2626;
+      font-size: 12px;
+    }
+    
+    .summary {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .summary-title {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    
+    .summary-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    
+    .summary-badge {
+      padding: 4px 8px;
+      background: #fff7ed;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #ea580c;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
+      <path d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.1 1.1"/>
+    </svg>
+    <h2>Entry References</h2>
+  </div>
+  <p class="subtitle">Where is this entry used?</p>
+  
+  <div id="content">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+
+  <script type="module">
+    import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+    import "https://unpkg.com/@hygraph/app-sdk";
+
+    const sdk = window["@hygraph/app-sdk"];
+    const contentEl = document.getElementById('content');
+    
+    let hygraphContext = null;
+    let currentEntryId = null;
+    let currentModelName = null;
+
+    // Initialize SDK
+    sdk.init({
+      onProps: (props) => {
+        console.log('Sidebar props updated:', props);
+        
+        // Check if entry changed
+        if (props.entry && props.entry.id !== currentEntryId) {
+          currentEntryId = props.entry.id;
+          currentModelName = props.entry.model || props.model?.apiId;
+          
+          if (hygraphContext) {
+            findReferences();
+          }
+        }
+      },
+    })
+    .then(async (initialState) => {
+      const { status, props } = initialState;
+      console.log('Sidebar SDK initialized:', initialState);
+
+      if (status === 'ok' && props) {
+        hygraphContext = props;
+        
+        // Get entry info
+        if (props.entry) {
+          currentEntryId = props.entry.id;
+          currentModelName = props.entry.model || props.model?.apiId;
+        }
+        
+        if (currentEntryId) {
+          findReferences();
+        } else {
+          showInfo('Open an entry to see its references');
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('Sidebar SDK error:', error);
+      showError('Failed to connect: ' + error.message);
+    });
+
+    // Find references
+    async function findReferences() {
+      if (!currentEntryId || !hygraphContext) {
+        showInfo('No entry selected');
+        return;
+      }
+
+      showLoading();
+
+      const endpoint = hygraphContext.context?.environment?.endpoint;
+      const token = hygraphContext.token;
+
+      if (!endpoint || !token) {
+        showError('Missing API credentials');
+        return;
+      }
+
+      try {
+        // First, get all models
+        const models = await fetchModels(endpoint, token);
+        
+        // Then search for references
+        const references = await searchReferences(endpoint, token, currentEntryId, currentModelName, models);
+        
+        renderReferences(references);
+      } catch (error) {
+        console.error('Reference search error:', error);
+        showError('Failed to search: ' + error.message);
+      }
+    }
+
+    // Fetch models
+    async function fetchModels(endpoint, token) {
+      const query = `
+        query {
+          __schema {
+            types { name kind fields { name type { name kind ofType { name } } } }
+            queryType { fields { name } }
+          }
+        }
+      `;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      const result = await response.json();
+      if (result.errors) throw new Error(result.errors[0].message);
+
+      const queryFields = new Set(result.data.__schema.queryType.fields.map(f => f.name.toLowerCase()));
+      const models = [];
+
+      for (const type of result.data.__schema.types) {
+        if (type.kind !== 'OBJECT' || type.name.startsWith('_')) continue;
+        if (!type.fields || type.name.includes('Input') || type.name.includes('Connection')) continue;
+
+        const pluralId = type.name.charAt(0).toLowerCase() + type.name.slice(1) + 's';
+        const isModel = queryFields.has(type.name.toLowerCase()) || queryFields.has(pluralId);
+        
+        if (isModel) {
+          models.push({
+            name: type.name,
+            pluralApiId: pluralId,
+            fields: type.fields.map(f => ({
+              name: f.name,
+              type: f.type.name || f.type.ofType?.name || 'Unknown',
+              isList: f.type.kind === 'LIST',
+            })),
+          });
+        }
+      }
+
+      return models;
+    }
+
+    // Search for references
+    async function searchReferences(endpoint, token, targetId, targetModel, models) {
+      const references = [];
+
+      for (const model of models) {
+        // Find relation fields that might point to target model
+        const relationFields = model.fields.filter(f => 
+          f.type === targetModel || f.type === 'Asset'
+        );
+
+        for (const field of relationFields) {
+          try {
+            const whereClause = field.isList 
+              ? `{ ${field.name}_some: { id: "${targetId}" } }`
+              : `{ ${field.name}: { id: "${targetId}" } }`;
+
+            // Find a title field
+            const titleField = model.fields.find(f => 
+              ['title', 'name', 'heading', 'label', 'slug'].includes(f.name.toLowerCase()) &&
+              f.type === 'String'
+            )?.name || '';
+
+            const query = `
+              query {
+                entries: ${model.pluralApiId}(where: ${whereClause}, stage: DRAFT, first: 10) {
+                  id
+                  ${titleField}
+                }
+              }
+            `;
+
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ query }),
+            });
+
+            const result = await response.json();
+            
+            if (result.data?.entries?.length > 0) {
+              for (const entry of result.data.entries) {
+                references.push({
+                  entryId: entry.id,
+                  title: titleField && entry[titleField] ? entry[titleField] : entry.id,
+                  modelName: model.name,
+                  fieldName: field.name,
+                });
+              }
+            }
+          } catch (e) {
+            // Skip failed queries
+          }
+        }
+      }
+
+      return references;
+    }
+
+    // Render references
+    function renderReferences(references) {
+      if (references.length === 0) {
+        contentEl.innerHTML = `
+          <div class="success">
+            <div class="success-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h3>No references found</h3>
+            <p>This entry is not referenced by other entries. Safe to delete!</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Group by model
+      const byModel = references.reduce((acc, ref) => {
+        acc[ref.modelName] = (acc[ref.modelName] || 0) + 1;
+        return acc;
+      }, {});
+
+      contentEl.innerHTML = `
+        <div class="warning">
+          <div class="warning-text">⚠️ ${references.length} reference${references.length !== 1 ? 's' : ''} found</div>
+          <div class="warning-sub">Deleting may affect these entries</div>
+        </div>
+        
+        <div class="references">
+          ${references.map(ref => `
+            <div class="ref-item">
+              <div class="ref-title">${ref.title}</div>
+              <div class="ref-meta">
+                <span class="model">${ref.modelName}</span>
+                via <span class="field">${ref.fieldName}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="summary">
+          <div class="summary-title">References by model:</div>
+          <div class="summary-badges">
+            ${Object.entries(byModel).map(([model, count]) => `
+              <span class="summary-badge">${model}: ${count}</span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Helper functions
+    function showLoading() {
+      contentEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    }
+
+    function showError(message) {
+      contentEl.innerHTML = `<div class="error">${message}</div>`;
+    }
+
+    function showInfo(message) {
+      contentEl.innerHTML = `<p style="font-size: 13px; color: #6b7280; text-align: center; padding: 24px;">${message}</p>`;
+    }
+  </script>
+</body>
+</html>
+

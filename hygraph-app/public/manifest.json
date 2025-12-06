@@ -1,0 +1,35 @@
+{
+  "$schema": "https://www.hygraph.com/docs/app-framework/manifest-schema.json",
+  "name": "Schema Explorer",
+  "description": "Analyze your Hygraph schema, find component/enum usage in content, and discover where entries are referenced",
+  "version": "1.0.0",
+  "apiId": "schema-explorer",
+  "icon": "https://hygraph-schema-explorer.vercel.app/icon.svg",
+  "baseUrl": "https://hygraph-schema-explorer.vercel.app",
+  "permissions": {
+    "CONTENT_READ": true,
+    "CONTENT_WRITE": false,
+    "SCHEMA_READ": true,
+    "SCHEMA_WRITE": false
+  },
+  "elements": [
+    {
+      "type": "page",
+      "name": "Schema Explorer",
+      "description": "Full schema analysis with usage statistics and content search",
+      "apiId": "schema-explorer-page",
+      "src": "/page"
+    },
+    {
+      "type": "formSidebar",
+      "name": "Entry References",
+      "description": "See where this entry is referenced in other content",
+      "apiId": "entry-references-sidebar",
+      "src": "/sidebar"
+    }
+  ],
+  "config": {
+    "fields": []
+  }
+}
+

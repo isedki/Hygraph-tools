@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Health Dashboard</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-secondary: #f1f5f9;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: #e2e8f0;
+      --accent: #3b82f6;
+      --warning: #f59e0b;
+      --warning-bg: #fffbeb;
+      --danger: #ef4444;
+      --danger-bg: #fef2f2;
+      --success: #10b981;
+      --success-bg: #ecfdf5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text-primary); line-height: 1.5; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .sticky-top { position: sticky; top: 0; z-index: 100; background: var(--bg); padding-top: 24px; margin-top: -24px; }
+    .sticky-section-header { position: sticky; top: 0; z-index: 50; background: var(--bg-card); border-radius: 12px 12px 0 0; }
+    .header h1 { font-size: 24px; font-weight: 700; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .stat-card.warning { border-color: var(--warning); background: var(--warning-bg); }
+    .stat-card.danger { border-color: var(--danger); background: var(--danger-bg); }
+    .stat-card.success { border-color: var(--success); background: var(--success-bg); }
+    .stat-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+    .stat-value { font-size: 32px; font-weight: 700; }
+    .stat-card.warning .stat-value { color: var(--warning); }
+    .stat-card.danger .stat-value { color: var(--danger); }
+    .stat-card.success .stat-value { color: var(--success); }
+    .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+    .section-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .section-badge { background: var(--warning); color: white; font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .config { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+    .config select, .config input { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+    .config input[type="number"] { width: 60px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 20px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; background: var(--bg-secondary); }
+    td { padding: 14px 20px; border-top: 1px solid var(--border); font-size: 14px; }
+    tr:hover td { background: var(--bg-secondary); }
+    .entry-title { font-weight: 500; }
+    .entry-model { font-size: 12px; color: var(--accent); background: rgba(59,130,246,0.1); padding: 2px 8px; border-radius: 4px; }
+    .entry-days { font-weight: 600; }
+    .entry-days.warning { color: var(--warning); }
+    .entry-days.danger { color: var(--danger); }
+    .btn { padding: 8px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-secondary { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); }
+    .empty { padding: 48px 20px; text-align: center; color: var(--text-muted); }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .token-form { max-width: 500px; margin: 80px auto; padding: 32px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+    .token-form h2 { margin-bottom: 8px; }
+    .token-form p { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+    .model-list { display: flex; flex-wrap: wrap; gap: 8px; padding: 20px; }
+    .model-chip { background: var(--bg-secondary); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+    .model-chip.empty { border-color: var(--danger); background: var(--danger-bg); }
+    .refresh-btn { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 6px; color: var(--text-secondary); }
+    .refresh-btn:hover { background: var(--bg-secondary); color: var(--accent); }
+    .refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="token-view" class="token-form">
+      <h2>🏥 Content Health Dashboard</h2>
+      <p>Enter your Hygraph credentials to analyze content health.</p>
+      <div class="form-group">
+        <label>Content API Endpoint</label>
+        <input type="text" id="endpoint-input" placeholder="https://...hygraph.com/content/.../master">
+      </div>
+      <div class="form-group">
+        <label>Permanent Auth Token</label>
+        <input type="text" id="token-input" placeholder="eyJ...">
+      </div>
+      <button class="btn btn-primary" id="save-btn" style="width:100%;">Analyze Content</button>
+      <div id="token-error" style="margin-top:10px;color:#ef4444;font-size:12px;"></div>
+    </div>
+    
+    <div id="main-view" class="container" style="display:none;">
+      <div class="sticky-top">
+        <div class="header">
+          <h1>🏥 Content Health</h1>
+          <button class="refresh-btn" id="refresh-btn" title="Refresh">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          </button>
+        </div>
+        
+        <!-- Dashboard Overview -->
+        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="stat-card">
+            <div class="stat-label">Draft vs Published</div>
+            <div class="stat-value" id="pub-ratio">-</div>
+            <div class="stat-sub" id="pub-detail">loading...</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">New This Week</div>
+            <div class="stat-value" id="new-week">-</div>
+            <div class="stat-sub">Created in last 7 days</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Content Age</div>
+            <div class="stat-value" id="age-dist" style="font-size:16px;">-</div>
+            <div class="stat-sub" id="age-bars" style="margin-top:8px;display:flex;gap:4px;height:8px;">
+              <div id="age-fresh" style="background:#10b981;border-radius:2px;"></div>
+              <div id="age-mid" style="background:#f59e0b;border-radius:2px;"></div>
+              <div id="age-old" style="background:#ef4444;border-radius:2px;"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Model with Most Entries</div>
+            <div class="stat-value" id="largest-model" style="font-size:18px;">-</div>
+            <div class="stat-sub" id="largest-count">-</div>
+          </div>
+        </div>
+        
+        <!-- Health Metrics -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Entries</div>
+            <div class="stat-value" id="total-entries">-</div>
+          </div>
+          <div class="stat-card warning">
+            <div class="stat-label">Stale Content</div>
+            <div class="stat-value" id="stale-count">-</div>
+            <div class="stat-sub" id="stale-sub">Not updated in 30 days</div>
+          </div>
+          <div class="stat-card danger">
+            <div class="stat-label">Unused Models</div>
+            <div class="stat-value" id="unused-count">-</div>
+          </div>
+          <div class="stat-card success" id="stat-healthy">
+            <div class="stat-label">Health Score <span style="cursor:help;opacity:0.6;" title="100% minus penalties for stale content (up to 50%) and unused models (up to 30%)">ⓘ</span></div>
+            <div class="stat-value" id="health-score">-</div>
+            <div class="stat-sub" id="health-explanation"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <div class="section-header sticky-section-header">
+          <div class="section-title">⏰ Stale Entries <span class="section-badge" id="stale-badge">0</span></div>
+          <div class="config">
+            <select id="model-filter" style="min-width:120px;"><option value="all">All Models</option></select>
+            <span>Older than</span>
+            <input type="number" id="days-threshold" value="30" min="1">
+            <span>days</span>
+            <button class="btn btn-secondary" id="apply-threshold">Apply</button>
+          </div>
+        </div>
+        <div id="stale-content"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+      
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">📭 Unused Models <span class="section-badge" id="unused-badge" style="background:var(--danger);">0</span></div>
+        </div>
+        <div id="unused-content"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+    import "https://unpkg.com/@hygraph/app-sdk";
+    
+    const sdk = window["@hygraph/app-sdk"];
+    const $ = s => document.querySelector(s);
+    
+    let endpoint = null, token = null;
+    let models = [], allStaleDrafts = [], staleDrafts = [], unusedModels = [];
+    let daysThreshold = 30, selectedModel = 'all';
+    const HEALTH_THRESHOLD = 90;
+    
+    const STORAGE_KEY = 'hygraph_health';
+    const save = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({endpoint, token})); } catch(e){} };
+    const load = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; } };
+    
+    const gql = (query) => fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query })
+    }).then(r => r.json()).then(d => { if(d.errors) throw new Error(d.errors[0].message); return d.data; });
+    
+    const isSystem = name => {
+      if (!name || name.startsWith('_')) return true;
+      if (['Asset','User','ScheduledOperation','ScheduledRelease'].includes(name)) return true;
+      if (/Connection$|Edge$|Aggregate$|WhereInput$|OrderByInput$|CreateInput$|UpdateInput$/.test(name)) return true;
+      if (name.toLowerCase().includes('smartling') || name.toLowerCase().includes('localize')) return true;
+      return false;
+    };
+    
+    async function fetchModels() {
+      const data = await gql(`{ __schema { queryType { fields { name type { name ofType { name } } } } types { name kind fields { name } } } }`);
+      const queryFields = data.__schema.queryType.fields;
+      const types = data.__schema.types;
+      const typeMap = Object.fromEntries(types.map(t => [t.name, t]));
+      
+      const found = [];
+      for (const field of queryFields) {
+        const typeName = field.type?.name || field.type?.ofType?.name;
+        if (typeName?.endsWith('Connection')) {
+          const modelName = typeName.replace('Connection', '');
+          if (isSystem(modelName) || !typeMap[modelName]) continue;
+          
+          const modelType = typeMap[modelName];
+          const titleField = ['title','name','headline','label','slug'].find(f => modelType.fields?.some(x => x.name === f)) || 'id';
+          const hasUpdatedAt = modelType.fields?.some(x => x.name === 'updatedAt');
+          const pluralApiId = field.name.replace('Connection', '');
+          
+          found.push({ name: modelName, pluralApiId, titleField, hasUpdatedAt });
+        }
+      }
+      
+      models = [...new Map(found.map(m => [m.name, m])).values()];
+      console.log('Found models:', models.map(m => m.name).join(', '));
+      return models;
+    }
+    
+    async function analyze() {
+      $('#refresh-btn').classList.add('spinning');
+      $('#stale-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      $('#unused-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      
+      let totalEntries = 0;
+      allStaleDrafts = [];
+      unusedModels = [];
+      
+      const now = new Date();
+      const threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      for (const model of models) {
+        try {
+          const countData = await gql(`{ count: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } } }`);
+          const count = countData.count?.aggregate?.count || 0;
+          totalEntries += count;
+          
+          if (count === 0) {
+            unusedModels.push(model.name);
+            continue;
+          }
+          
+          if (model.hasUpdatedAt) {
+            const entryData = await gql(`{ entries: ${model.pluralApiId}(stage: DRAFT, first: 100, where: { updatedAt_lt: "${threshold.toISOString()}" }, orderBy: updatedAt_ASC) { id updatedAt ${model.titleField} } }`);
+            for (const entry of (entryData.entries || [])) {
+              const updated = new Date(entry.updatedAt);
+              const days = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
+              allStaleDrafts.push({ id: entry.id, title: entry[model.titleField] || entry.id, model: model.name, updatedAt: updated, daysOld: days });
+            }
+          }
+        } catch (e) { console.warn('Error with', model.name, e.message); }
+      }
+      
+      allStaleDrafts.sort((a, b) => b.daysOld - a.daysOld);
+      updateModelFilter();
+      filterAndRender(totalEntries);
+      $('#refresh-btn').classList.remove('spinning');
+      
+      // Fetch dashboard data separately (won't break main metrics if it fails)
+      fetchDashboard().catch(e => console.warn('Dashboard fetch error:', e));
+    }
+    
+    function updateModelFilter() {
+      const modelNames = [...new Set(allStaleDrafts.map(d => d.model))].sort();
+      const select = $('#model-filter');
+      select.innerHTML = '<option value="all">All Models</option>' + modelNames.map(n => `<option value="${n}">${n}</option>`).join('');
+      select.value = selectedModel;
+    }
+    
+    function filterAndRender(total) {
+      staleDrafts = allStaleDrafts.filter(d => d.daysOld >= daysThreshold && (selectedModel === 'all' || d.model === selectedModel));
+      renderStats(total);
+      renderStaleDrafts();
+      renderUnusedModels();
+    }
+    
+    function renderStats(total) {
+      $('#total-entries').textContent = total;
+      $('#stale-count').textContent = staleDrafts.length;
+      $('#stale-sub').textContent = `Not updated in ${daysThreshold} days`;
+      $('#unused-count').textContent = unusedModels.length;
+      $('#stale-badge').textContent = staleDrafts.length;
+      $('#unused-badge').textContent = unusedModels.length;
+      
+      const staleFor90 = allStaleDrafts.filter(d => d.daysOld >= HEALTH_THRESHOLD).length;
+      const stalePenalty = total > 0 ? Math.min(Math.round((staleFor90 / total) * 100), 50) : 0;
+      const unusedPenalty = models.length > 0 ? Math.min(Math.round((unusedModels.length / models.length) * 50), 30) : 0;
+      const score = 100 - stalePenalty - unusedPenalty;
+      
+      $('#health-score').textContent = score + '%';
+      let exp = '100%';
+      if (stalePenalty > 0) exp += ` - ${stalePenalty}% (${staleFor90} stale 90d+)`;
+      if (unusedPenalty > 0) exp += ` - ${unusedPenalty}% (${unusedModels.length} unused)`;
+      $('#health-explanation').textContent = exp;
+    }
+    
+    function renderStaleDrafts() {
+      if (staleDrafts.length === 0) {
+        $('#stale-content').innerHTML = '<div class="empty"><div class="empty-icon">✨</div>No stale drafts!</div>';
+        return;
+      }
+      $('#stale-content').innerHTML = `<table><thead><tr><th>Entry</th><th>Model</th><th>Last Updated</th><th>Days</th></tr></thead><tbody>${
+        staleDrafts.map(e => `<tr><td class="entry-title">${e.title}</td><td><span class="entry-model">${e.model}</span></td><td>${e.updatedAt.toLocaleDateString()}</td><td class="entry-days ${e.daysOld > 90 ? 'danger' : 'warning'}">${e.daysOld}</td></tr>`).join('')
+      }</tbody></table>`;
+    }
+    
+    function renderUnusedModels() {
+      if (unusedModels.length === 0) {
+        $('#unused-content').innerHTML = '<div class="empty"><div class="empty-icon">🎉</div>All models have content!</div>';
+        return;
+      }
+      $('#unused-content').innerHTML = `<div class="model-list">${unusedModels.map(n => `<div class="model-chip empty">${n}</div>`).join('')}</div>`;
+    }
+    
+    // SEPARATE DASHBOARD: runs independently, won't break health metrics
+    async function fetchDashboard() {
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const quarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      
+      let draftCount = 0, pubCount = 0, newThisWeek = 0;
+      let ageFresh = 0, ageMid = 0, ageOld = 0;
+      let modelCounts = [];
+      
+      for (const model of models) {
+        try {
+          // Draft count (already have from main analysis but re-fetch for dashboard isolation)
+          const draftData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } } }`);
+          const dc = draftData.c?.aggregate?.count || 0;
+          draftCount += dc;
+          
+          // Published count
+          const pubData = await gql(`{ c: ${model.pluralApiId}Connection(stage: PUBLISHED) { aggregate { count } } }`);
+          const pc = pubData.c?.aggregate?.count || 0;
+          pubCount += pc;
+          
+          modelCounts.push({ name: model.name, count: dc });
+          
+          // New this week + age distribution (only if has createdAt)
+          if (model.hasUpdatedAt) {
+            const newData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${weekAgo.toISOString()}" }) { aggregate { count } } }`);
+            newThisWeek += newData.c?.aggregate?.count || 0;
+            
+            const freshData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${monthAgo.toISOString()}" }) { aggregate { count } } }`);
+            const midData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${quarter.toISOString()}", createdAt_lt: "${monthAgo.toISOString()}" }) { aggregate { count } } }`);
+            const oldData = await gql(`{ c: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_lt: "${quarter.toISOString()}" }) { aggregate { count } } }`);
+            
+            ageFresh += freshData.c?.aggregate?.count || 0;
+            ageMid += midData.c?.aggregate?.count || 0;
+            ageOld += oldData.c?.aggregate?.count || 0;
+          }
+        } catch (e) { console.warn('Dashboard error for', model.name, e.message); }
+      }
+      
+      // Render dashboard
+      // DRAFT stage = all entries, PUBLISHED stage = only published
+      // So: unpublished = draftCount - pubCount
+      const unpubCount = draftCount - pubCount;
+      const pubPercent = draftCount > 0 ? Math.round((pubCount / draftCount) * 100) : 0;
+      $('#pub-ratio').textContent = pubPercent + '% pub';
+      $('#pub-detail').textContent = `${pubCount} pub / ${unpubCount} draft`;
+      
+      $('#new-week').textContent = newThisWeek;
+      
+      const ageTotal = ageFresh + ageMid + ageOld || 1;
+      const freshPct = Math.round((ageFresh / ageTotal) * 100);
+      const midPct = Math.round((ageMid / ageTotal) * 100);
+      const oldPct = Math.round((ageOld / ageTotal) * 100);
+      $('#age-dist').innerHTML = `<span style="color:#10b981">🟢${freshPct}%</span> <span style="color:#f59e0b">🟡${midPct}%</span> <span style="color:#ef4444">🔴${oldPct}%</span>`;
+      $('#age-fresh').style.flex = freshPct;
+      $('#age-mid').style.flex = midPct;
+      $('#age-old').style.flex = oldPct;
+      
+      modelCounts.sort((a, b) => b.count - a.count);
+      if (modelCounts.length > 0) {
+        $('#largest-model').textContent = modelCounts[0].name;
+        $('#largest-count').textContent = modelCounts[0].count + ' entries';
+      }
+      
+      console.log('Dashboard updated:', { pubCount, draftCount, newThisWeek, ageFresh, ageMid, ageOld });
+    }
+    
+    // Event handlers
+    $('#save-btn').onclick = async () => {
+      const ep = $('#endpoint-input').value.trim();
+      const tk = $('#token-input').value.trim();
+      if (!ep || !tk) { $('#token-error').textContent = 'Please fill both fields'; return; }
+      
+      $('#save-btn').disabled = true;
+      $('#save-btn').textContent = 'Connecting...';
+      endpoint = ep; token = tk;
+      
+      try {
+        await gql('{ __typename }');
+        save();
+        $('#token-view').style.display = 'none';
+        $('#main-view').style.display = 'block';
+        await fetchModels();
+        analyze();
+      } catch (e) {
+        $('#token-error').textContent = 'Failed: ' + e.message;
+      }
+      $('#save-btn').disabled = false;
+      $('#save-btn').textContent = 'Analyze Content';
+    };
+    
+    $('#refresh-btn').onclick = () => analyze();
+    $('#apply-threshold').onclick = () => { daysThreshold = parseInt($('#days-threshold').value) || 30; filterAndRender($('#total-entries').textContent); };
+    $('#model-filter').onchange = (e) => { selectedModel = e.target.value; filterAndRender($('#total-entries').textContent); };
+    
+    // Init with SDK
+    console.log('Content Health: Starting...');
+    sdk.init({ debug: true, onProps: () => {} })
+      .then(async ({ status, props }) => {
+        console.log('Content Health: SDK initialized', status, props);
+        
+        // Try to get endpoint and token from SDK props
+        const sdkEndpoint = props?.context?.environment?.endpoint || props?.endpoint;
+        const sdkToken = props?.authToken;
+        
+        console.log('SDK Endpoint:', sdkEndpoint);
+        console.log('SDK Token available:', !!sdkToken);
+        
+        // If SDK provides both, use them directly (no manual input needed!)
+        if (sdkEndpoint && sdkToken) {
+          endpoint = sdkEndpoint;
+          token = sdkToken;
+          try {
+            await gql('{ __typename }');
+            console.log('Using SDK credentials - success!');
+            $('#token-view').style.display = 'none';
+            $('#main-view').style.display = 'block';
+            await fetchModels();
+            analyze();
+            return;
+          } catch (e) {
+            console.log('SDK credentials failed:', e.message);
+          }
+        }
+        
+        // Fallback: try saved credentials
+        const saved = load();
+        if (saved?.token && (sdkEndpoint || saved?.endpoint)) {
+          endpoint = sdkEndpoint || saved.endpoint;
+          token = saved.token;
+          try {
+            await gql('{ __typename }');
+            $('#token-view').style.display = 'none';
+            $('#main-view').style.display = 'block';
+            await fetchModels();
+            analyze();
+          } catch (e) {
+            console.log('Saved credentials invalid');
+            $('#token-view').style.display = 'block';
+          }
+        } else {
+          $('#token-view').style.display = 'block';
+        }
+      })
+      .catch(e => {
+        console.log('SDK failed, standalone mode:', e);
+        const saved = load();
+        if (saved?.endpoint && saved?.token) {
+          endpoint = saved.endpoint; token = saved.token;
+          gql('{ __typename }').then(() => {
+            $('#token-view').style.display = 'none';
+            $('#main-view').style.display = 'block';
+            fetchModels().then(() => analyze());
+          }).catch(() => { $('#token-view').style.display = 'block'; });
+        } else {
+          $('#token-view').style.display = 'block';
+        }
+      });
+  </script>
+</body>
+</html>

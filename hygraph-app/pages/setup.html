@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schema Explorer - Setup</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .container { text-align: center; max-width: 400px; }
+    .icon {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+    }
+    .icon svg { width: 32px; height: 32px; color: white; }
+    h1 { font-size: 24px; font-weight: 600; color: #111827; margin-bottom: 12px; }
+    p { color: #6b7280; line-height: 1.6; margin-bottom: 24px; }
+    .features {
+      background: #f9fafb; border-radius: 12px; padding: 16px;
+      margin-bottom: 24px; text-align: left;
+    }
+    .features h3 { font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+    .features ul { list-style: none; font-size: 14px; color: #4b5563; }
+    .features li { padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+    .features li::before { content: "✓"; color: #10b981; font-weight: bold; }
+    button {
+      width: 100%; padding: 14px 24px; font-size: 16px; font-weight: 600;
+      color: white; background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s;
+    }
+    button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #status { margin-top: 12px; font-size: 13px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+    </div>
+    <h1>Schema Explorer</h1>
+    <p>Analyze your Hygraph schema, find component/enum usage, and discover where entries are referenced.</p>
+    <div class="features">
+      <h3>Features included:</h3>
+      <ul>
+        <li>Schema analysis (components, enums, models)</li>
+        <li>Usage statistics with content scan</li>
+        <li>Entry reference finder</li>
+        <li>Sidebar widget for entry references</li>
+      </ul>
+    </div>
+    <button id="install">Complete Installation</button>
+    <div id="status"></div>
+  </div>
+
+  <script type="module">
+    import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+    import "https://unpkg.com/@hygraph/app-sdk";
+
+    const button = document.getElementById("install");
+    const status = document.getElementById("status");
+    const sdk = window["@hygraph/app-sdk"];
+
+    console.log("SDK loaded:", sdk);
+    console.log("Window xprops:", window.xprops);
+
+    sdk
+      .init({
+        debug: true,
+        onProps: (props) => {
+          console.log("onProps called:", props);
+          if (props.installation && props.installation.status === "COMPLETED") {
+            button.disabled = true;
+            button.textContent = "Installation Complete ✓";
+            status.textContent = "App installed successfully!";
+            status.style.color = "#10b981";
+          }
+        },
+      })
+      .then((initialState) => {
+        console.log("SDK initialized successfully:", initialState);
+        const { status: initStatus, props } = initialState;
+        
+        status.textContent = "Ready to install";
+        status.style.color = "#10b981";
+
+        if (initStatus === "ok" && props) {
+          // Check if already installed
+          if (props.installation && props.installation.status === "COMPLETED") {
+            button.disabled = true;
+            button.textContent = "Already Installed ✓";
+            return;
+          }
+
+          button.addEventListener("click", () => {
+            button.disabled = true;
+            button.textContent = "Installing...";
+            status.textContent = "Completing installation...";
+
+            props.updateInstallation({
+              status: "COMPLETED",
+              config: {},
+            })
+            .then(() => {
+              button.textContent = "Installation Complete ✓";
+              status.textContent = "Success! You can now close this window.";
+              status.style.color = "#10b981";
+            })
+            .catch((err) => {
+              console.error("Installation error:", err);
+              button.disabled = false;
+              button.textContent = "Retry Installation";
+              status.textContent = "Error: " + (err.message || "Unknown error");
+              status.style.color = "#ef4444";
+            });
+          });
+        } else if (initStatus === "validation") {
+          // App is being validated, just show ready state
+          status.textContent = "Validating...";
+        }
+      })
+      .catch((error) => {
+        console.error("SDK init error:", error);
+        // Don't show error to user during initial setup
+        // The error might be expected during first install
+        status.textContent = "Initializing...";
+      });
+  </script>
+</body>
+</html>

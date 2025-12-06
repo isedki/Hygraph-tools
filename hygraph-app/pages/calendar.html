@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Calendar</title>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fb;
+      --bg-card: #ffffff;
+      --bg-hover: #f3f4f6;
+      --border: #e5e7eb;
+      --border-light: #f0f1f3;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --text-muted: #9ca3af;
+      --accent: #5c4dff;
+      --accent-hover: #4f46e5;
+      --accent-soft: rgba(92, 77, 255, 0.08);
+      --scheduled: #3b82f6;
+      --scheduled-bg: rgba(59, 130, 246, 0.1);
+      --published: #10b981;
+      --published-bg: rgba(16, 185, 129, 0.1);
+      --draft: #f59e0b;
+      --draft-bg: rgba(245, 158, 11, 0.1);
+      --today: rgba(92, 77, 255, 0.08);
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-secondary); color: var(--text-primary); min-height: 100vh; font-size: 14px; }
+    
+    /* Token Form */
+    .token-form { max-width: 420px; margin: 80px auto; padding: 32px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); }
+    .token-form h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .token-form p { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+    .form-group input:focus { outline: none; border-color: var(--accent); }
+    .btn { width: 100%; padding: 10px 16px; font-size: 14px; font-weight: 500; color: white; background: var(--accent); border: none; border-radius: 6px; cursor: pointer; }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+    .header-icon svg { width: 20px; height: 20px; color: white; }
+    .header h1 { font-size: 16px; font-weight: 600; }
+    .header .sub { font-size: 12px; color: var(--text-secondary); }
+    
+    /* Controls */
+    .controls { display: flex; align-items: center; gap: 12px; padding: 16px 24px; background: var(--bg-card); border-bottom: 1px solid var(--border); }
+    .nav-btn { padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+    .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-btn svg { width: 16px; height: 16px; }
+    .month-title { font-size: 18px; font-weight: 600; min-width: 180px; text-align: center; cursor: pointer; }
+    .month-title:hover { color: var(--accent); }
+    .date-picker-wrapper { position: relative; display: flex; align-items: center; gap: 8px; }
+    .date-picker-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; opacity: 0.6; transition: opacity 0.2s; }
+    .date-picker-btn:hover { opacity: 1; }
+    .date-picker-input { position: absolute; top: 0; right: 0; opacity: 0; width: 30px; height: 100%; cursor: pointer; }
+    .today-btn { padding: 8px 16px; background: var(--accent); border: none; border-radius: 6px; color: white; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .today-btn:hover { background: var(--accent-hover); }
+    .view-toggle { display: flex; gap: 2px; background: var(--bg-secondary); border-radius: 6px; padding: 2px; margin-left: 12px; }
+    .view-btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: transparent; cursor: pointer; }
+    .view-btn:hover { color: var(--text-primary); }
+    .view-btn.active { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .spacer { flex: 1; }
+    
+    /* Filters */
+    .filters { display: flex; gap: 8px; align-items: center; }
+    .filter-select { padding: 8px 32px 8px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; min-width: 180px; }
+    .filter-select:hover { border-color: var(--accent); }
+    .filter-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .filter-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+    
+    /* Calendar Grid */
+    .calendar { padding: 24px; }
+    .calendar-grid { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .calendar-header { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+    .calendar-header-cell { padding: 12px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .calendar-body { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .calendar-cell { min-height: 160px; border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); padding: 8px; position: relative; }
+    .calendar-cell:nth-child(7n) { border-right: none; }
+    .calendar-cell.other-month { background: var(--bg-secondary); }
+    .calendar-cell.other-month .day-num { color: var(--text-muted); }
+    .calendar-cell.today { background: var(--today); }
+    .calendar-cell.drop-target { background: rgba(92, 77, 255, 0.15); }
+    .day-num { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+    .today .day-num { color: var(--accent); font-weight: 700; }
+    
+    /* Events */
+    .events { display: flex; flex-direction: column; gap: 4px; }
+    .event { padding: 6px 8px; border-radius: 4px; font-size: 11px; cursor: grab; transition: all 0.15s; overflow: hidden; }
+    .event:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .event.dragging { opacity: 0.5; cursor: grabbing; }
+    .event .time { display: none; font-size: 10px; opacity: 0.8; margin-bottom: 2px; }
+    .event:hover .time { display: block; }
+    .event-title { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-model { display: block; font-size: 9px; opacity: 0.7; margin-top: 1px; }
+    .event.scheduled { background: var(--scheduled-bg); color: var(--scheduled); border-left: 3px solid var(--scheduled); }
+    .event.published { background: var(--published-bg); color: var(--published); border-left: 3px solid var(--published); }
+    .event.draft { background: var(--draft-bg); color: var(--draft); border-left: 3px solid var(--draft); }
+    .event-more { font-size: 11px; color: var(--text-muted); padding: 4px 8px; cursor: pointer; }
+    .event-more:hover { color: var(--accent); }
+    
+    /* Hover Popup */
+    .event { position: relative; }
+    .event-popup { display: none; position: absolute; left: 100%; top: 0; margin-left: 8px; width: 280px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 100; }
+    .event:hover .event-popup { display: block; }
+    .event-popup-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-light); }
+    .event-popup-date { font-size: 12px; color: var(--text-secondary); }
+    .event-popup-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+    .event-popup-model { font-size: 12px; color: var(--scheduled); font-weight: 500; }
+    .event-popup-details { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+    .event-popup-row { display: flex; justify-content: space-between; align-items: center; }
+    .event-popup-label { color: var(--text-muted); }
+    .event-popup-value { color: var(--text-primary); font-weight: 500; }
+    .event-popup-status { display: inline-flex; align-items: center; gap: 4px; }
+    .event-popup-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--scheduled); }
+    .event-popup-link { display: block; margin-top: 12px; padding: 8px 12px; background: var(--accent-soft); border-radius: 6px; color: var(--accent); font-size: 12px; font-weight: 500; text-decoration: none; text-align: center; }
+    .event-popup-link:hover { background: var(--accent); color: white; }
+    .event-popup-id { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-muted); }
+    
+    /* Week View */
+    .week-view .calendar-body { grid-template-columns: repeat(7, 1fr); }
+    .week-view .calendar-cell { min-height: 300px; }
+    .week-view .events { max-height: none; }
+    
+    /* Day View */
+    .day-view .calendar-header { grid-template-columns: 1fr; }
+    .day-view .calendar-body { grid-template-columns: 1fr; }
+    .day-view .calendar-cell { min-height: 500px; padding: 16px; }
+    .day-view .events { gap: 8px; }
+    .day-view .event { padding: 12px 16px; font-size: 13px; }
+    .day-view .event-title { font-size: 14px; }
+    .day-view .event-model { font-size: 11px; }
+    .day-view .event .time { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; opacity: 1; }
+    
+    /* Legend */
+    .legend { display: flex; gap: 16px; padding: 16px 24px; background: var(--bg-card); border-top: 1px solid var(--border); }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+    .legend-dot.scheduled { background: var(--scheduled); }
+    .legend-dot.published { background: var(--published); }
+    .legend-dot.draft { background: var(--draft); }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--bg-card); border-radius: 12px; padding: 24px; width: 400px; max-width: 90vw; }
+    .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .modal-content { margin-bottom: 20px; }
+    .modal-field { margin-bottom: 12px; }
+    .modal-field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
+    .modal-field input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+    .modal-field input:focus { outline: none; border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .modal-btn.cancel { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-secondary); }
+    .modal-btn.save { background: var(--accent); border: none; color: white; }
+    .modal-btn.save:hover { background: var(--accent-hover); }
+    
+    /* Loading & Empty */
+    .loading { display: flex; align-items: center; justify-content: center; padding: 60px; }
+    .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty { text-align: center; padding: 60px; color: var(--text-muted); }
+    .empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+    
+    /* Stats */
+    .stats { display: flex; gap: 16px; margin-left: auto; }
+    .stat { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg-secondary); border-radius: 6px; font-size: 12px; }
+    .stat-num { font-weight: 700; color: var(--text-primary); }
+    .stat-label { color: var(--text-secondary); }
+    
+    .clear-token { position: fixed; bottom: 16px; right: 16px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 12px; cursor: pointer; }
+    .clear-token:hover { border-color: #ef4444; color: #ef4444; }
+
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Token Form -->
+  <div id="token-view" class="token-form" style="display:none;">
+    <h2>📅 Content Calendar</h2>
+    <p>Enter your Hygraph API details to view scheduled content.</p>
+    <div class="form-group" id="endpoint-group" style="display:none;">
+      <label>Content API Endpoint</label>
+      <input type="text" id="endpoint-input" placeholder="https://...hygraph.com/v2/.../master">
+      <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Find this in Project Settings → API Access → Content API</p>
+    </div>
+    <div class="form-group">
+      <label>Permanent Auth Token</label>
+      <input type="password" id="token-input" placeholder="eyJ...">
+    </div>
+    <button class="btn" id="save-btn">Connect</button>
+    <div id="token-error" style="margin-top:10px;color:#ef4444;font-size:12px;"></div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading-view" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+    <div style="text-align:center;"><div class="spinner" style="margin:0 auto 12px;"></div><p style="color:var(--text-muted);font-size:13px;">Loading...</p></div>
+  </div>
+
+  <!-- Main View -->
+  <div id="main-view" style="display:none;">
+    <div class="header">
+      <div class="header-left">
+        <div class="header-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Content Calendar</h1>
+          <p class="sub">View and reschedule content</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="stat-num" id="stat-scheduled">0</span><span class="stat-label">Scheduled</span></div>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button class="nav-btn" id="prev-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="date-picker-wrapper">
+        <div class="month-title" id="month-title">December 2024</div>
+        <button class="date-picker-btn" id="date-picker-btn" title="Jump to date">📅</button>
+        <input type="date" id="date-picker" class="date-picker-input">
+      </div>
+      <button class="nav-btn" id="next-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button class="today-btn" id="today-btn">Today</button>
+      <div class="view-toggle">
+        <button class="view-btn active" data-view="month">Month</button>
+        <button class="view-btn" data-view="week">Week</button>
+        <button class="view-btn" data-view="day">Day</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="filters" id="model-filters">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
+
+    <div class="calendar">
+      <div class="calendar-grid">
+        <div class="calendar-header">
+          <div class="calendar-header-cell">Sun</div>
+          <div class="calendar-header-cell">Mon</div>
+          <div class="calendar-header-cell">Tue</div>
+          <div class="calendar-header-cell">Wed</div>
+          <div class="calendar-header-cell">Thu</div>
+          <div class="calendar-header-cell">Fri</div>
+          <div class="calendar-header-cell">Sat</div>
+        </div>
+        <div class="calendar-body" id="calendar-body">
+          <!-- Generated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot scheduled"></div> Scheduled</div>
+      <div class="legend-item"><div class="legend-dot draft"></div> Draft</div>
+      <div class="legend-item"><div class="legend-dot published"></div> Published</div>
+    </div>
+
+    <button class="clear-token" id="clear-btn">🔑 Change Token</button>
+  </div>
+
+  <!-- Reschedule Modal -->
+  <div id="modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <h3>📅 Reschedule Entry</h3>
+      <div class="modal-content">
+        <div class="modal-field">
+          <label>Entry</label>
+          <input type="text" id="modal-title" readonly>
+        </div>
+        <div class="modal-field">
+          <label>New Date & Time</label>
+          <input type="datetime-local" id="modal-datetime">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
+        <button class="modal-btn save" id="modal-save">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+import "https://unpkg.com/@hygraph/app-sdk";
+
+const sdk = window["@hygraph/app-sdk"];
+const TOKEN_KEY = 'hygraph_calendar_pat';
+
+// State
+let endpoint = null, token = null, projectId = '', region = '';
+let currentDate = new Date();
+let models = [];
+let entries = [];
+let activeFilters = new Set();
+let draggedEntry = null;
+let viewMode = 'month'; // 'month', 'week', 'day'
+
+// DOM helpers
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const show = id => {
+  $('#token-view').style.display = id === 'token' ? 'block' : 'none';
+  $('#loading-view').style.display = id === 'loading' ? 'flex' : 'none';
+  $('#main-view').style.display = id === 'main' ? 'block' : 'none';
+};
+
+// Storage
+const ENDPOINT_KEY = 'hygraph_calendar_endpoint';
+const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
+const saveToken = t => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
+const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch {} };
+const getStoredEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
+const saveEndpoint = e => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
+
+// Extract project info
+const extractProjId = ep => { const m = ep.match(/\/v2\/([^/]+)/); return m ? m[1] : ''; };
+const extractRegion = ep => { const m = ep.match(/(?:api-|\/\/)([a-z0-9-]+)(?:\.cdn)?\.hygraph\.com/); return m ? m[1] : ''; };
+const buildHygraphUrl = entryId => {
+  const domain = region ? `app-${region}.hygraph.com` : 'app.hygraph.com';
+  return `https://${domain}/${projectId}/master/content?search=${entryId}`;
+};
+
+// System type filters
+const SYSTEM_TYPES = new Set(['Asset', 'User', 'ScheduledOperation', 'ScheduledRelease', 'String', 'Int', 'Float', 'Boolean', 'ID', 'DateTime', 'Date', 'Json']);
+function isSystemType(name) {
+  if (!name || name.startsWith('_')) return true;
+  if (SYSTEM_TYPES.has(name)) return true;
+  if (name.endsWith('Connection') || name.endsWith('Edge') || name.endsWith('Aggregate')) return true;
+  if (name.endsWith('WhereInput') || name.endsWith('OrderByInput') || name.endsWith('CreateInput')) return true;
+  return false;
+}
+
+// GraphQL query helper
+async function gql(query, variables = {}) {
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ query, variables })
+  });
+  const r = await res.json();
+  if (r.errors) throw new Error(r.errors[0].message);
+  return r.data;
+}
+
+// Discover models - simplified approach
+async function discoverModels() {
+  console.log('Discovering models...');
+  
+  // Use a simple introspection query - just get query field names
+  const queryIntro = await gql(`{ __schema { queryType { fields { name } } } }`);
+  
+  const queryFieldNames = queryIntro.__schema.queryType.fields.map(f => f.name);
+  console.log('Query fields found:', queryFieldNames.length);
+  
+  // Filter to likely plural model queries (exclude system fields)
+  const modelQueries = queryFieldNames.filter(name => {
+    if (name.startsWith('_')) return false;
+    if (name.includes('Connection')) return false;
+    if (name === 'node' || name === 'entities') return false;
+    if (name.endsWith('Version')) return false;
+    // Likely plural queries end with 's' and have more than 3 chars
+    return name.length > 3 && name.endsWith('s');
+  });
+  
+  console.log('Potential model queries:', modelQueries);
+  
+  const found = [];
+  
+  // For each potential model query, try to fetch its fields
+  for (const pluralApiId of modelQueries) {
+    // Guess the model name from plural (remove trailing 's', capitalize first letter)
+    let guessedName = pluralApiId.slice(0, -1);
+    guessedName = guessedName.charAt(0).toUpperCase() + guessedName.slice(1);
+    
+    // Handle common irregular plurals
+    if (pluralApiId === 'people') guessedName = 'Person';
+    if (pluralApiId === 'categories') guessedName = 'Category';
+    if (pluralApiId === 'companies') guessedName = 'Company';
+    if (pluralApiId === 'cities') guessedName = 'City';
+    if (pluralApiId === 'countries') guessedName = 'Country';
+    if (pluralApiId.endsWith('ies')) {
+      guessedName = pluralApiId.slice(0, -3) + 'y';
+      guessedName = guessedName.charAt(0).toUpperCase() + guessedName.slice(1);
+    }
+    
+    try {
+      // Try to get type info
+      const typeInfo = await gql(`{
+        __type(name: "${guessedName}") {
+          name
+          fields { name type { name kind ofType { name } } }
+        }
+      }`);
+      
+      if (!typeInfo.__type?.fields) {
+        console.log(`Type ${guessedName} not found, skipping ${pluralApiId}`);
+        continue;
+      }
+      
+      const modelName = typeInfo.__type.name;
+      const fields = typeInfo.__type.fields;
+      
+      // Check for scheduledPublishAt or similar field
+      const scheduleField = fields.find(f => 
+        f.name === 'scheduledPublishAt' || 
+        f.name === 'publishAt' || 
+        f.name === 'scheduleDate' ||
+        f.name === 'publishDate'
+      );
+      
+      // Find a title field
+      const titleField = fields.find(f => 
+        ['title', 'name', 'heading', 'label', 'slug'].includes(f.name.toLowerCase()) &&
+        (f.type.name === 'String' || f.type.ofType?.name === 'String')
+      );
+      
+      // Guess singular API ID
+      const singularApiId = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+      
+      found.push({
+        name: modelName,
+        singularApiId: singularApiId,
+        pluralApiId: pluralApiId,
+        scheduleField: scheduleField?.name || null,
+        titleField: titleField?.name || null,
+        color: getModelColor(modelName)
+      });
+      
+      console.log(`Model ${modelName}: plural=${pluralApiId}, title=${titleField?.name}`);
+    } catch (e) {
+      // Type doesn't exist with guessed name, skip
+      console.log(`Skipping ${pluralApiId}: ${e.message}`);
+    }
+  }
+
+  console.log('Discovered models:', found.length);
+  return found;
+}
+
+// Get consistent color for model
+function getModelColor(name) {
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+// Get date range based on current view mode
+function getDateRange() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  
+  if (viewMode === 'day') {
+    const start = new Date(year, month, currentDate.getDate(), 0, 0, 0);
+    const end = new Date(year, month, currentDate.getDate(), 23, 59, 59);
+    return { start, end };
+  } else if (viewMode === 'week') {
+    const start = new Date(currentDate);
+    start.setDate(currentDate.getDate() - currentDate.getDay());
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  } else {
+    // Month view
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0, 23, 59, 59);
+    return { start, end };
+  }
+}
+
+// Fetch scheduled entries by querying each model's scheduledIn field
+async function fetchScheduledOperations() {
+  const { start, end } = getDateRange();
+  
+  console.log(`Fetching scheduled entries for ${start.toISOString()} to ${end.toISOString()} (${viewMode} view)`);
+  
+  const scheduled = [];
+  
+  // Query each model for entries with scheduledIn
+  for (const model of models) {
+    if (activeFilters.size > 0 && !activeFilters.has(model.name)) continue;
+    
+    try {
+      // Build fields to query
+      const fields = ['id', 'createdAt'];
+      if (model.titleField) fields.push(model.titleField);
+      
+      // Query entries with their scheduledIn relation
+      const query = `{
+        entries: ${model.pluralApiId}(
+          stage: DRAFT
+          first: 100
+          where: { scheduledIn_some: { status: PENDING } }
+        ) {
+          ${fields.join(' ')}
+          scheduledIn(where: { status: PENDING }) {
+            id
+            status
+            release {
+              id
+              title
+              releaseAt
+            }
+          }
+        }
+      }`;
+      
+      console.log(`Querying ${model.name} for scheduled entries...`);
+      const data = await gql(query);
+      
+      for (const entry of data.entries || []) {
+        for (const op of entry.scheduledIn || []) {
+          if (!op.release?.releaseAt) continue;
+          
+          const releaseDate = new Date(op.release.releaseAt);
+          
+          // Check if in our date range
+          if (releaseDate < start || releaseDate > end) {
+            console.log(`  ${entry.id}: scheduled for ${releaseDate.toLocaleDateString()} (outside range)`);
+            continue;
+          }
+          
+          const title = entry[model.titleField] || entry.id.slice(0, 8);
+          
+          scheduled.push({
+            id: entry.id,
+            title: title,
+            date: releaseDate,
+            stage: 'SCHEDULED',
+            modelName: model.name,
+            pluralApiId: model.pluralApiId,
+            titleField: model.titleField,
+            color: model.color,
+            isScheduled: true,
+            releaseId: op.release.id,
+            releaseTitle: op.release.title,
+            createdAt: entry.createdAt ? new Date(entry.createdAt) : null,
+            author: null // createdBy requires special permissions
+          });
+          
+          console.log(`  ✓ ${title} (${model.name}) scheduled for ${releaseDate.toLocaleDateString()}`);
+        }
+      }
+    } catch (e) {
+      console.warn(`Could not query scheduled entries for ${model.name}:`, e.message);
+    }
+  }
+  
+  console.log(`Found ${scheduled.length} scheduled entries total`);
+  return scheduled;
+}
+
+// Fetch entries for current month
+async function fetchEntries() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0, 23, 59, 59);
+  
+  const allEntries = [];
+  
+  // First, get native scheduled operations
+  const scheduledOps = await fetchScheduledOperations();
+  allEntries.push(...scheduledOps);
+  console.log(`Found ${scheduledOps.length} scheduled operations`);
+
+  // Only fetch entries with custom scheduledPublishAt field (not all drafts/published)
+  // This prevents cluttering the calendar with every entry's createdAt date
+  for (const model of models) {
+    if (!model.scheduleField) continue; // Skip models without schedule field
+    if (activeFilters.size > 0 && !activeFilters.has(model.name)) continue;
+    
+    try {
+      const fields = ['id', '__typename'];
+      if (model.titleField) fields.push(model.titleField);
+      fields.push(model.scheduleField);
+
+      // Only query entries with scheduledPublishAt in our date range
+      const query = `{
+        entries: ${model.pluralApiId}(
+          where: { 
+            ${model.scheduleField}_gte: "${start.toISOString()}", 
+            ${model.scheduleField}_lte: "${end.toISOString()}" 
+          }
+          first: 100
+          stage: DRAFT
+        ) {
+          ${fields.join(' ')}
+        }
+      }`;
+
+      const data = await gql(query);
+      console.log(`Custom scheduled entries for ${model.name}:`, data.entries?.length || 0);
+      
+      for (const entry of data.entries || []) {
+        // Skip if already in scheduled ops
+        if (allEntries.some(e => e.id === entry.id)) continue;
+        
+        const displayDate = new Date(entry[model.scheduleField]);
+
+        allEntries.push({
+          id: entry.id,
+          title: entry[model.titleField] || entry.id.slice(0, 8),
+          date: displayDate,
+          stage: 'SCHEDULED',
+          modelName: model.name,
+          pluralApiId: model.pluralApiId,
+          scheduleField: model.scheduleField,
+          titleField: model.titleField,
+          color: model.color,
+          isScheduled: true
+        });
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch scheduled ${model.name}:`, e.message);
+    }
+  }
+
+  // Dedupe by id (prefer scheduled over non-scheduled)
+  const byId = new Map();
+  for (const entry of allEntries) {
+    const existing = byId.get(entry.id);
+    if (!existing || (entry.isScheduled && !existing.isScheduled)) {
+      byId.set(entry.id, entry);
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
+// Render model filters
+function renderFilters() {
+  const container = $('#model-filters');
+  const currentFilter = activeFilters.size === 1 ? [...activeFilters][0] : '';
+  
+  // Sort models alphabetically
+  const sortedModels = [...models].sort((a, b) => a.name.localeCompare(b.name));
+  
+  container.innerHTML = `
+    <span class="filter-label">Filter by:</span>
+    <select class="filter-select" id="model-select">
+      <option value="">All Models (${models.length})</option>
+      ${sortedModels.map(m => `
+        <option value="${m.name}" ${currentFilter === m.name ? 'selected' : ''}>
+          ${m.name}
+        </option>
+      `).join('')}
+    </select>
+  `;
+
+  $('#model-select').onchange = (e) => {
+    const model = e.target.value;
+    activeFilters.clear();
+    if (model) {
+      activeFilters.add(model);
+    }
+    loadEntries();
+  };
+}
+
+// Render calendar
+function renderCalendar() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const today = new Date();
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  // Update view class on calendar grid
+  const calendarGrid = $('.calendar-grid');
+  calendarGrid.classList.remove('month-view', 'week-view', 'day-view');
+  calendarGrid.classList.add(`${viewMode}-view`);
+  
+  // Update title based on view
+  if (viewMode === 'day') {
+    $('#month-title').textContent = `${dayNames[currentDate.getDay()]}, ${monthNames[month]} ${currentDate.getDate()}, ${year}`;
+  } else if (viewMode === 'week') {
+    const weekStart = new Date(currentDate);
+    weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    $('#month-title').textContent = `${monthNames[weekStart.getMonth()]} ${weekStart.getDate()} - ${weekEnd.getDate()}, ${year}`;
+  } else {
+    $('#month-title').textContent = `${monthNames[month]} ${year}`;
+  }
+  
+  // Render based on view mode
+  if (viewMode === 'day') {
+    renderDayView(today);
+  } else if (viewMode === 'week') {
+    renderWeekView(today);
+  } else {
+    renderMonthView(today);
+  }
+  
+  // Setup drag and drop
+  setupDragDrop();
+  
+  // Update stats
+  const scheduled = entries.filter(e => e.isScheduled).length;
+  $('#stat-scheduled').textContent = scheduled;
+}
+
+function renderMonthView(today) {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  
+  // Get first day and total days
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  
+  // Build calendar cells
+  let html = '';
+  let dayNum = 1;
+  let nextMonthDay = 1;
+  
+  // 6 rows max
+  for (let row = 0; row < 6; row++) {
+    for (let col = 0; col < 7; col++) {
+      const cellIndex = row * 7 + col;
+      let cellDate, cellDay, isOtherMonth = false, isToday = false;
+      
+      if (cellIndex < firstDay) {
+        // Previous month
+        cellDay = daysInPrevMonth - firstDay + cellIndex + 1;
+        cellDate = new Date(year, month - 1, cellDay);
+        isOtherMonth = true;
+      } else if (dayNum > daysInMonth) {
+        // Next month
+        cellDay = nextMonthDay++;
+        cellDate = new Date(year, month + 1, cellDay);
+        isOtherMonth = true;
+      } else {
+        // Current month
+        cellDay = dayNum++;
+        cellDate = new Date(year, month, cellDay);
+        isToday = cellDate.toDateString() === today.toDateString();
+      }
+      
+      // Get entries for this date
+      const dateStr = cellDate.toISOString().split('T')[0];
+      const dayEntries = entries.filter(e => e.date.toISOString().split('T')[0] === dateStr);
+      
+      const classes = ['calendar-cell'];
+      if (isOtherMonth) classes.push('other-month');
+      if (isToday) classes.push('today');
+      
+      html += `
+        <div class="${classes.join(' ')}" data-date="${dateStr}">
+          <div class="day-num">${cellDay}</div>
+          <div class="events">
+            ${dayEntries.slice(0, 5).map(e => `
+              <div class="event ${e.isScheduled ? 'scheduled' : e.stage === 'PUBLISHED' ? 'published' : 'draft'}" 
+                   draggable="true" 
+                   data-id="${e.id}"
+                   data-model="${e.modelName}">
+                <span class="time">${e.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                <span class="event-title">${e.title}</span>
+                <span class="event-model">${e.modelName}</span>
+                <div class="event-popup">
+                  <div class="event-popup-header">
+                    <div class="event-popup-date">📅 ${e.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} at ${e.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                  <div class="event-popup-title">${e.title}</div>
+                  <div class="event-popup-model">${e.modelName}</div>
+                  <div class="event-popup-details" style="margin-top: 12px;">
+                    <div class="event-popup-row">
+                      <span class="event-popup-label">Release</span>
+                      <span class="event-popup-value">${e.releaseTitle || 'N/A'}</span>
+                    </div>
+                    <div class="event-popup-row">
+                      <span class="event-popup-label">Status</span>
+                      <span class="event-popup-value event-popup-status">Scheduled</span>
+                    </div>
+                    ${e.author ? `<div class="event-popup-row">
+                      <span class="event-popup-label">Author</span>
+                      <span class="event-popup-value">${e.author}</span>
+                    </div>` : ''}
+                    ${e.createdAt ? `<div class="event-popup-row">
+                      <span class="event-popup-label">Created</span>
+                      <span class="event-popup-value">${e.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>` : ''}
+                    <div class="event-popup-row">
+                      <span class="event-popup-label">ID</span>
+                      <span class="event-popup-id">${e.id.slice(0, 20)}...</span>
+                    </div>
+                  </div>
+                  <a href="${buildHygraphUrl(e.id)}" target="_blank" class="event-popup-link">Open in Hygraph →</a>
+                </div>
+              </div>
+            `).join('')}
+            ${dayEntries.length > 5 ? `<div class="event-more">+${dayEntries.length - 5} more</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    // Stop if we've rendered all days
+    if (dayNum > daysInMonth && row >= 4) break;
+  }
+  
+  $('#calendar-body').innerHTML = html;
+  $('.calendar-header').innerHTML = `
+    <div class="calendar-header-cell">Sun</div>
+    <div class="calendar-header-cell">Mon</div>
+    <div class="calendar-header-cell">Tue</div>
+    <div class="calendar-header-cell">Wed</div>
+    <div class="calendar-header-cell">Thu</div>
+    <div class="calendar-header-cell">Fri</div>
+    <div class="calendar-header-cell">Sat</div>
+  `;
+}
+
+function renderWeekView(today) {
+  const weekStart = new Date(currentDate);
+  weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+  
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  // Update header with dates
+  let headerHtml = '';
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
+    headerHtml += `<div class="calendar-header-cell">${dayNames[i]} ${date.getDate()}</div>`;
+  }
+  $('.calendar-header').innerHTML = headerHtml;
+  
+  // Render days
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
+    const dateStr = date.toISOString().split('T')[0];
+    const dayEntries = entries.filter(e => e.date.toISOString().split('T')[0] === dateStr);
+    const isToday = date.toDateString() === today.toDateString();
+    
+    html += `
+      <div class="calendar-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
+        <div class="events">
+          ${dayEntries.map(e => `
+            <div class="event ${e.isScheduled ? 'scheduled' : e.stage === 'PUBLISHED' ? 'published' : 'draft'}" 
+                 draggable="true" 
+                 data-id="${e.id}"
+                 data-model="${e.modelName}">
+              <span class="time">${e.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+              <span class="event-title">${e.title}</span>
+              <span class="event-model">${e.modelName}</span>
+              <div class="event-popup">
+                <div class="event-popup-header">
+                  <div class="event-popup-date">📅 ${e.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${e.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+                </div>
+                <div class="event-popup-title">${e.title}</div>
+                <div class="event-popup-model">${e.modelName}</div>
+                <div class="event-popup-details" style="margin-top: 12px;">
+                  <div class="event-popup-row"><span class="event-popup-label">Release</span><span class="event-popup-value">${e.releaseTitle || 'N/A'}</span></div>
+                  <div class="event-popup-row"><span class="event-popup-label">Status</span><span class="event-popup-value event-popup-status">Scheduled</span></div>
+                  ${e.author ? `<div class="event-popup-row"><span class="event-popup-label">Author</span><span class="event-popup-value">${e.author}</span></div>` : ''}
+                  ${e.createdAt ? `<div class="event-popup-row"><span class="event-popup-label">Created</span><span class="event-popup-value">${e.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>` : ''}
+                </div>
+                <a href="${buildHygraphUrl(e.id)}" target="_blank" class="event-popup-link">Open in Hygraph →</a>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  $('#calendar-body').innerHTML = html;
+}
+
+function renderDayView(today) {
+  const dateStr = currentDate.toISOString().split('T')[0];
+  const dayEntries = entries.filter(e => e.date.toISOString().split('T')[0] === dateStr);
+  const isToday = currentDate.toDateString() === today.toDateString();
+  
+  // Update header
+  $('.calendar-header').innerHTML = `<div class="calendar-header-cell">${dayEntries.length} scheduled entries</div>`;
+  
+  // Sort by time
+  dayEntries.sort((a, b) => a.date.getTime() - b.date.getTime());
+  
+  const html = `
+    <div class="calendar-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
+      <div class="events">
+        ${dayEntries.length === 0 ? '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No scheduled entries for this day</p>' : ''}
+        ${dayEntries.map(e => `
+          <div class="event ${e.isScheduled ? 'scheduled' : e.stage === 'PUBLISHED' ? 'published' : 'draft'}" 
+               draggable="true" 
+               data-id="${e.id}"
+               data-model="${e.modelName}">
+            <span class="time">${e.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+            <span class="event-title">${e.title}</span>
+            <span class="event-model">${e.modelName}</span>
+            <div class="event-popup">
+              <div class="event-popup-header">
+                <div class="event-popup-date">📅 ${e.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} at ${e.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+              </div>
+              <div class="event-popup-title">${e.title}</div>
+              <div class="event-popup-model">${e.modelName}</div>
+              <div class="event-popup-details" style="margin-top: 12px;">
+                <div class="event-popup-row"><span class="event-popup-label">Release</span><span class="event-popup-value">${e.releaseTitle || 'N/A'}</span></div>
+                <div class="event-popup-row"><span class="event-popup-label">Status</span><span class="event-popup-value event-popup-status">Scheduled</span></div>
+                ${e.author ? `<div class="event-popup-row"><span class="event-popup-label">Author</span><span class="event-popup-value">${e.author}</span></div>` : ''}
+                ${e.createdAt ? `<div class="event-popup-row"><span class="event-popup-label">Created</span><span class="event-popup-value">${e.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>` : ''}
+              </div>
+              <a href="${buildHygraphUrl(e.id)}" target="_blank" class="event-popup-link">Open in Hygraph →</a>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  
+  $('#calendar-body').innerHTML = html;
+}
+
+// Setup drag and drop
+function setupDragDrop() {
+  // Draggable events
+  $$('.event').forEach(el => {
+    el.ondragstart = e => {
+      draggedEntry = entries.find(en => en.id === el.dataset.id);
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    
+    el.ondragend = e => {
+      el.classList.remove('dragging');
+      $$('.calendar-cell').forEach(c => c.classList.remove('drop-target'));
+      draggedEntry = null;
+    };
+    
+    // Click to edit
+    el.onclick = e => {
+      if (e.defaultPrevented) return;
+      const entry = entries.find(en => en.id === el.dataset.id);
+      if (entry) showRescheduleModal(entry);
+    };
+  });
+  
+  // Drop targets
+  $$('.calendar-cell').forEach(cell => {
+    cell.ondragover = e => {
+      e.preventDefault();
+      cell.classList.add('drop-target');
+    };
+    
+    cell.ondragleave = e => {
+      cell.classList.remove('drop-target');
+    };
+    
+    cell.ondrop = async e => {
+      e.preventDefault();
+      cell.classList.remove('drop-target');
+      
+      if (!draggedEntry) return;
+      
+      const newDate = new Date(cell.dataset.date);
+      // Keep the same time, just change the date
+      newDate.setHours(draggedEntry.date.getHours(), draggedEntry.date.getMinutes());
+      
+      await rescheduleEntry(draggedEntry, newDate);
+    };
+  });
+}
+
+// Show reschedule modal
+function showRescheduleModal(entry) {
+  $('#modal-title').value = `${entry.title} (${entry.modelName})`;
+  
+  // Format datetime for input
+  const dt = entry.date;
+  const formatted = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}T${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+  $('#modal-datetime').value = formatted;
+  
+  $('#modal').style.display = 'flex';
+  $('#modal').dataset.entryId = entry.id;
+}
+
+// Reschedule entry
+async function rescheduleEntry(entry, newDate) {
+  if (!entry.scheduleField) {
+    alert(`Cannot reschedule: ${entry.modelName} does not have a scheduledPublishAt field.`);
+    return;
+  }
+  
+  try {
+    // Build singular model name for mutation
+    const singularName = entry.modelName.charAt(0).toLowerCase() + entry.modelName.slice(1);
+    
+    const mutation = `
+      mutation UpdateSchedule($id: ID!, $date: DateTime!) {
+        update${entry.modelName}(where: { id: $id }, data: { ${entry.scheduleField}: $date }) {
+          id
+        }
+      }
+    `;
+    
+    await gql(mutation, { id: entry.id, date: newDate.toISOString() });
+    
+    // Reload entries
+    await loadEntries();
+  } catch (e) {
+    console.error('Reschedule failed:', e);
+    alert('Failed to reschedule: ' + e.message);
+  }
+}
+
+// Load entries
+async function loadEntries() {
+  entries = await fetchEntries();
+  renderCalendar();
+}
+
+// Navigation
+$('#prev-btn').onclick = () => {
+  if (viewMode === 'day') {
+    currentDate.setDate(currentDate.getDate() - 1);
+  } else if (viewMode === 'week') {
+    currentDate.setDate(currentDate.getDate() - 7);
+  } else {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+  }
+  loadEntries();
+};
+
+$('#next-btn').onclick = () => {
+  if (viewMode === 'day') {
+    currentDate.setDate(currentDate.getDate() + 1);
+  } else if (viewMode === 'week') {
+    currentDate.setDate(currentDate.getDate() + 7);
+  } else {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  }
+  loadEntries();
+};
+
+$('#today-btn').onclick = () => {
+  currentDate = new Date();
+  loadEntries();
+};
+
+// Date picker
+$('#date-picker').onchange = (e) => {
+  const selected = new Date(e.target.value + 'T12:00:00');
+  if (!isNaN(selected.getTime())) {
+    currentDate = selected;
+    loadEntries();
+  }
+};
+
+// Click on title or calendar icon opens date picker
+$('#month-title').onclick = () => {
+  const picker = $('#date-picker');
+  picker.showPicker?.() || picker.click();
+};
+
+$('#date-picker-btn').onclick = () => {
+  const picker = $('#date-picker');
+  picker.showPicker?.() || picker.click();
+};
+
+// View toggle
+$$('.view-btn').forEach(btn => {
+  btn.onclick = () => {
+    viewMode = btn.dataset.view;
+    $$('.view-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadEntries(); // Reload with new date range
+  };
+});
+
+// Modal handlers
+$('#modal-cancel').onclick = () => {
+  $('#modal').style.display = 'none';
+};
+
+$('#modal-save').onclick = async () => {
+  const entryId = $('#modal').dataset.entryId;
+  const entry = entries.find(e => e.id === entryId);
+  if (!entry) return;
+  
+  const newDate = new Date($('#modal-datetime').value);
+  await rescheduleEntry(entry, newDate);
+  $('#modal').style.display = 'none';
+};
+
+// Close modal on backdrop click
+$('#modal').onclick = e => {
+  if (e.target === $('#modal')) {
+    $('#modal').style.display = 'none';
+  }
+};
+
+// Token save
+$('#save-btn').onclick = async () => {
+  const tk = $('#token-input').value.trim();
+  if (!tk) { $('#token-error').textContent = 'Enter a token'; return; }
+  
+  // Check if we need endpoint from input
+  const endpointInput = $('#endpoint-input');
+  if (!endpoint && endpointInput) {
+    const ep = endpointInput.value.trim();
+    if (!ep) { $('#token-error').textContent = 'Enter your Content API endpoint'; return; }
+    endpoint = ep;
+    projectId = extractProjId(endpoint);
+    region = extractRegion(endpoint);
+    saveEndpoint(ep);
+  }
+  
+  $('#save-btn').disabled = true;
+  $('#save-btn').textContent = 'Connecting...';
+  $('#token-error').textContent = '';
+  
+  try {
+    token = tk;
+    models = await discoverModels();
+    
+    if (models.length === 0) {
+      $('#token-error').textContent = 'No queryable models found. Check your token permissions.';
+      $('#save-btn').disabled = false;
+      $('#save-btn').textContent = 'Connect';
+      return;
+    }
+    
+    saveToken(tk);
+    renderFilters();
+    await loadEntries();
+    show('main');
+  } catch (e) {
+    console.error('Connection error:', e);
+    $('#token-error').textContent = 'Failed: ' + e.message;
+    $('#save-btn').disabled = false;
+    $('#save-btn').textContent = 'Connect';
+  }
+};
+
+$('#clear-btn').onclick = () => { clearToken(); show('token'); };
+
+// Show token form with optional endpoint field
+function showTokenForm(needsEndpoint = false) {
+  if (needsEndpoint) {
+    $('#endpoint-group').style.display = 'block';
+    // Pre-fill stored endpoint if available
+    const storedEp = getStoredEndpoint();
+    if (storedEp) $('#endpoint-input').value = storedEp;
+  }
+  show('token');
+}
+
+// Initialize
+sdk.init({ debug: true, onProps: () => {} })
+  .then(async ({ status, props }) => {
+    console.log('SDK init:', status, props);
+    
+    if (status === 'ok' && props) {
+      endpoint = props.endpoint || props.context?.environment?.endpoint;
+      
+      if (endpoint) {
+        projectId = extractProjId(endpoint);
+        region = extractRegion(endpoint);
+        
+        const stored = getToken();
+        if (stored) {
+          try {
+            token = stored;
+            models = await discoverModels();
+            
+            
+            renderFilters();
+            await loadEntries();
+            show('main');
+          } catch (e) {
+            console.error('Init error:', e);
+            clearToken();
+            showTokenForm(false);
+          }
+        } else {
+          showTokenForm(false);
+        }
+      } else {
+        // No endpoint from SDK, need manual entry
+        showTokenForm(true);
+      }
+    } else {
+      // SDK not ok, need manual entry
+      showTokenForm(true);
+    }
+  })
+  .catch(e => {
+    console.error('SDK error:', e);
+    // Running outside Hygraph iframe, need manual endpoint
+    // Check if we have stored endpoint
+    const storedEp = getStoredEndpoint();
+    const storedTk = getToken();
+    
+    if (storedEp && storedTk) {
+      endpoint = storedEp;
+      projectId = extractProjId(endpoint);
+      region = extractRegion(endpoint);
+      token = storedTk;
+      
+      // Try to load with stored credentials
+      discoverModels()
+        .then(async m => {
+          models = m;
+          if (models.length === 0) {
+            clearToken();
+            showTokenForm(true);
+            return;
+          }
+          renderFilters();
+          await loadEntries();
+          show('main');
+        })
+        .catch(err => {
+          console.error('Stored credentials failed:', err);
+          clearToken();
+          showTokenForm(true);
+        });
+    } else {
+      showTokenForm(true);
+    }
+  });
+</script>
+</body>
+</html>
+

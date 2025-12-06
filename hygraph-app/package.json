@@ -1,0 +1,12 @@
+{
+  "name": "hygraph-schema-explorer",
+  "version": "1.0.0",
+  "description": "Hygraph Custom App for Schema Analysis",
+  "scripts": {
+    "dev": "http-server -c-1 ./pages -p 3001",
+    "start": "http-server -c-1 ./pages -p 3001"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}

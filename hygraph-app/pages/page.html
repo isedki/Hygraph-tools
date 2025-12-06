@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schema Explorer</title>
+  <style>
+    /* Hygraph Studio Light Theme */
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fb;
+      --bg-card: #ffffff;
+      --bg-hover: #f3f4f6;
+      --border: #e5e7eb;
+      --border-light: #f0f1f3;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --text-muted: #9ca3af;
+      --accent-purple: #5c4dff;
+      --accent-purple-hover: #4f46e5;
+      --accent-purple-soft: rgba(92, 77, 255, 0.08);
+      --accent-purple-medium: rgba(92, 77, 255, 0.12);
+      --component-purple: #7c3aed;
+      --component-bg: rgba(124, 58, 237, 0.08);
+      --enum-teal: #0d9488;
+      --enum-bg: rgba(13, 148, 136, 0.08);
+      --model-blue: #2563eb;
+      --model-bg: rgba(37, 99, 235, 0.08);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: var(--bg-secondary); color: var(--text-primary); min-height: 100vh; font-size: 14px; }
+    
+    .token-form { max-width: 420px; margin: 80px auto; padding: 32px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .token-form h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; color: var(--text-primary); }
+    .token-form p { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
+    .form-group input { width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 13px; transition: border-color 0.15s; }
+    .form-group input:focus { outline: none; border-color: var(--accent-purple); box-shadow: 0 0 0 3px var(--accent-purple-soft); }
+    .btn { width: 100%; padding: 10px 16px; font-size: 14px; font-weight: 500; color: white; background: var(--accent-purple); border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s; }
+    .btn:hover { background: var(--accent-purple-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+    .header-icon { width: 32px; height: 32px; border-radius: 6px; background: var(--accent-purple); display: flex; align-items: center; justify-content: center; }
+    .header-icon svg { color: white; }
+    .header h1 { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .header .sub { font-size: 12px; color: var(--text-secondary); }
+    
+    .tabs { display: flex; gap: 2px; padding: 8px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+    .tab { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+    .tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .tab.active { background: var(--accent-purple-soft); color: var(--accent-purple); }
+    
+    .main { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 94px); }
+    .left { background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    .left-header { padding: 12px; border-bottom: 1px solid var(--border-light); }
+    .search-box { position: relative; margin-bottom: 8px; }
+    .search-box input { width: 100%; padding: 8px 10px 8px 32px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 13px; }
+    .search-box input:focus { outline: none; border-color: var(--accent-purple); background: var(--bg-card); }
+    .search-box input::placeholder { color: var(--text-muted); }
+    .search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-muted); }
+    .filters { display: flex; gap: 4px; flex-wrap: wrap; }
+    .fbtn { padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+    .fbtn:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+    .fbtn.active { background: var(--accent-purple-soft); border-color: var(--accent-purple); color: var(--accent-purple); }
+    
+    .search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .view-toggle { display: flex; gap: 2px; }
+    .view-btn { padding: 5px 8px; border-radius: 4px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .view-btn:hover { color: var(--text-secondary); border-color: var(--accent-purple); }
+    .view-btn.active { background: var(--accent-purple-soft); border-color: var(--accent-purple); color: var(--accent-purple); }
+    .view-btn svg { width: 14px; height: 14px; }
+    
+    /* Tree View Styles */
+    .tree { flex: 1; overflow-y: auto; padding: 4px 8px; }
+    .tree-model { margin-bottom: 2px; }
+    .tree-model-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+    .tree-model-header:hover { background: var(--bg-hover); }
+    .tree-model-header .chevron { width: 14px; height: 14px; color: var(--text-muted); transition: transform 0.15s; }
+    .tree-model-header .chevron.open { transform: rotate(90deg); }
+    .tree-model-header .folder { width: 16px; height: 16px; color: var(--model-blue); }
+    .tree-model-header .name { font-weight: 500; font-size: 13px; flex: 1; }
+    .tree-model-header .count { font-size: 11px; color: var(--text-muted); }
+    
+    .tree-content { margin-left: 20px; padding-left: 12px; border-left: 1px solid var(--border); }
+    .tree-section { margin: 4px 0; }
+    .tree-section-header { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; }
+    .tree-section-header:hover { background: var(--bg-hover); }
+    .tree-section-header .chevron { width: 10px; height: 10px; color: var(--text-muted); transition: transform 0.15s; }
+    .tree-section-header .chevron.open { transform: rotate(90deg); }
+    .tree-section-header.components { color: var(--component-purple); }
+    .tree-section-header.relations { color: var(--model-blue); }
+    .tree-section-header.enums { color: var(--enum-teal); }
+    
+    .tree-items { margin-left: 14px; }
+    .tree-item { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .tree-item:hover { background: var(--bg-hover); }
+    .tree-item .dot { width: 5px; height: 5px; border-radius: 50%; }
+    .tree-item .dot.comp { background: var(--component-purple); }
+    .tree-item .dot.rel { background: var(--model-blue); }
+    .tree-item .dot.enum { background: var(--enum-teal); }
+    .tree-item .field { color: var(--text-muted); }
+    .tree-item .type { font-weight: 500; }
+    .tree-item .type.comp { color: var(--component-purple); }
+    .tree-item .type.rel { color: var(--model-blue); }
+    .tree-item .type.enum { color: var(--enum-teal); }
+    
+    
+    .list { flex: 1; overflow-y: auto; padding: 4px 8px; }
+    .item { padding: 10px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; border: 1px solid transparent; transition: all 0.15s; }
+    .item:hover { background: var(--bg-hover); }
+    .item.sel { background: var(--accent-purple-soft); border-color: transparent; }
+    .item-row { display: flex; align-items: center; gap: 10px; }
+    .item-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+    .item-icon.c { background: var(--component-bg); color: var(--component-purple); }
+    .item-icon.e { background: var(--enum-bg); color: var(--enum-teal); }
+    .item-icon.m { background: var(--model-bg); color: var(--model-blue); }
+    .item-name { font-weight: 500; font-size: 13px; color: var(--text-primary); }
+    .item-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; margin-left: 38px; }
+    
+    .right { overflow-y: auto; padding: 24px; background: var(--bg-secondary); }
+    .detail-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .detail-title { display: flex; align-items: center; gap: 14px; }
+    .detail-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; }
+    .detail-name { font-size: 20px; font-weight: 600; color: var(--text-primary); }
+    .detail-type { font-size: 13px; color: var(--text-secondary); text-transform: capitalize; margin-top: 2px; }
+    .find-btn { padding: 10px 16px; background: var(--accent-purple); border: none; border-radius: 6px; color: white; font-weight: 500; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s; }
+    .find-btn:hover { background: var(--accent-purple-hover); }
+    .find-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .find-btn svg { width: 16px; height: 16px; }
+    
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .tag { display: inline-block; padding: 4px 10px; background: var(--accent-purple-soft); border-radius: 4px; font-size: 12px; color: var(--accent-purple); margin: 2px; font-family: ui-monospace, SFMono-Regular, monospace; }
+    
+    .usage-stats { display: flex; gap: 8px; margin-bottom: 16px; }
+    .usage-stat { padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; color: var(--text-secondary); }
+    .usage-stat strong { color: var(--text-primary); font-weight: 600; }
+    .model-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .model-btn { padding: 6px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+    .model-btn:hover { border-color: var(--component-purple); }
+    .model-btn.active { background: var(--component-bg); border-color: var(--component-purple); color: var(--component-purple); }
+    
+    .usage-list { display: flex; flex-direction: column; gap: 8px; }
+    .usage-item { padding: 14px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; transition: border-color 0.15s; }
+    .usage-item:hover { border-color: var(--accent-purple); }
+    .usage-row { display: flex; align-items: center; justify-content: space-between; }
+    .usage-title { font-weight: 500; font-size: 14px; color: var(--text-primary); }
+    .usage-id { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 2px; }
+    .usage-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
+    .usage-model { color: var(--component-purple); font-weight: 500; }
+    .usage-field { color: var(--enum-teal); }
+    .open-link { padding: 6px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-size: 12px; text-decoration: none; font-weight: 500; transition: all 0.15s; }
+    .open-link:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+    
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.3; }
+    .empty p { font-size: 14px; }
+    .loading { display: flex; align-items: center; justify-content: center; padding: 40px; }
+    .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent-purple); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .stats-panel { padding: 24px; background: var(--bg-secondary); }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stats-card { padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; text-align: center; }
+    .stats-card .num { font-size: 32px; font-weight: 700; color: var(--text-primary); }
+    .stats-card .label { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .scan-btn { padding: 12px 24px; background: var(--accent-purple); border: none; border-radius: 6px; color: white; font-weight: 500; font-size: 14px; cursor: pointer; transition: background 0.15s; }
+    .scan-btn:hover { background: var(--accent-purple-hover); }
+    .scan-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .scan-progress { margin-top: 20px; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); }
+    .scan-progress .bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+    .scan-progress .fill { height: 100%; background: var(--accent-purple); transition: width 0.2s; }
+    
+    /* Unused element tags */
+    .unused-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 12px; margin: 4px; font-weight: 500; }
+    .unused-tag.comp { background: var(--component-bg); color: var(--component-purple); }
+    .unused-tag.enum { background: var(--enum-bg); color: var(--enum-teal); }
+    .unused-tag .type-label { font-size: 10px; opacity: 0.7; font-weight: 400; }
+    
+    /* Table styles */
+    .usage-table { width: 100%; border-collapse: collapse; margin-top: 16px; background: var(--bg-card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    .usage-table th { text-align: left; padding: 12px 14px; background: var(--bg-secondary); font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid var(--border); }
+    .usage-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border-light); color: var(--text-primary); }
+    .usage-table tr:last-child td { border-bottom: none; }
+    .usage-table tr:hover td { background: var(--bg-hover); }
+    .usage-table .name { font-weight: 500; }
+    .usage-table .type { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .usage-table .type.c { background: var(--component-bg); color: var(--component-purple); }
+    .usage-table .type.e { background: var(--enum-bg); color: var(--enum-teal); }
+    
+    .clear-token { position: fixed; bottom: 16px; right: 16px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+    .clear-token:hover { border-color: var(--error); color: var(--error); }
+    
+    .usage-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .usage-table th { text-align: left; padding: 10px 12px; background: #12122a; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #1e293b; }
+    .usage-table td { padding: 10px 12px; font-size: 12px; border-bottom: 1px solid #1e293b; }
+    .usage-table tr:hover td { background: rgba(99,102,241,0.05); }
+    .usage-table .name { font-weight: 500; }
+    .usage-table .type { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+    .usage-table .type.c { background: rgba(168,85,247,0.2); color: #c084fc; }
+    .usage-table .type.e { background: rgba(34,211,238,0.2); color: #22d3ee; }
+    
+    .clear-token { position: fixed; bottom: 12px; right: 12px; padding: 6px 12px; background: #12122a; border: 1px solid #1e293b; border-radius: 6px; color: #64748b; font-size: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="token-view" class="token-form" style="display:none;">
+    <h2>🔐 One-Time Setup</h2>
+    <p>Enter your Permanent Auth Token. It's saved locally in your browser.</p>
+    <div class="form-group">
+      <label>Permanent Auth Token</label>
+      <input type="password" id="token-input" placeholder="eyJ...">
+    </div>
+    <button class="btn" id="save-btn">Connect</button>
+    <div id="token-error" style="margin-top:10px;color:#f87171;font-size:12px;"></div>
+  </div>
+
+  <div id="loading-view" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+    <div style="text-align:center;"><div class="spinner" style="margin:0 auto 12px;"></div><p style="color:#94a3b8;font-size:13px;">Loading...</p></div>
+  </div>
+
+  <div id="main-view" style="display:none;">
+    <div class="header">
+      <div class="header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="width:20px;height:20px;"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+      <div><h1>Schema Explorer</h1><p class="sub">Analyze components, enums & models</p></div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="search">Search</button>
+      <button class="tab" data-tab="personalization">🎯 Personalization</button>
+      <button class="tab" data-tab="statistics">Statistics</button>
+    </div>
+    
+    <div id="search-tab" class="main">
+      <div class="left">
+        <div class="left-header">
+          <div class="search-row">
+            <div class="search-box" style="flex:1;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input type="text" id="search" placeholder="Search elements...">
+            </div>
+            <div class="view-toggle">
+              <button class="view-btn active" id="list-view-btn" title="List View">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+              </button>
+              <button class="view-btn" id="tree-view-btn" title="Tree View">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="filters" id="filters">
+            <button class="fbtn active" data-f="all">All</button>
+            <button class="fbtn" data-f="component">Components</button>
+            <button class="fbtn" data-f="model">Models</button>
+            <button class="fbtn" data-f="enum">Enums</button>
+          </div>
+        </div>
+        <div class="list" id="list"></div>
+        <div class="tree" id="tree" style="display:none;"></div>
+      </div>
+      <div class="right" id="details">
+        <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg><p>Select a schema element</p></div>
+      </div>
+    </div>
+    
+    <div id="personalization-tab" class="stats-panel" style="display:none;">
+      <div style="margin-bottom: 24px;">
+        <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">🎯 Personalization Usage</h2>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-card"><div class="num" id="stat-variants">0</div><div class="label">Variant Components</div></div>
+        <div class="stats-card"><div class="num" id="stat-models-with-variants">0</div><div class="label">Models Using Variants</div></div>
+        <div class="stats-card"><div class="num" id="stat-variant-usage">0</div><div class="label">Total Usage</div></div>
+      </div>
+      <button class="scan-btn" id="scan-variants-btn">🔍 Scan Variant Usage</button>
+      <div id="variant-scan-progress" class="scan-progress" style="display:none;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span id="variant-scan-text">Scanning...</span><span id="variant-scan-count">0/0</span></div>
+        <div class="bar"><div class="fill" id="variant-scan-fill" style="width:0%"></div></div>
+      </div>
+      <div id="variant-results" style="margin-top: 24px;"></div>
+    </div>
+    
+    <div id="statistics-tab" class="stats-panel" style="display:none;">
+      <div class="stats-grid">
+        <div class="stats-card"><div class="num" id="stat-comp">0</div><div class="label">Components</div></div>
+        <div class="stats-card"><div class="num" id="stat-enum">0</div><div class="label">Enums</div></div>
+        <div class="stats-card"><div class="num" id="stat-model">0</div><div class="label">Models</div></div>
+      </div>
+      <button class="scan-btn" id="scan-btn">🔍 Scan All Usage</button>
+      <div id="scan-progress" class="scan-progress" style="display:none;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span id="scan-text">Scanning...</span><span id="scan-count">0/0</span></div>
+        <div class="bar"><div class="fill" id="scan-fill" style="width:0%"></div></div>
+      </div>
+      <div id="scan-results"></div>
+    </div>
+    
+    <button class="clear-token" id="clear-btn">🔑 Change Token</button>
+  </div>
+</div>
+
+<script type="module">
+import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+import "https://unpkg.com/@hygraph/app-sdk";
+
+const sdk = window["@hygraph/app-sdk"];
+const TOKEN_KEY = 'hygraph_schema_explorer_pat';
+
+// System filters - exactly matching web app's introspection.ts
+const SYSTEM_TYPE_PREFIXES = ['__','Aggregate','BatchPayload','Connection','DocumentVersion','Edge','PageInfo','Query','Mutation','Subscription','Version','RGBA','RichText','Location','Color','AssetUpload','Taxonomy','Node'];
+const SYSTEM_TYPES = new Set(['Asset','User','ScheduledOperation','ScheduledRelease','String','Int','Float','Boolean','ID','DateTime','Date','Json','Long','Hex','RGBAHue','RGBATransparency','AssetUpload','AssetUploadError','AssetUploadRequestPostData','TaxonomyNode','TaxonomyPathNode','Taxonomy','BatchPayload','DocumentVersion','PageInfo','Version','Location','RGBA','RichTextAST','Node']);
+
+function isSystemType(name) {
+  // ALWAYS filter underscore prefix first
+  if (name.startsWith('_')) return true;
+  // Remote sources - filter out anything from another project
+  if (name.includes('FromAnotherProject')) return true;
+  if (name.includes('_remote_') || name.includes('Remote_')) return true;
+  // Exact matches
+  if (SYSTEM_TYPES.has(name)) return true;
+  // Prefix matches
+  if (SYSTEM_TYPE_PREFIXES.some(p => name.startsWith(p))) return true;
+  // Suffix matches - GraphQL input/connection types
+  if (name.endsWith('Connection') || name.endsWith('Edge') || name.endsWith('Aggregate') ||
+      name.endsWith('OrderByInput') || name.endsWith('WhereInput') || name.endsWith('WhereUniqueInput') ||
+      name.endsWith('CreateInput') || name.endsWith('UpdateInput') || name.endsWith('UpsertInput') ||
+      name.endsWith('ConnectInput') || name.endsWith('CreateManyInlineInput') || 
+      name.endsWith('UpdateManyInlineInput') || name.endsWith('ManyWhereInput') ||
+      name.endsWith('UpdateWithNestedWhereUniqueInput') || name.endsWith('UpsertWithNestedWhereUniqueInput')) return true;
+  return false;
+}
+
+// Additional enum filter
+function isSystemEnum(name) {
+  if (name.startsWith('_')) return true;
+  if (name.includes('FromAnotherProject')) return true;
+  if (isSystemType(name)) return true;
+  if (name.endsWith('Stage') || name.endsWith('OrderByInput')) return true;
+  if (['DocumentFileTypes','ImageFit','Locale','Stage','ScheduledOperationStatus','ScheduledReleaseStatus','SystemDateTimeFieldVariation','EntityTypeName','UserKind'].includes(name)) return true;
+  if (name.endsWith('Variation')) return true;
+  // Filter localization system enums
+  if (name.toLowerCase().includes('localize') || name.toLowerCase().includes('smartling')) return true;
+  return false;
+}
+
+// Additional component filter
+function isSystemComponent(name) {
+  // CRITICAL: Underscore prefix = system type
+  if (name.startsWith('_')) return true;
+  // Remote sources
+  if (name.includes('FromAnotherProject')) return true;
+  if (name.includes('_remote_') || name.includes('Remote_')) return true;
+  // General system check
+  if (isSystemType(name)) return true;
+  // RichText variants
+  if (name.endsWith('RichText') && name !== 'RichText') return true;
+  return false;
+}
+
+let schema = { components: [], models: [], enums: [] };
+let endpoint = null, token = null, projectId = '', region = '';
+let selected = null, filter = 'all', query = '', usageResult = null;
+let activeTab = 'search';
+let usageData = new Map();
+let viewMode = 'list'; // 'list' or 'tree'
+let expandedModels = new Set();
+let expandedSections = new Set();
+
+const $=(s)=>document.querySelector(s);
+const $$=(s)=>document.querySelectorAll(s);
+const show=(id)=>{ $('#token-view').style.display=id==='token'?'block':'none'; $('#loading-view').style.display=id==='loading'?'flex':'none'; $('#main-view').style.display=id==='main'?'block':'none'; };
+const getToken=()=>{ try{return localStorage.getItem(TOKEN_KEY);}catch{return null;} };
+const saveToken=(t)=>{ try{localStorage.setItem(TOKEN_KEY,t);}catch{} };
+const clearToken=()=>{ try{localStorage.removeItem(TOKEN_KEY);}catch{} };
+const extractProjId=(ep)=>{ const m=ep.match(/\/v2\/([^/]+)/); return m?m[1]:''; };
+const extractRegion=(ep)=>{ 
+  // Extract region from: https://api-ca-central-1.hygraph.com/v2/... or https://ca-central-1.cdn.hygraph.com/...
+  const m = ep.match(/(?:api-|\/\/)([a-z0-9-]+)(?:\.cdn)?\.hygraph\.com/);
+  return m ? m[1] : '';
+};
+const buildHygraphUrl=(entryId)=>{
+  // Link to project content section - user can search for entry
+  // Format: https://app-{region}.hygraph.com/{projectId}/master/content
+  const domain = region ? `app-${region}.hygraph.com` : 'app.hygraph.com';
+  // Copy entry ID to clipboard hint in title
+  return `https://${domain}/${projectId}/master/content?search=${entryId}`;
+};
+
+async function fetchIntrospection(ep, tk) {
+  const q = `query{__schema{types{name kind fields(includeDeprecated:false){name type{name kind ofType{name kind ofType{name kind ofType{name kind}}}}}enumValues{name}}queryType{name}}}`;
+  const res = await fetch(ep, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}, body:JSON.stringify({query:q}) });
+  const r = await res.json();
+  if(r.errors) throw new Error(r.errors[0].message);
+  return r.data.__schema;
+}
+
+async function discoverModelFields(model) {
+  // Query 4 levels deep to handle NON_NULL -> LIST -> NON_NULL -> OBJECT patterns
+  const q = `query{__type(name:"${model}"){fields{name type{kind name ofType{kind name ofType{kind name ofType{kind name}}}}}}}`;
+  try {
+    const res = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({query:q}) });
+    const r = await res.json();
+    if(!r.data?.__type?.fields) return [];
+    return r.data.__type.fields.map(f => {
+      let tn = '', isList = false, isUnion = false, cur = f.type;
+      // Unwrap all levels to find the actual type
+      while(cur) {
+        if(cur.kind==='NON_NULL') cur=cur.ofType;
+        else if(cur.kind==='LIST') { isList=true; cur=cur.ofType; }
+        else if(cur.kind==='UNION') { isUnion=true; tn=cur.name||''; break; }
+        else { tn=cur.name||''; break; }
+      }
+      return { name:f.name, typeName:tn, isList, isUnion };
+    });
+  } catch { return []; }
+}
+
+async function discoverUnionTypes() {
+  const q = `query{__schema{types{kind name possibleTypes{name}}}}`;
+  try {
+    const res = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({query:q}) });
+    const r = await res.json();
+    const unions = r.data.__schema.types
+      .filter(t => t.kind==='UNION' && t.possibleTypes?.length && !t.name.startsWith('_') && !t.name.includes('ScheduledOperation') && !t.name.includes('RichTextEmbedded') && !t.name.includes('FromAnotherProject'))
+      .map(t => ({ name:t.name, types:t.possibleTypes.filter(p => !p.name.startsWith('_') && !p.name.includes('FromAnotherProject')).map(p=>p.name) }));
+    console.log('Discovered unions:', unions.length, unions.map(u => `${u.name}:[${u.types.join(',')}]`));
+    return unions;
+  } catch(e) { console.error('Union discovery failed:', e); return []; }
+}
+
+function parseSchema(intro) {
+  // Safely get query fields - find Query type in types array
+  const queryTypeName = intro.queryType?.name || 'Query';
+  const queryType = intro.types.find(t => t.name === queryTypeName);
+  const queryFields = queryType?.fields || [];
+  const queryFieldNames = new Set(queryFields.map(f => f.name.toLowerCase()));
+  
+  // Build plural API ID map from query fields (same as web app)
+  const pluralApiIdMap = new Map();
+  for (const field of queryFields) {
+    if (!field.name || !field.type) continue;
+    if (field.name.endsWith('Connection') || field.name.endsWith('Version') || 
+        field.name === 'node' || field.name === 'entities' || field.name.startsWith('hygraph')) continue;
+    const typeName = field.type.name || field.type.ofType?.name || field.type.ofType?.ofType?.name;
+    if (typeName && field.type.kind === 'NON_NULL' && field.type.ofType?.kind === 'LIST') {
+      if (!pluralApiIdMap.has(typeName)) pluralApiIdMap.set(typeName, field.name);
+    }
+  }
+  
+  schema = { components: [], models: [], enums: [], variants: [] };
+  const allTypes = [];
+  
+  for (const t of intro.types) {
+    // Skip system types first
+    if (isSystemType(t.name)) continue;
+    
+    // Handle enums - with additional enum-specific filters
+    if (t.kind === 'ENUM' && t.enumValues) {
+      if (!isSystemEnum(t.name)) {
+        schema.enums.push({ name: t.name, values: t.enumValues.map(v => v.name) });
+      }
+      continue;
+    }
+    
+    // Handle object types
+    if (t.kind === 'OBJECT' && t.fields) {
+      if (isSystemComponent(t.name)) continue;
+      
+      // Filter out system fields
+      const SYS_FIELDS = ['__typename','stage','documentInStages','history','publishedAt','createdAt','updatedAt','publishedBy','createdBy','updatedBy','scheduledIn'];
+      const fields = t.fields
+        .filter(f => !SYS_FIELDS.includes(f.name))
+        .map(f => {
+          // Unwrap type to get the actual type name (handles NON_NULL, LIST wrappers)
+          let tn = '';
+          let cur = f.type;
+          while (cur) {
+            if (cur.name) { tn = cur.name; break; }
+            cur = cur.ofType;
+          }
+          return { name: f.name, type: tn || 'Unknown' };
+        });
+      
+      if (fields.length === 0) continue;
+      
+      const plural = pluralApiIdMap.get(t.name) || generatePluralApiId(t.name);
+      allTypes.push({ name: t.name, fields, pluralApiId: plural });
+    }
+  }
+  
+  // Separate models from components based on query availability
+  for (const item of allTypes) {
+    // Final safety check - skip anything with underscore prefix or remote sources
+    if (item.name.startsWith('_') || item.name.includes('FromAnotherProject') || item.name.includes('Remote_')) continue;
+    
+    const hasDirectQuery = queryFieldNames.has(item.name.toLowerCase()) || queryFieldNames.has(item.pluralApiId.toLowerCase());
+    
+    if (hasDirectQuery && !item.name.startsWith('Rich') && !item.name.endsWith('RichText')) {
+      schema.models.push(item);
+    } else {
+      schema.components.push(item);
+    }
+  }
+  
+  // Final cleanup - remove any system types that slipped through
+  schema.components = schema.components.filter(c => !c.name.startsWith('_') && !c.name.includes('FromAnotherProject'));
+  schema.models = schema.models.filter(m => !m.name.startsWith('_') && !m.name.includes('FromAnotherProject'));
+  schema.enums = schema.enums.filter(e => !e.name.startsWith('_') && !e.name.includes('FromAnotherProject'));
+  
+  // Separate Variant components for personalization tab
+  schema.variants = schema.components.filter(c => c.name.endsWith('Variant'));
+  schema.components = schema.components.filter(c => !c.name.endsWith('Variant'));
+}
+
+function generatePluralApiId(name) {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('y') && !['ay','ey','iy','oy','uy'].some(v => lower.endsWith(v))) return lower.slice(0,-1) + 'ies';
+  if (lower.endsWith('s') || lower.endsWith('x') || lower.endsWith('ch') || lower.endsWith('sh')) return lower + 'es';
+  if (lower === 'person') return 'people';
+  if (lower === 'child') return 'children';
+  return lower + 's';
+}
+
+// Cache for union lookups
+let cachedUnions = null;
+
+async function getRefsAsync(name) {
+  const refs = [];
+  
+  // Get unions if not cached
+  if (!cachedUnions && endpoint && token) {
+    cachedUnions = await discoverUnionTypes();
+  }
+  const unions = cachedUnions || [];
+  
+  // Find unions that contain this component
+  const unionsWithComponent = unions.filter(u => u.types.includes(name)).map(u => u.name);
+  
+  [...schema.models, ...schema.components].forEach(t => {
+    t.fields.forEach(f => { 
+      // Direct match
+      if (f.type === name) {
+        refs.push({ model: t.name, field: f.name }); 
+      }
+      // Union containing the component
+      else if (unionsWithComponent.includes(f.type)) {
+        refs.push({ model: t.name, field: f.name }); 
+      }
+    });
+  });
+  return refs;
+}
+
+function getRefs(name) {
+  // Sync version - check direct matches and cached unions
+  const refs = [];
+  const unions = cachedUnions || [];
+  const unionsWithComponent = unions.filter(u => u.types.includes(name)).map(u => u.name);
+  
+  [...schema.models, ...schema.components].forEach(t => {
+    t.fields.forEach(f => { 
+      if (f.type === name || unionsWithComponent.includes(f.type)) {
+        refs.push({ model: t.name, field: f.name }); 
+      }
+    });
+  });
+  return refs;
+}
+
+function getModelFieldGroups(model) {
+  const compNames = new Set(schema.components.map(c => c.name));
+  const modelNames = new Set(schema.models.map(m => m.name));
+  const enumNames = new Set(schema.enums.map(e => e.name));
+  
+  const groups = { components: [], relations: [], enums: [] };
+  for (const field of model.fields || []) {
+    const typeName = field.type;
+    if (compNames.has(typeName)) groups.components.push({ fieldName: field.name, typeName });
+    else if (modelNames.has(typeName)) groups.relations.push({ fieldName: field.name, typeName });
+    else if (enumNames.has(typeName)) groups.enums.push({ fieldName: field.name, typeName });
+  }
+  return groups;
+}
+
+function renderView() {
+  if (viewMode === 'list') {
+    $('#list').style.display = 'block';
+    $('#tree').style.display = 'none';
+    $('#filters').style.display = 'flex';
+    renderList();
+  } else {
+    $('#list').style.display = 'none';
+    $('#tree').style.display = 'block';
+    $('#filters').style.display = 'none';
+    renderTree();
+  }
+}
+
+function renderList() {
+  let items = [];
+  if (filter === 'all' || filter === 'component') items.push(...schema.components.map(c => ({ ...c, type: 'component' })));
+  if (filter === 'all' || filter === 'model') items.push(...schema.models.map(m => ({ ...m, type: 'model' })));
+  if (filter === 'all' || filter === 'enum') items.push(...schema.enums.map(e => ({ ...e, type: 'enum' })));
+  if (query) items = items.filter(i => i.name.toLowerCase().includes(query.toLowerCase()));
+  items.sort((a, b) => a.name.localeCompare(b.name));
+  
+  const list = $('#list');
+  if (!items.length) { list.innerHTML = '<p style="padding:14px;color:var(--text-muted);text-align:center;font-size:12px;">No items</p>'; return; }
+  
+  list.innerHTML = items.map(i => {
+    const ic = i.type === 'component' ? 'c' : i.type === 'enum' ? 'e' : 'm';
+    const icon = i.type === 'component' ? '⬡' : i.type === 'enum' ? '≡' : '◉';
+    const meta = i.type === 'enum' ? `${i.values?.length||0} values` : `${i.fields?.length||0} fields`;
+    const sel = selected?.name === i.name && selected?.type === i.type ? 'sel' : '';
+    return `<div class="item ${sel}" data-n="${i.name}" data-t="${i.type}"><div class="item-row"><div class="item-icon ${ic}">${icon}</div><span class="item-name">${i.name}</span></div><div class="item-meta">${meta}</div></div>`;
+  }).join('');
+  
+  $$('.item').forEach(el => el.onclick = () => selectItem(el.dataset.n, el.dataset.t));
+}
+
+function renderTree() {
+  const tree = $('#tree');
+  const models = schema.models.filter(m => !query || m.name.toLowerCase().includes(query.toLowerCase())).sort((a,b) => a.name.localeCompare(b.name));
+  
+  if (!models.length) { tree.innerHTML = '<p style="padding:14px;color:var(--text-muted);text-align:center;font-size:12px;">No models</p>'; return; }
+  
+  tree.innerHTML = models.map(model => {
+    const groups = getModelFieldGroups(model);
+    const isExpanded = expandedModels.has(model.name);
+    const hasContent = groups.components.length > 0 || groups.relations.length > 0 || groups.enums.length > 0;
+    
+    let content = '';
+    if (isExpanded && hasContent) {
+      let sections = '';
+      
+      if (groups.components.length > 0) {
+        const secKey = `${model.name}-components`;
+        const secOpen = expandedSections.has(secKey);
+        sections += `<div class="tree-section">
+          <div class="tree-section-header components" data-sec="${secKey}">
+            <svg class="chevron ${secOpen?'open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+            Components (${groups.components.length})
+          </div>
+          ${secOpen ? `<div class="tree-items">${groups.components.map(c => `<div class="tree-item" data-n="${c.typeName}" data-t="component"><div class="dot comp"></div><span class="field">${c.fieldName}:</span><span class="type comp">${c.typeName}</span></div>`).join('')}</div>` : ''}
+        </div>`;
+      }
+      
+      if (groups.relations.length > 0) {
+        const secKey = `${model.name}-relations`;
+        const secOpen = expandedSections.has(secKey);
+        sections += `<div class="tree-section">
+          <div class="tree-section-header relations" data-sec="${secKey}">
+            <svg class="chevron ${secOpen?'open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+            Relations (${groups.relations.length})
+          </div>
+          ${secOpen ? `<div class="tree-items">${groups.relations.map(r => `<div class="tree-item" data-n="${r.typeName}" data-t="model"><div class="dot rel"></div><span class="field">${r.fieldName}:</span><span class="type rel">${r.typeName}</span></div>`).join('')}</div>` : ''}
+        </div>`;
+      }
+      
+      if (groups.enums.length > 0) {
+        const secKey = `${model.name}-enums`;
+        const secOpen = expandedSections.has(secKey);
+        sections += `<div class="tree-section">
+          <div class="tree-section-header enums" data-sec="${secKey}">
+            <svg class="chevron ${secOpen?'open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+            Enums (${groups.enums.length})
+          </div>
+          ${secOpen ? `<div class="tree-items">${groups.enums.map(e => `<div class="tree-item" data-n="${e.typeName}" data-t="enum"><div class="dot enum"></div><span class="field">${e.fieldName}:</span><span class="type enum">${e.typeName}</span></div>`).join('')}</div>` : ''}
+        </div>`;
+      }
+      
+      content = `<div class="tree-content">${sections}</div>`;
+    }
+    
+    return `<div class="tree-model">
+      <div class="tree-model-header" data-model="${model.name}">
+        <svg class="chevron ${isExpanded?'open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+        <svg class="folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span class="name">${model.name}</span>
+        <span class="count">${model.fields?.length || 0} fields</span>
+      </div>
+      ${content}
+    </div>`;
+  }).join('');
+  
+  // Event handlers for tree
+  $$('.tree-model-header').forEach(el => {
+    el.onclick = () => {
+      const name = el.dataset.model;
+      if (expandedModels.has(name)) expandedModels.delete(name);
+      else expandedModels.add(name);
+      renderTree();
+    };
+  });
+  
+  $$('.tree-section-header').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const key = el.dataset.sec;
+      if (expandedSections.has(key)) expandedSections.delete(key);
+      else expandedSections.add(key);
+      renderTree();
+    };
+  });
+  
+  $$('.tree-item').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      selectItem(el.dataset.n, el.dataset.t);
+    };
+  });
+}
+
+function selectItem(name, type) {
+  let item;
+  if (type === 'component') item = schema.components.find(c => c.name === name);
+  else if (type === 'model') item = schema.models.find(m => m.name === name);
+  else if (type === 'enum') item = schema.enums.find(e => e.name === name);
+  if (!item) return;
+  selected = { ...item, type };
+  usageResult = null;
+  renderList();
+  renderDetails();
+}
+
+function renderDetails() {
+  const d = $('#details');
+  if (!selected) { d.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg><p>Select a schema element</p></div>'; return; }
+  
+  const { name, type } = selected;
+  const ic = type === 'component' ? 'c' : type === 'enum' ? 'e' : 'm';
+  const icon = type === 'component' ? '⬡' : type === 'enum' ? '≡' : '◉';
+  const refs = getRefs(name);
+  console.log(`Schema refs for ${name}:`, refs);
+  console.log('Cached unions:', cachedUnions);
+  // Debug: Check Brand model fields
+  const brand = schema.models.find(m => m.name === 'Brand');
+  if (brand) console.log('Brand fields:', brand.fields);
+  const canFind = type === 'component' || type === 'enum';
+  
+  let html = `<div class="detail-head"><div class="detail-title"><div class="detail-icon item-icon ${ic}" style="width:44px;height:44px;font-size:18px;">${icon}</div><div><div class="detail-name">${name}</div><div class="detail-type">${type}</div></div></div>${canFind ? `<button class="find-btn" id="find-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Find Content Usage</button>` : ''}</div>`;
+  
+  if (refs.length > 0) {
+    html += `<div class="section"><div class="section-title">Schema References</div><div>Direct Usage: ${refs.map(r => `<span class="tag">${r.model}.${r.field}</span>`).join('')}</div></div>`;
+  }
+  
+  if (usageResult) html += renderUsage();
+  
+  d.innerHTML = html;
+  if (canFind) $('#find-btn')?.addEventListener('click', findUsage);
+}
+
+function renderUsage() {
+  if (!usageResult || !usageResult.length) {
+    return `<div class="section"><div class="section-title">Content Entries Using This ${selected.type}</div><p style="color:#64748b;font-size:13px;">No content entries found.</p></div>`;
+  }
+  const models = [...new Set(usageResult.map(u => u.modelName))];
+  return `<div class="section">
+    <div class="section-title">Content Entries Using This ${selected.type}</div>
+    <div class="usage-stats"><div class="usage-stat">Found <strong>${usageResult.length}</strong> usage${usageResult.length !== 1 ? 's' : ''}</div><div class="usage-stat">Across <strong>${models.length}</strong> model${models.length !== 1 ? 's' : ''}</div></div>
+    <div class="model-filters">${models.map(m => `<span class="model-btn active">${m}</span>`).join('')}</div>
+    <div class="usage-list">${usageResult.slice(0, 30).map(u => `<div class="usage-item"><div class="usage-row"><div><div class="usage-title">${u.title || u.id}</div><div class="usage-id">${u.id}</div></div><a href="${buildHygraphUrl(u.id)}" target="_blank" class="open-link" title="Search in Hygraph">Open →</a></div><div class="usage-meta"><span class="usage-model">${u.modelName}</span> • <span class="usage-field">${u.field}</span></div></div>`).join('')}${usageResult.length > 30 ? `<p style="text-align:center;color:var(--text-muted);padding:10px;font-size:11px;">...and ${usageResult.length - 30} more</p>` : ''}</div>
+  </div>`;
+}
+
+// Helper: Check if type is scalar
+function isScalarType(type) {
+  return ['String','Int','Float','Boolean','ID','DateTime','Date','Json','Long','Hex'].includes(type);
+}
+
+// Helper: Find all components that could contain target (directly or nested)
+function findPathsToComponent(targetName, unions, visited = new Set(), depth = 0) {
+  if (depth >= 4 || visited.has(targetName)) return new Set();
+  visited.add(targetName);
+  
+  const containing = new Set();
+  
+  // Check all components for fields containing target
+  for (const comp of schema.components) {
+    for (const field of comp.fields) {
+      const relType = field.type;
+      // Direct reference
+      if (relType === targetName) { containing.add(comp.name); continue; }
+      // Union containing target
+      const union = unions.find(u => u.name === relType);
+      if (union && union.types.includes(targetName)) containing.add(comp.name);
+    }
+  }
+  
+  // Also check models (for intermediate components)
+  for (const model of schema.models) {
+    for (const field of model.fields) {
+      const relType = field.type;
+      // Union containing target - we add the union name to track it
+      const union = unions.find(u => u.name === relType);
+      if (union && union.types.includes(targetName)) {
+        console.log(`Model ${model.name}.${field.name} uses union ${union.name} containing ${targetName}`);
+      }
+    }
+  }
+  
+  // Recursively find components containing those
+  for (const compName of [...containing]) {
+    const nested = findPathsToComponent(compName, unions, new Set(visited), depth + 1);
+    nested.forEach(n => containing.add(n));
+  }
+  return containing;
+}
+
+// Helper: Build deep query for a component (recursive up to 5 levels)
+function buildDeepQuery(compName, unions, visited = new Set(), depth = 0) {
+  if (depth >= 5 || visited.has(compName)) return '__typename';
+  visited.add(compName);
+  
+  const comp = schema.components.find(c => c.name === compName);
+  if (!comp) return '__typename';
+  
+  const parts = ['__typename'];
+  // Add scalar fields
+  comp.fields.filter(f => isScalarType(f.type)).slice(0, 3).forEach(f => parts.push(f.name));
+  // Add nested component/union fields
+  for (const field of comp.fields) {
+    if (isScalarType(field.type)) continue;
+    const nestedComp = schema.components.find(c => c.name === field.type);
+    if (nestedComp) {
+      parts.push(`${field.name} { ${buildDeepQuery(field.type, unions, new Set(visited), depth + 1)} }`);
+      continue;
+    }
+    const union = unions.find(u => u.name === field.type);
+    if (union) {
+      const frags = union.types.map(t => {
+        const tc = schema.components.find(c => c.name === t);
+        return tc ? `... on ${t} { ${buildDeepQuery(t, unions, new Set(visited), depth + 1)} }` : `... on ${t} { __typename }`;
+      }).join(' ');
+      parts.push(`${field.name} { __typename ${frags} }`);
+    }
+  }
+  return parts.join(' ');
+}
+
+// Helper: Recursively search for component in data
+function findInValue(value, targetName, path = []) {
+  const results = [];
+  if (Array.isArray(value)) {
+    value.forEach((item, i) => {
+      if (item && typeof item === 'object') {
+        if (item.__typename === targetName) results.push({ path: [...path, `[${i}]`], data: item });
+        Object.entries(item).forEach(([k, v]) => {
+          if (k !== '__typename' && v && typeof v === 'object') {
+            results.push(...findInValue(v, targetName, [...path, `[${i}]`, k]));
+          }
+        });
+      }
+    });
+  } else if (value && typeof value === 'object') {
+    if (value.__typename === targetName) results.push({ path, data: value });
+    Object.entries(value).forEach(([k, v]) => {
+      if (k !== '__typename' && v && typeof v === 'object') {
+        results.push(...findInValue(v, targetName, [...path, k]));
+      }
+    });
+  }
+  return results;
+}
+
+async function findUsage() {
+  if (!selected) return;
+  const btn = $('#find-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div> Searching...';
+  
+  try {
+    const results = [];
+    const targetName = selected.name;
+    const targetType = selected.type;
+    const unions = await discoverUnionTypes();
+    
+    // Find all components that could contain target (directly or nested)
+    const containingComps = targetType === 'component' ? findPathsToComponent(targetName, unions) : new Set();
+    const allRelevantTypes = new Set([targetName, ...containingComps]);
+    
+    // System fields to skip
+    const SYS_FIELDS = new Set(['stage','id','createdAt','updatedAt','publishedAt','documentInStages','history','publishedBy','createdBy','updatedBy','scheduledIn','locale','localizations']);
+    
+    for (const model of schema.models) {
+      // Discover actual field types from introspection
+      const modelFields = await discoverModelFields(model.name);
+      
+      // Find ALL component/union fields (query everything, search results)
+      const componentFields = [];
+      
+      for (const field of modelFields) {
+        if (SYS_FIELDS.has(field.name)) continue;
+        
+        if (targetType === 'enum') {
+          // For enums, only include fields of that enum type
+          if (field.typeName === targetName) {
+            componentFields.push({ name: field.name, isUnion: false });
+          }
+        } else {
+          // For components: check if field type is relevant
+          if (allRelevantTypes.has(field.typeName)) {
+            componentFields.push({ name: field.name, isUnion: field.isUnion, unionTypes: field.isUnion ? unions.find(u => u.name === field.typeName)?.types : undefined });
+            continue;
+          }
+          
+          // Check if field type is a union containing relevant types
+          if (field.isUnion) {
+            const union = unions.find(u => u.name === field.typeName);
+            if (union && union.types.some(t => allRelevantTypes.has(t))) {
+              componentFields.push({ name: field.name, isUnion: true, unionTypes: union.types });
+              continue;
+            }
+          }
+          
+          // Also query any component field (might contain target nested)
+          const isComponent = schema.components.some(c => c.name === field.typeName);
+          if (isComponent) {
+            componentFields.push({ name: field.name, isUnion: false });
+          }
+        }
+      }
+      
+      if (componentFields.length === 0) continue;
+      
+      // Get title field
+      const titleField = model.fields.find(f => ['title','name','heading','label','slug'].includes(f.name.toLowerCase()) && f.type === 'String')?.name || '';
+      
+      // Build field selections with deep nesting
+      const fieldSelections = componentFields.map(cf => {
+        if (targetType === 'enum') return cf.name;
+        
+        if (cf.isUnion && cf.unionTypes) {
+          const fragments = cf.unionTypes.map(type => {
+            const typeComp = schema.components.find(c => c.name === type);
+            if (typeComp) {
+              return `... on ${type} { ${buildDeepQuery(type, unions)} }`;
+            }
+            return `... on ${type} { __typename }`;
+          }).join('\n          ');
+          return `${cf.name} {\n          __typename\n          ${fragments}\n        }`;
+        } else {
+          // Direct component field - build deep query
+          const fieldDef = modelFields.find(f => f.name === cf.name);
+          const fieldTypeName = fieldDef?.typeName || '';
+          return `${cf.name} { ${buildDeepQuery(fieldTypeName, unions)} }`;
+        }
+      }).join('\n        ');
+      
+      // Execute query
+      const query = `query { entries: ${model.pluralApiId}(first: 100, stage: DRAFT) { id ${titleField} ${fieldSelections} } }`;
+      
+      try {
+        const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ query }) });
+        const r = await res.json();
+        
+        if (r.errors) continue;
+        
+        const entries = r.data?.entries || [];
+        
+        for (const entry of entries) {
+          for (const cf of componentFields) {
+            const fieldValue = entry[cf.name];
+            if (!fieldValue) continue;
+            
+            if (targetType === 'enum') {
+              // For enums, check if value matches
+              const values = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+              const enumDef = schema.enums.find(e => e.name === targetName);
+              for (const v of values) {
+                if (!enumDef || enumDef.values.includes(v)) {
+                  results.push({ id: entry.id, title: entry[titleField] || entry.id, modelName: model.name, pluralApiId: model.pluralApiId, field: cf.name });
+                  break;
+                }
+              }
+            } else {
+              // For components, deep search
+              const locations = findInValue(fieldValue, targetName, [cf.name]);
+              for (const loc of locations) {
+                results.push({ id: entry.id, title: entry[titleField] || entry.id, modelName: model.name, pluralApiId: model.pluralApiId, field: loc.path.join(' → ') });
+              }
+            }
+          }
+        }
+      } catch (e) { /* continue to next model */ }
+    }
+    
+    // Dedupe
+    const seen = new Set();
+    usageResult = results.filter(r => {
+      const key = `${r.id}:${r.field}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    renderDetails();
+  } catch (e) { console.error('Find usage error:', e); usageResult = []; renderDetails(); }
+  
+  btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Find Content Usage';
+}
+
+async function scanAllUsage() {
+  const btn = $('#scan-btn');
+  const prog = $('#scan-progress');
+  const results = $('#scan-results');
+  
+  btn.disabled = true;
+  prog.style.display = 'block';
+  results.innerHTML = '';
+  usageData = new Map();
+  
+  const elements = [...schema.components.map(c => ({ ...c, type: 'component' })), ...schema.enums.map(e => ({ ...e, type: 'enum' }))];
+  const total = elements.length;
+  
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i];
+    $('#scan-text').textContent = `Scanning ${el.name}...`;
+    $('#scan-count').textContent = `${i + 1}/${total}`;
+    $('#scan-fill').style.width = `${((i + 1) / total) * 100}%`;
+    
+    selected = { ...el, type: el.type };
+    usageResult = null;
+    await findUsage();
+    
+    if (usageResult && usageResult.length > 0) {
+      usageData.set(el.name, { type: el.type, count: usageResult.length, models: [...new Set(usageResult.map(u => u.modelName))] });
+    }
+    
+    await new Promise(r => setTimeout(r, 50));
+  }
+  
+  selected = null;
+  usageResult = null;
+  btn.disabled = false;
+  prog.style.display = 'none';
+  
+  // Render results
+  const sorted = [...usageData.entries()].sort((a, b) => b[1].count - a[1].count);
+  const unused = elements.filter(e => !usageData.has(e.name));
+  
+  results.innerHTML = `
+    <div class="section" style="margin-top:20px;">
+      <div class="section-title">Usage Summary</div>
+      <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Scanned ${total} elements. <strong style="color:#22c55e;">${sorted.length}</strong> in use, <strong style="color:#f87171;">${unused.length}</strong> unused.</p>
+      ${sorted.length > 0 ? `
+        <table class="usage-table">
+          <thead><tr><th>Element</th><th>Type</th><th>Usages</th><th>Models</th></tr></thead>
+          <tbody>${sorted.slice(0, 50).map(([name, data]) => `<tr><td class="name">${name}</td><td><span class="type ${data.type === 'component' ? 'c' : 'e'}">${data.type}</span></td><td>${data.count}</td><td>${data.models.join(', ')}</td></tr>`).join('')}</tbody>
+        </table>
+      ` : ''}
+      ${unused.length > 0 ? `
+        <div style="margin-top:20px;"><div class="section-title">Unused Elements (${unused.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          ${unused.map(e => `<span class="unused-tag ${e.type === 'component' ? 'comp' : 'enum'}">${e.name}<span class="type-label">${e.type === 'component' ? 'component' : 'enum'}</span></span>`).join('')}
+        </div></div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  $('#search-tab').style.display = tab === 'search' ? 'grid' : 'none';
+  $('#personalization-tab').style.display = tab === 'personalization' ? 'block' : 'none';
+  $('#statistics-tab').style.display = tab === 'statistics' ? 'block' : 'none';
+  
+  if (tab === 'personalization') updateVariantStats();
+}
+
+function updateStats() {
+  $('#stat-comp').textContent = schema.components.length;
+  $('#stat-enum').textContent = schema.enums.length;
+  $('#stat-model').textContent = schema.models.length;
+}
+
+function updateVariantStats() {
+  $('#stat-variants').textContent = schema.variants.length;
+  // Count models that have variant components will be updated after scan
+}
+
+async function scanVariantUsage() {
+  const btn = $('#scan-variants-btn');
+  const progress = $('#variant-scan-progress');
+  const results = $('#variant-results');
+  
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  progress.style.display = 'block';
+  results.innerHTML = '';
+  
+  const variantUsage = new Map();
+  const modelsWithVariants = new Set();
+  let totalUsage = 0;
+  
+  // Initialize variant usage tracking
+  schema.variants.forEach(v => variantUsage.set(v.name, { component: v, models: [], count: 0 }));
+  
+  const total = schema.models.length;
+  let done = 0;
+  
+  for (const model of schema.models) {
+    $('#variant-scan-text').textContent = `Scanning ${model.name}...`;
+    $('#variant-scan-count').textContent = `${done}/${total}`;
+    $('#variant-scan-fill').style.width = `${(done/total)*100}%`;
+    
+    try {
+      const fields = await discoverModelFields(model.name);
+      for (const field of fields) {
+        if (variantUsage.has(field.typeName)) {
+          const usage = variantUsage.get(field.typeName);
+          usage.models.push({ model: model.name, field: field.name, isList: field.isList });
+          usage.count++;
+          modelsWithVariants.add(model.name);
+          totalUsage++;
+        }
+      }
+    } catch (e) { console.warn('Error scanning', model.name, e); }
+    done++;
+  }
+  
+  // Also check for variants in union types
+  const unions = await discoverUnionTypes();
+  for (const union of unions) {
+    for (const typeName of union.types) {
+      if (variantUsage.has(typeName)) {
+        const usage = variantUsage.get(typeName);
+        usage.models.push({ model: union.name, field: '(union member)', isUnion: true });
+      }
+    }
+  }
+  
+  // Update stats
+  $('#stat-variants').textContent = schema.variants.length;
+  $('#stat-models-with-variants').textContent = modelsWithVariants.size;
+  $('#stat-variant-usage').textContent = totalUsage;
+  
+  // Render results
+  let html = '<div style="display:flex;flex-direction:column;gap:16px;">';
+  
+  const usageArray = Array.from(variantUsage.values()).sort((a,b) => b.count - a.count);
+  
+  for (const item of usageArray) {
+    const usedIn = item.models.length > 0 
+      ? item.models.map(m => `<span style="display:inline-block;padding:2px 8px;background:var(--model-bg);color:var(--model-blue);border-radius:4px;font-size:11px;margin:2px;">${m.model}.${m.field}${m.isList ? ' []' : ''}</span>`).join('')
+      : '<span style="color:var(--text-muted);font-size:12px;">Not used in any model</span>';
+    
+    html += `
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <span style="font-size:20px;">🎯</span>
+          <div>
+            <div style="font-weight:600;color:var(--component-purple);">${item.component.name}</div>
+            <div style="font-size:12px;color:var(--text-muted);">${item.component.fields.length} fields • Used ${item.count} time${item.count !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Used in:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${usedIn}</div>
+      </div>
+    `;
+  }
+  
+  html += '</div>';
+  results.innerHTML = html;
+  
+  progress.style.display = 'none';
+  btn.disabled = false;
+  btn.textContent = '🔍 Scan Variant Usage';
+}
+
+// Events
+$('#search').oninput = e => { query = e.target.value; renderView(); };
+$$('.fbtn').forEach(b => b.onclick = () => { $$('.fbtn').forEach(x => x.classList.remove('active')); b.classList.add('active'); filter = b.dataset.f; renderView(); });
+$$('.tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+$('#clear-btn').onclick = () => { clearToken(); show('token'); };
+$('#scan-btn').onclick = scanAllUsage;
+$('#scan-variants-btn').onclick = scanVariantUsage;
+
+// View toggle handlers
+$('#list-view-btn').onclick = () => {
+  viewMode = 'list';
+  $('#list-view-btn').classList.add('active');
+  $('#tree-view-btn').classList.remove('active');
+  renderView();
+};
+$('#tree-view-btn').onclick = () => {
+  viewMode = 'tree';
+  $('#tree-view-btn').classList.add('active');
+  $('#list-view-btn').classList.remove('active');
+  renderView();
+};
+$('#save-btn').onclick = async () => {
+  const tk = $('#token-input').value.trim();
+  if (!tk) { $('#token-error').textContent = 'Enter a token'; return; }
+  $('#save-btn').disabled = true;
+  $('#save-btn').textContent = 'Connecting...';
+  try {
+    token = tk; // Set token first so discoverUnionTypes works
+    const intro = await fetchIntrospection(endpoint, tk);
+    parseSchema(intro);
+    // Pre-load unions for getRefs
+    cachedUnions = await discoverUnionTypes();
+    console.log('Cached unions:', cachedUnions);
+    saveToken(tk);
+    show('main');
+    updateStats();
+    renderList();
+  } catch (e) { $('#token-error').textContent = 'Failed: ' + e.message; }
+  $('#save-btn').disabled = false;
+  $('#save-btn').textContent = 'Connect';
+};
+
+// Init
+sdk.init({ debug: true, onProps: () => {} })
+  .then(async ({ status, props }) => {
+    if (status === 'ok' && props) {
+      endpoint = props.endpoint || props.context?.environment?.endpoint;
+      if (endpoint) {
+        projectId = extractProjId(endpoint);
+        region = extractRegion(endpoint);
+        console.log('Project:', projectId, 'Region:', region);
+        const stored = getToken();
+        if (stored) {
+          try {
+            token = stored;
+            const intro = await fetchIntrospection(endpoint, stored);
+            parseSchema(intro);
+            // Pre-load unions for getRefs
+            cachedUnions = await discoverUnionTypes();
+            console.log('Cached unions:', cachedUnions);
+            console.log('Schema models:', schema.models.map(m => m.name));
+            console.log('Schema components:', schema.components.map(c => c.name));
+            show('main');
+            updateStats();
+            renderList();
+          } catch (e) { console.error('Init error:', e); clearToken(); show('token'); }
+        } else { show('token'); }
+      } else { show('token'); }
+    } else { show('token'); }
+  })
+  .catch((e) => { console.error('SDK error:', e); show('token'); });
+</script>
+</body>
+</html>
