@@ -112,15 +112,16 @@
           Generate AI-powered alt text for images missing accessibility descriptions.
         </p>
         
-        <div class="form-group">
+        <div class="form-group" id="endpoint-group" style="display: none;">
           <label>Hygraph Content API Endpoint</label>
           <input type="text" id="endpoint-input" placeholder="https://...hygraph.com/content/.../master">
+          <div class="form-hint">Auto-detected when running inside Hygraph</div>
         </div>
         
-        <div class="form-group">
+        <div class="form-group" id="token-group" style="display: none;">
           <label>Hygraph Auth Token (PAT)</label>
           <input type="password" id="token-input" placeholder="eyJ...">
-          <div class="form-hint">Needs read/write access to Assets</div>
+          <div class="form-hint">Shared with other Hygraph tools. Only needed once.</div>
         </div>
         
         <div class="form-group">
@@ -231,11 +232,18 @@
     let bulkCancelled = false;
     let completedIds = new Set();
     
-    const STORAGE_KEY = 'alttext_generator_creds';
+    // Shared storage keys (used by all Hygraph tools)
+    const TOKEN_KEY = 'hygraph_tools_pat';
+    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
+    const GEMINI_KEY = 'hygraph_tools_gemini';
     const PROGRESS_KEY = 'alttext_generator_progress';
     
-    const saveCreds = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ endpoint, token, geminiKey })); } catch(e){} };
-    const loadCreds = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; } };
+    const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
+    const saveToken = (t) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
+    const getEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
+    const saveEndpoint = (e) => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
+    const getGeminiKey = () => { try { return localStorage.getItem(GEMINI_KEY); } catch { return null; } };
+    const saveGeminiKey = (k) => { try { localStorage.setItem(GEMINI_KEY, k); } catch {} };
     const saveProgress = () => { try { localStorage.setItem(PROGRESS_KEY, JSON.stringify([...completedIds])); } catch(e){} };
     const loadProgress = () => { try { return new Set(JSON.parse(localStorage.getItem(PROGRESS_KEY)) || []); } catch(e){ return new Set(); } };
     const clearProgress = () => { try { localStorage.removeItem(PROGRESS_KEY); completedIds = new Set(); } catch(e){} };
@@ -696,11 +704,22 @@
     }
     
     $('#connect-btn').onclick = async () => {
-      endpoint = $('#endpoint-input').value.trim();
-      token = $('#token-input').value.trim();
+      // Get values - endpoint and token may already be set from SDK
+      const epInput = $('#endpoint-input').value.trim();
+      const tkInput = $('#token-input').value.trim();
       geminiKey = $('#gemini-input').value.trim();
       
-      if (!endpoint || !token || !geminiKey) { $('#setup-error').textContent = 'Please fill all fields'; return; }
+      // Use inputs if provided, otherwise use already set values
+      if (epInput) endpoint = epInput;
+      if (tkInput) token = tkInput;
+      
+      if (!endpoint || !token || !geminiKey) { 
+        $('#setup-error').textContent = 'Please fill all required fields'; 
+        // Show hidden fields if needed
+        if (!endpoint) $('#endpoint-group').style.display = 'block';
+        if (!token) $('#token-group').style.display = 'block';
+        return; 
+      }
       
       $('#connect-btn').disabled = true;
       $('#connect-btn').textContent = 'Connecting...';
@@ -724,7 +743,11 @@
         const testData = await testResponse.json();
         if (testData.error) throw new Error('Invalid Gemini API key: ' + testData.error.message);
         
-        saveCreds();
+        // Save to shared storage
+        if (tkInput) saveToken(tkInput);
+        if (epInput) saveEndpoint(epInput);
+        saveGeminiKey(geminiKey);
+        
         $('#setup-view').style.display = 'none';
         $('#main-view').style.display = 'block';
         fetchAllImages();
@@ -748,34 +771,69 @@
       };
     });
     
-    // Initialize
+    // Initialize - check SDK and shared storage
     sdk.init({ debug: true })
       .then(async ({ props }) => {
         const sdkEndpoint = props?.context?.environment?.endpoint;
-        const saved = loadCreds();
+        const savedToken = getToken();
+        const savedEndpoint = getEndpoint();
+        const savedGemini = getGeminiKey();
         
-        if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
-        if (saved?.endpoint && !sdkEndpoint) $('#endpoint-input').value = saved.endpoint;
-        if (saved?.token) $('#token-input').value = saved.token;
-        if (saved?.geminiKey) $('#gemini-input').value = saved.geminiKey;
+        // Auto-set endpoint from SDK
+        if (sdkEndpoint) {
+          endpoint = sdkEndpoint;
+          $('#endpoint-input').value = sdkEndpoint;
+          // Hide endpoint field if SDK provides it
+        } else if (savedEndpoint) {
+          $('#endpoint-input').value = savedEndpoint;
+          $('#endpoint-group').style.display = 'block';
+        } else {
+          $('#endpoint-group').style.display = 'block';
+        }
         
-        if ((sdkEndpoint || saved?.endpoint) && saved?.token && saved?.geminiKey) {
-          endpoint = sdkEndpoint || saved.endpoint;
-          token = saved.token;
-          geminiKey = saved.geminiKey;
+        // Load shared PAT
+        if (savedToken) {
+          token = savedToken;
+          $('#token-input').value = savedToken;
+          // Keep PAT hidden if already saved
+        } else {
+          $('#token-group').style.display = 'block';
+        }
+        
+        // Load Gemini key
+        if (savedGemini) {
+          geminiKey = savedGemini;
+          $('#gemini-input').value = savedGemini;
+        }
+        
+        // Auto-connect if all credentials are available
+        endpoint = sdkEndpoint || savedEndpoint;
+        if (endpoint && savedToken && savedGemini) {
+          token = savedToken;
+          geminiKey = savedGemini;
           try {
             await gql('{ __typename }');
             $('#setup-view').style.display = 'none';
             $('#main-view').style.display = 'block';
             fetchAllImages();
-          } catch (e) {}
+          } catch (e) {
+            // Show token field if auth fails
+            $('#token-group').style.display = 'block';
+          }
         }
       })
       .catch(() => {
-        const saved = loadCreds();
-        if (saved?.endpoint) $('#endpoint-input').value = saved.endpoint;
-        if (saved?.token) $('#token-input').value = saved.token;
-        if (saved?.geminiKey) $('#gemini-input').value = saved.geminiKey;
+        // Standalone mode - show endpoint field
+        const savedToken = getToken();
+        const savedEndpoint = getEndpoint();
+        const savedGemini = getGeminiKey();
+        
+        $('#endpoint-group').style.display = 'block';
+        if (!savedToken) $('#token-group').style.display = 'block';
+        
+        if (savedEndpoint) $('#endpoint-input').value = savedEndpoint;
+        if (savedToken) $('#token-input').value = savedToken;
+        if (savedGemini) $('#gemini-input').value = savedGemini;
       });
   </script>
 </body>

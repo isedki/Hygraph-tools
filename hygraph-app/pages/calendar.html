@@ -301,7 +301,7 @@ import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
 import "https://unpkg.com/@hygraph/app-sdk";
 
 const sdk = window["@hygraph/app-sdk"];
-const TOKEN_KEY = 'hygraph_calendar_pat';
+const TOKEN_KEY = 'hygraph_tools_pat'; // Shared across all Hygraph tools
 
 // State
 let endpoint = null, token = null, projectId = '', region = '';
@@ -322,7 +322,7 @@ const show = id => {
 };
 
 // Storage
-const ENDPOINT_KEY = 'hygraph_calendar_endpoint';
+const ENDPOINT_KEY = 'hygraph_tools_endpoint'; // Shared across all Hygraph tools
 const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
 const saveToken = t => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
 const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch {} };

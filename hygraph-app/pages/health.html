@@ -189,9 +189,12 @@
     let daysThreshold = 30, selectedModel = 'all';
     const HEALTH_THRESHOLD = 90;
     
-    const STORAGE_KEY = 'hygraph_health';
-    const save = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({endpoint, token})); } catch(e){} };
-    const load = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; } };
+    const TOKEN_KEY = 'hygraph_tools_pat'; // Shared across all Hygraph tools
+    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
+    const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
+    const saveToken = (t) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
+    const getEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
+    const saveEndpoint = (e) => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
     
     const gql = (query) => fetch(endpoint, {
       method: 'POST',
@@ -410,7 +413,8 @@
       
       try {
         await gql('{ __typename }');
-        save();
+        saveToken(tk);
+        saveEndpoint(ep);
         $('#token-view').style.display = 'none';
         $('#main-view').style.display = 'block';
         await fetchModels();
@@ -456,11 +460,13 @@
           }
         }
         
-        // Fallback: try saved credentials
-        const saved = load();
-        if (saved?.token && (sdkEndpoint || saved?.endpoint)) {
-          endpoint = sdkEndpoint || saved.endpoint;
-          token = saved.token;
+        // Fallback: try saved credentials (shared PAT)
+        const savedToken = getToken();
+        const savedEndpoint = getEndpoint();
+        if (savedToken && (sdkEndpoint || savedEndpoint)) {
+          endpoint = sdkEndpoint || savedEndpoint;
+          token = savedToken;
+          if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
           try {
             await gql('{ __typename }');
             $('#token-view').style.display = 'none';
@@ -470,16 +476,19 @@
           } catch (e) {
             console.log('Saved credentials invalid');
             $('#token-view').style.display = 'block';
+            if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
           }
         } else {
           $('#token-view').style.display = 'block';
+          if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
         }
       })
       .catch(e => {
         console.log('SDK failed, standalone mode:', e);
-        const saved = load();
-        if (saved?.endpoint && saved?.token) {
-          endpoint = saved.endpoint; token = saved.token;
+        const savedToken = getToken();
+        const savedEndpoint = getEndpoint();
+        if (savedEndpoint && savedToken) {
+          endpoint = savedEndpoint; token = savedToken;
           gql('{ __typename }').then(() => {
             $('#token-view').style.display = 'none';
             $('#main-view').style.display = 'block';
