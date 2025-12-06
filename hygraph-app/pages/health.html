@@ -82,13 +82,15 @@
     <div id="token-view" class="token-form">
       <h2>🏥 Content Health Dashboard</h2>
       <p>Enter your Hygraph credentials to analyze content health.</p>
-      <div class="form-group">
+      <div class="form-group" id="endpoint-group" style="display:none;">
         <label>Content API Endpoint</label>
         <input type="text" id="endpoint-input" placeholder="https://...hygraph.com/content/.../master">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Auto-detected when running inside Hygraph</div>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="token-group" style="display:none;">
         <label>Permanent Auth Token</label>
         <input type="text" id="token-input" placeholder="eyJ...">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Shared with other Hygraph tools</div>
       </div>
       <button class="btn btn-primary" id="save-btn" style="width:100%;">Analyze Content</button>
       <div id="token-error" style="margin-top:10px;color:#ef4444;font-size:12px;"></div>
@@ -403,18 +405,27 @@
     
     // Event handlers
     $('#save-btn').onclick = async () => {
-      const ep = $('#endpoint-input').value.trim();
-      const tk = $('#token-input').value.trim();
-      if (!ep || !tk) { $('#token-error').textContent = 'Please fill both fields'; return; }
+      // Get values - endpoint may already be set from SDK
+      const epInput = $('#endpoint-input').value.trim();
+      const tkInput = $('#token-input').value.trim();
+      
+      if (epInput) endpoint = epInput;
+      if (tkInput) token = tkInput;
+      
+      if (!endpoint || !token) { 
+        $('#token-error').textContent = 'Please fill required fields'; 
+        if (!endpoint) $('#endpoint-group').style.display = 'block';
+        if (!token) $('#token-group').style.display = 'block';
+        return; 
+      }
       
       $('#save-btn').disabled = true;
       $('#save-btn').textContent = 'Connecting...';
-      endpoint = ep; token = tk;
       
       try {
         await gql('{ __typename }');
-        saveToken(tk);
-        saveEndpoint(ep);
+        if (tkInput) saveToken(tkInput);
+        if (epInput) saveEndpoint(epInput);
         $('#token-view').style.display = 'none';
         $('#main-view').style.display = 'block';
         await fetchModels();
@@ -430,26 +441,52 @@
     $('#apply-threshold').onclick = () => { daysThreshold = parseInt($('#days-threshold').value) || 30; filterAndRender($('#total-entries').textContent); };
     $('#model-filter').onchange = (e) => { selectedModel = e.target.value; filterAndRender($('#total-entries').textContent); };
     
+    // Helper to show setup form with appropriate fields
+    function showSetupForm(sdkEndpoint, savedToken, savedEndpoint) {
+      $('#token-view').style.display = 'block';
+      
+      // Show endpoint only if not provided by SDK
+      if (sdkEndpoint) {
+        endpoint = sdkEndpoint;
+        $('#endpoint-input').value = sdkEndpoint;
+        // Keep endpoint hidden - SDK provides it
+      } else if (savedEndpoint) {
+        $('#endpoint-input').value = savedEndpoint;
+        $('#endpoint-group').style.display = 'block';
+      } else {
+        $('#endpoint-group').style.display = 'block';
+      }
+      
+      // Show token only if not already saved
+      if (savedToken) {
+        $('#token-input').value = savedToken;
+        // Keep token hidden - already saved
+      } else {
+        $('#token-group').style.display = 'block';
+      }
+    }
+    
     // Init with SDK
     console.log('Content Health: Starting...');
     sdk.init({ debug: true, onProps: () => {} })
       .then(async ({ status, props }) => {
         console.log('Content Health: SDK initialized', status, props);
         
-        // Try to get endpoint and token from SDK props
         const sdkEndpoint = props?.context?.environment?.endpoint || props?.endpoint;
         const sdkToken = props?.authToken;
+        const savedToken = getToken();
+        const savedEndpoint = getEndpoint();
         
         console.log('SDK Endpoint:', sdkEndpoint);
         console.log('SDK Token available:', !!sdkToken);
+        console.log('Saved Token available:', !!savedToken);
         
-        // If SDK provides both, use them directly (no manual input needed!)
+        // If SDK provides both, use them directly
         if (sdkEndpoint && sdkToken) {
           endpoint = sdkEndpoint;
           token = sdkToken;
           try {
             await gql('{ __typename }');
-            console.log('Using SDK credentials - success!');
             $('#token-view').style.display = 'none';
             $('#main-view').style.display = 'block';
             await fetchModels();
@@ -460,42 +497,42 @@
           }
         }
         
-        // Fallback: try saved credentials (shared PAT)
-        const savedToken = getToken();
-        const savedEndpoint = getEndpoint();
+        // Try with shared PAT
         if (savedToken && (sdkEndpoint || savedEndpoint)) {
           endpoint = sdkEndpoint || savedEndpoint;
           token = savedToken;
-          if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
           try {
             await gql('{ __typename }');
             $('#token-view').style.display = 'none';
             $('#main-view').style.display = 'block';
             await fetchModels();
             analyze();
+            return;
           } catch (e) {
             console.log('Saved credentials invalid');
-            $('#token-view').style.display = 'block';
-            if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
           }
-        } else {
-          $('#token-view').style.display = 'block';
-          if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
         }
+        
+        // Show setup form
+        showSetupForm(sdkEndpoint, savedToken, savedEndpoint);
       })
       .catch(e => {
         console.log('SDK failed, standalone mode:', e);
         const savedToken = getToken();
         const savedEndpoint = getEndpoint();
+        
+        // Try auto-connect with saved credentials
         if (savedEndpoint && savedToken) {
           endpoint = savedEndpoint; token = savedToken;
           gql('{ __typename }').then(() => {
             $('#token-view').style.display = 'none';
             $('#main-view').style.display = 'block';
             fetchModels().then(() => analyze());
-          }).catch(() => { $('#token-view').style.display = 'block'; });
+          }).catch(() => {
+            showSetupForm(null, savedToken, savedEndpoint);
+          });
         } else {
-          $('#token-view').style.display = 'block';
+          showSetupForm(null, savedToken, savedEndpoint);
         }
       });
   </script>
