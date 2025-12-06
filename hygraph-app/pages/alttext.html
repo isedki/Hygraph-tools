@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alt-Text Generator</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-secondary: #f1f5f9;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: #e2e8f0;
+      --accent: #8b5cf6;
+      --accent-light: #ede9fe;
+      --success: #10b981;
+      --success-bg: #ecfdf5;
+      --warning: #f59e0b;
+      --warning-bg: #fffbeb;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text-primary); line-height: 1.5; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .header h1 { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+    
+    /* Stats bar */
+    .stats-bar { display: flex; gap: 24px; margin-bottom: 24px; padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+    .stat { display: flex; flex-direction: column; }
+    .stat-value { font-size: 24px; font-weight: 700; }
+    .stat-value.warning { color: var(--warning); }
+    .stat-value.success { color: var(--success); }
+    .stat-label { font-size: 13px; color: var(--text-muted); }
+    
+    /* Cards */
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    
+    /* Image grid */
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .image-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .image-preview { width: 100%; height: 180px; object-fit: cover; background: var(--bg-secondary); }
+    .image-info { padding: 16px; }
+    .image-filename { font-weight: 600; font-size: 14px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .image-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+    .image-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-bottom: 12px; }
+    .image-status.missing { background: var(--warning-bg); color: var(--warning); }
+    .image-status.has-alt { background: var(--success-bg); color: var(--success); }
+    
+    /* Alt text area */
+    .alt-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; resize: vertical; min-height: 60px; font-family: inherit; }
+    .alt-input:focus { outline: none; border-color: var(--accent); }
+    .alt-preview { background: var(--bg-secondary); padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--text-secondary); min-height: 60px; }
+    
+    /* Buttons */
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover:not(:disabled) { background: #7c3aed; }
+    .btn-secondary { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--border); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-block { width: 100%; justify-content: center; }
+    
+    .image-actions { display: flex; gap: 8px; margin-top: 12px; }
+    
+    /* Pagination */
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 24px; }
+    .page-btn { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); cursor: pointer; font-size: 14px; }
+    .page-btn:hover { background: var(--bg-secondary); }
+    .page-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .page-info { font-size: 13px; color: var(--text-muted); margin: 0 12px; }
+    
+    /* Form */
+    .setup-card { max-width: 500px; margin: 60px auto; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+    .form-group input:focus { outline: none; border-color: var(--accent); }
+    .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+    .error-msg { color: var(--danger); font-size: 13px; margin-top: 8px; }
+    
+    /* Loading */
+    .loading { display: flex; align-items: center; justify-content: center; padding: 60px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .generating { position: relative; }
+    .generating::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; }
+    
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text-primary); color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 1000; animation: slideIn 0.3s ease; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    
+    /* Filter tabs */
+    .filter-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .filter-tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); cursor: pointer; font-size: 13px; }
+    .filter-tab:hover { background: var(--bg-secondary); }
+    .filter-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Setup View -->
+    <div id="setup-view" class="container">
+      <div class="card setup-card">
+        <h2 style="margin-bottom: 8px;">🖼️ Alt-Text Generator</h2>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+          Generate AI-powered alt text for images missing accessibility descriptions.
+        </p>
+        
+        <div class="form-group">
+          <label>Hygraph Content API Endpoint</label>
+          <input type="text" id="endpoint-input" placeholder="https://...hygraph.com/content/.../master">
+        </div>
+        
+        <div class="form-group">
+          <label>Hygraph Auth Token (PAT)</label>
+          <input type="password" id="token-input" placeholder="eyJ...">
+          <div class="form-hint">Needs read access to Assets</div>
+        </div>
+        
+        <div class="form-group">
+          <label>OpenAI API Key</label>
+          <input type="password" id="openai-input" placeholder="sk-...">
+          <div class="form-hint">For GPT-4 Vision. <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent);">Get one here</a></div>
+        </div>
+        
+        <button class="btn btn-primary btn-block" id="connect-btn" style="margin-top: 20px;">
+          Connect & Scan Images
+        </button>
+        <div id="setup-error" class="error-msg"></div>
+      </div>
+    </div>
+    
+    <!-- Main View -->
+    <div id="main-view" class="container" style="display: none;">
+      <div class="header">
+        <h1>🖼️ Alt-Text Generator</h1>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="refresh-btn">🔄 Refresh</button>
+          <button class="btn btn-primary" id="generate-all-btn">✨ Generate All Missing</button>
+        </div>
+      </div>
+      
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-value" id="total-images">-</div>
+          <div class="stat-label">Total Images</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value warning" id="missing-alt">-</div>
+          <div class="stat-label">Missing Alt Text</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value success" id="has-alt">-</div>
+          <div class="stat-label">Has Alt Text</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="coverage">-</div>
+          <div class="stat-label">Coverage</div>
+        </div>
+      </div>
+      
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="missing">⚠️ Missing Alt Text</button>
+        <button class="filter-tab" data-filter="has">✅ Has Alt Text</button>
+        <button class="filter-tab" data-filter="all">📷 All Images</button>
+      </div>
+      
+      <div id="images-container">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+    import "https://unpkg.com/@hygraph/app-sdk";
+    
+    const sdk = window["@hygraph/app-sdk"];
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    
+    // State
+    let endpoint = null;
+    let token = null;
+    let openaiKey = null;
+    let allImages = [];
+    let filteredImages = [];
+    let currentFilter = 'missing';
+    let currentPage = 1;
+    const PAGE_SIZE = 12;
+    
+    // Storage
+    const STORAGE_KEY = 'alttext_generator_creds';
+    const save = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ endpoint, token, openaiKey })); } catch(e){} };
+    const load = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; } };
+    
+    // GraphQL helper
+    async function gql(query, variables = {}) {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ query, variables })
+      });
+      const data = await res.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      return data.data;
+    }
+    
+    // Fetch all images with pagination
+    async function fetchAllImages() {
+      $('#images-container').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      allImages = [];
+      let hasMore = true;
+      let after = null;
+      
+      while (hasMore) {
+        const afterClause = after ? `, after: "${after}"` : '';
+        const data = await gql(`{
+          assetsConnection(first: 100${afterClause}, where: { mimeType_starts_with: "image/" }, stage: DRAFT) {
+            edges {
+              node {
+                id
+                fileName
+                url
+                width
+                height
+                size
+                mimeType
+                alt
+              }
+              cursor
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }`);
+        
+        const edges = data.assetsConnection.edges || [];
+        allImages.push(...edges.map(e => e.node));
+        
+        hasMore = data.assetsConnection.pageInfo.hasNextPage;
+        after = data.assetsConnection.pageInfo.endCursor;
+      }
+      
+      updateStats();
+      applyFilter();
+    }
+    
+    // Update statistics
+    function updateStats() {
+      const missing = allImages.filter(img => !img.alt || img.alt.trim() === '').length;
+      const hasAlt = allImages.length - missing;
+      const coverage = allImages.length > 0 ? Math.round((hasAlt / allImages.length) * 100) : 0;
+      
+      $('#total-images').textContent = allImages.length;
+      $('#missing-alt').textContent = missing;
+      $('#has-alt').textContent = hasAlt;
+      $('#coverage').textContent = coverage + '%';
+    }
+    
+    // Apply filter
+    function applyFilter() {
+      if (currentFilter === 'missing') {
+        filteredImages = allImages.filter(img => !img.alt || img.alt.trim() === '');
+      } else if (currentFilter === 'has') {
+        filteredImages = allImages.filter(img => img.alt && img.alt.trim() !== '');
+      } else {
+        filteredImages = [...allImages];
+      }
+      
+      currentPage = 1;
+      renderImages();
+      renderPagination();
+    }
+    
+    // Render images
+    function renderImages() {
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      const pageImages = filteredImages.slice(start, end);
+      
+      if (pageImages.length === 0) {
+        $('#images-container').innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">${currentFilter === 'missing' ? '🎉' : '📷'}</div>
+            <div>${currentFilter === 'missing' ? 'All images have alt text!' : 'No images found'}</div>
+          </div>
+        `;
+        return;
+      }
+      
+      $('#images-container').innerHTML = `
+        <div class="image-grid">
+          ${pageImages.map(img => `
+            <div class="image-card" data-id="${img.id}">
+              <img src="${img.url}?width=400" alt="" class="image-preview" loading="lazy" onerror="this.style.display='none'">
+              <div class="image-info">
+                <div class="image-filename" title="${img.fileName}">${img.fileName}</div>
+                <div class="image-meta">${img.width}×${img.height} • ${formatSize(img.size)}</div>
+                
+                ${img.alt && img.alt.trim() ? `
+                  <div class="image-status has-alt">✅ Has alt text</div>
+                  <div class="alt-preview">${escapeHtml(img.alt)}</div>
+                ` : `
+                  <div class="image-status missing">⚠️ Missing alt text</div>
+                  <textarea class="alt-input" placeholder="Enter alt text or click Generate..." data-id="${img.id}"></textarea>
+                  <div class="image-actions">
+                    <button class="btn btn-primary btn-sm generate-btn" data-id="${img.id}" data-url="${img.url}">✨ Generate</button>
+                    <button class="btn btn-success btn-sm apply-btn" data-id="${img.id}" style="display:none;">✅ Apply</button>
+                  </div>
+                `}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      
+      // Attach event listeners
+      $$('.generate-btn').forEach(btn => {
+        btn.onclick = () => generateAltText(btn.dataset.id, btn.dataset.url);
+      });
+      
+      $$('.apply-btn').forEach(btn => {
+        btn.onclick = () => applyAltText(btn.dataset.id);
+      });
+    }
+    
+    // Render pagination
+    function renderPagination() {
+      const totalPages = Math.ceil(filteredImages.length / PAGE_SIZE);
+      
+      if (totalPages <= 1) {
+        $('#pagination').innerHTML = '';
+        return;
+      }
+      
+      let html = `
+        <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">←</button>
+      `;
+      
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+          html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          html += `<span class="page-info">...</span>`;
+        }
+      }
+      
+      html += `
+        <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">→</button>
+      `;
+      
+      $('#pagination').innerHTML = html;
+    }
+    
+    // Go to page
+    window.goToPage = function(page) {
+      currentPage = page;
+      renderImages();
+      renderPagination();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    
+    // Generate alt text using OpenAI Vision
+    async function generateAltText(imageId, imageUrl) {
+      const btn = $(`.generate-btn[data-id="${imageId}"]`);
+      const textarea = $(`.alt-input[data-id="${imageId}"]`);
+      const applyBtn = $(`.apply-btn[data-id="${imageId}"]`);
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+      
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + openaiKey
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `Generate alt text for this image. The alt text should be:
+- Concise (under 125 characters)
+- Descriptive of the visual content
+- Useful for screen readers and SEO
+- Not start with "Image of" or "Picture of"
+
+Return ONLY the alt text, nothing else.`
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: { url: imageUrl }
+                  }
+                ]
+              }
+            ],
+            max_tokens: 100
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        const altText = data.choices[0].message.content.trim();
+        textarea.value = altText;
+        applyBtn.style.display = 'inline-flex';
+        showToast('Alt text generated!', 'success');
+        
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+      
+      btn.disabled = false;
+      btn.textContent = '✨ Generate';
+    }
+    
+    // Apply alt text to Hygraph
+    async function applyAltText(imageId) {
+      const textarea = $(`.alt-input[data-id="${imageId}"]`);
+      const applyBtn = $(`.apply-btn[data-id="${imageId}"]`);
+      const altText = textarea.value.trim();
+      
+      if (!altText) {
+        showToast('Please enter alt text first', 'error');
+        return;
+      }
+      
+      applyBtn.disabled = true;
+      applyBtn.textContent = '⏳ Saving...';
+      
+      try {
+        // Update asset in Hygraph
+        await gql(`
+          mutation UpdateAsset($id: ID!, $alt: String!) {
+            updateAsset(where: { id: $id }, data: { alt: $alt }) {
+              id
+              alt
+            }
+          }
+        `, { id: imageId, alt: altText });
+        
+        // Update local state
+        const img = allImages.find(i => i.id === imageId);
+        if (img) img.alt = altText;
+        
+        updateStats();
+        applyFilter();
+        showToast('Alt text saved!', 'success');
+        
+      } catch (e) {
+        showToast('Error saving: ' + e.message, 'error');
+        applyBtn.disabled = false;
+        applyBtn.textContent = '✅ Apply';
+      }
+    }
+    
+    // Generate all missing
+    async function generateAllMissing() {
+      const missing = allImages.filter(img => !img.alt || img.alt.trim() === '');
+      
+      if (missing.length === 0) {
+        showToast('All images have alt text!', 'success');
+        return;
+      }
+      
+      const confirmMsg = `Generate alt text for ${missing.length} images? This will use approximately $${(missing.length * 0.01).toFixed(2)} in API credits.`;
+      if (!confirm(confirmMsg)) return;
+      
+      $('#generate-all-btn').disabled = true;
+      $('#generate-all-btn').textContent = `⏳ Generating 0/${missing.length}...`;
+      
+      let completed = 0;
+      
+      for (const img of missing) {
+        try {
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + openaiKey
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Generate alt text for this image. Concise (under 125 characters), descriptive, useful for screen readers. Return ONLY the alt text.`
+                    },
+                    {
+                      type: 'image_url',
+                      image_url: { url: img.url }
+                    }
+                  ]
+                }
+              ],
+              max_tokens: 100
+            })
+          });
+          
+          const data = await response.json();
+          if (!data.error) {
+            const altText = data.choices[0].message.content.trim();
+            
+            // Save to Hygraph
+            await gql(`
+              mutation UpdateAsset($id: ID!, $alt: String!) {
+                updateAsset(where: { id: $id }, data: { alt: $alt }) { id }
+              }
+            `, { id: img.id, alt: altText });
+            
+            img.alt = altText;
+          }
+          
+          completed++;
+          $('#generate-all-btn').textContent = `⏳ Generating ${completed}/${missing.length}...`;
+          
+          // Small delay to avoid rate limits
+          await new Promise(r => setTimeout(r, 500));
+          
+        } catch (e) {
+          console.warn('Error generating for', img.fileName, e);
+        }
+      }
+      
+      $('#generate-all-btn').disabled = false;
+      $('#generate-all-btn').textContent = '✨ Generate All Missing';
+      
+      updateStats();
+      applyFilter();
+      showToast(`Generated alt text for ${completed} images!`, 'success');
+    }
+    
+    // Helpers
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // Event handlers
+    $('#connect-btn').onclick = async () => {
+      endpoint = $('#endpoint-input').value.trim();
+      token = $('#token-input').value.trim();
+      openaiKey = $('#openai-input').value.trim();
+      
+      if (!endpoint || !token || !openaiKey) {
+        $('#setup-error').textContent = 'Please fill all fields';
+        return;
+      }
+      
+      $('#connect-btn').disabled = true;
+      $('#connect-btn').textContent = 'Connecting...';
+      $('#setup-error').textContent = '';
+      
+      try {
+        // Test Hygraph connection
+        await gql('{ __typename }');
+        
+        // Test OpenAI connection
+        const testResponse = await fetch('https://api.openai.com/v1/models', {
+          headers: { 'Authorization': 'Bearer ' + openaiKey }
+        });
+        if (!testResponse.ok) throw new Error('Invalid OpenAI API key');
+        
+        save();
+        $('#setup-view').style.display = 'none';
+        $('#main-view').style.display = 'block';
+        fetchAllImages();
+        
+      } catch (e) {
+        $('#setup-error').textContent = 'Error: ' + e.message;
+      }
+      
+      $('#connect-btn').disabled = false;
+      $('#connect-btn').textContent = 'Connect & Scan Images';
+    };
+    
+    $('#refresh-btn').onclick = fetchAllImages;
+    $('#generate-all-btn').onclick = generateAllMissing;
+    
+    // Filter tabs
+    $$('.filter-tab').forEach(tab => {
+      tab.onclick = () => {
+        $$('.filter-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentFilter = tab.dataset.filter;
+        applyFilter();
+      };
+    });
+    
+    // Initialize
+    sdk.init({ debug: true })
+      .then(async ({ props }) => {
+        const sdkEndpoint = props?.context?.environment?.endpoint;
+        const saved = load();
+        
+        if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
+        if (saved?.endpoint && !sdkEndpoint) $('#endpoint-input').value = saved.endpoint;
+        if (saved?.token) $('#token-input').value = saved.token;
+        if (saved?.openaiKey) $('#openai-input').value = saved.openaiKey;
+        
+        // Auto-connect if all credentials present
+        if ((sdkEndpoint || saved?.endpoint) && saved?.token && saved?.openaiKey) {
+          endpoint = sdkEndpoint || saved.endpoint;
+          token = saved.token;
+          openaiKey = saved.openaiKey;
+          
+          try {
+            await gql('{ __typename }');
+            $('#setup-view').style.display = 'none';
+            $('#main-view').style.display = 'block';
+            fetchAllImages();
+          } catch (e) {
+            // Credentials invalid, show form
+          }
+        }
+      })
+      .catch(() => {
+        // SDK failed, standalone mode
+        const saved = load();
+        if (saved?.endpoint) $('#endpoint-input').value = saved.endpoint;
+        if (saved?.token) $('#token-input').value = saved.token;
+        if (saved?.openaiKey) $('#openai-input').value = saved.openaiKey;
+      });
+  </script>
+</body>
+</html>
+
