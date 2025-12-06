@@ -28,7 +28,7 @@
     .header h1 { font-size: 24px; font-weight: 700; }
     .header-actions { display: flex; gap: 12px; }
     
-    .stats-bar { display: flex; gap: 24px; margin-bottom: 24px; padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+    .stats-bar { display: flex; gap: 24px; margin-bottom: 24px; padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; flex-wrap: wrap; }
     .stat-value { font-size: 24px; font-weight: 700; }
     .stat-value.warning { color: var(--warning); }
     .stat-value.success { color: var(--success); }
@@ -36,6 +36,7 @@
     
     .alert { padding: 16px 20px; border-radius: 12px; margin-bottom: 24px; }
     .alert.warning { background: var(--warning-bg); border: 1px solid var(--warning); color: #92400e; }
+    .alert.info { background: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; }
     
     .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
     .image-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -55,6 +56,7 @@
     .btn-primary { background: var(--accent); color: white; }
     .btn-secondary { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); }
     .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
     .btn-sm { padding: 6px 12px; font-size: 12px; }
     .btn-block { width: 100%; justify-content: center; }
     
@@ -86,6 +88,19 @@
     .filter-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
     .filter-tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); cursor: pointer; font-size: 13px; }
     .filter-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+    
+    /* Progress Modal */
+    .progress-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .progress-card { background: var(--bg-card); border-radius: 16px; padding: 32px; width: 90%; max-width: 500px; text-align: center; }
+    .progress-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .progress-subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+    .progress-bar-container { background: var(--bg-secondary); border-radius: 8px; height: 12px; overflow: hidden; margin-bottom: 16px; }
+    .progress-bar { background: linear-gradient(90deg, var(--accent), #a78bfa); height: 100%; border-radius: 8px; transition: width 0.3s ease; }
+    .progress-stats { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+    .progress-eta { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+    .progress-actions { display: flex; gap: 12px; justify-content: center; }
+    
+    .free-badge { display: inline-block; background: #dcfce7; color: #166534; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -109,9 +124,9 @@
         </div>
         
         <div class="form-group">
-          <label>OpenAI API Key</label>
-          <input type="password" id="openai-input" placeholder="sk-...">
-          <div class="form-hint">For GPT-4 Vision. <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent);">Get one here</a></div>
+          <label>Google Gemini API Key <span class="free-badge">FREE</span></label>
+          <input type="password" id="gemini-input" placeholder="AIza...">
+          <div class="form-hint">Free tier: 1,500 requests/day. <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--accent);">Get one here</a></div>
         </div>
         
         <button class="btn btn-primary btn-block" id="connect-btn" style="margin-top: 20px;">
@@ -133,6 +148,11 @@
       <div id="no-alt-field-alert" class="alert warning" style="display:none;">
         <strong>⚠️ No alt text field found on Asset model!</strong><br>
         Add a String field (alt, altText, description, or caption) to your Asset model.
+      </div>
+      
+      <div id="rate-limit-info" class="alert info" style="display:none;">
+        <strong>ℹ️ Free Tier Rate Limiting</strong><br>
+        Gemini free tier allows 15 requests/minute. Bulk generation uses 4-second delays between images.
       </div>
       
       <div id="field-info" style="margin-bottom:16px;font-size:13px;color:var(--text-muted);"></div>
@@ -168,6 +188,26 @@
       
       <div class="pagination" id="pagination"></div>
     </div>
+    
+    <!-- Progress Modal -->
+    <div id="progress-modal" class="progress-modal" style="display: none;">
+      <div class="progress-card">
+        <div class="progress-title">✨ Generating Alt Text</div>
+        <div class="progress-subtitle" id="progress-current">Processing image...</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+        </div>
+        <div class="progress-stats">
+          <span id="progress-count">0 / 0</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-eta" id="progress-eta">Estimated time: calculating...</div>
+        <div class="progress-actions">
+          <button class="btn btn-secondary" id="pause-btn">⏸️ Pause</button>
+          <button class="btn btn-danger" id="cancel-btn">✖️ Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -178,15 +218,27 @@
     const $ = s => document.querySelector(s);
     const $$ = s => document.querySelectorAll(s);
     
-    let endpoint = null, token = null, openaiKey = null;
+    let endpoint = null, token = null, geminiKey = null;
     let allImages = [], filteredImages = [];
     let currentFilter = 'missing', currentPage = 1;
     let altFieldName = null;
     const PAGE_SIZE = 12;
+    const RATE_LIMIT_DELAY = 4000; // 4 seconds between requests (15 RPM = 4s)
+    
+    // Bulk generation state
+    let bulkGenerating = false;
+    let bulkPaused = false;
+    let bulkCancelled = false;
+    let completedIds = new Set();
     
     const STORAGE_KEY = 'alttext_generator_creds';
-    const save = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ endpoint, token, openaiKey })); } catch(e){} };
-    const load = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; } };
+    const PROGRESS_KEY = 'alttext_generator_progress';
+    
+    const saveCreds = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ endpoint, token, geminiKey })); } catch(e){} };
+    const loadCreds = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; } };
+    const saveProgress = () => { try { localStorage.setItem(PROGRESS_KEY, JSON.stringify([...completedIds])); } catch(e){} };
+    const loadProgress = () => { try { return new Set(JSON.parse(localStorage.getItem(PROGRESS_KEY)) || []); } catch(e){ return new Set(); } };
+    const clearProgress = () => { try { localStorage.removeItem(PROGRESS_KEY); completedIds = new Set(); } catch(e){} };
     
     async function gql(query, variables = {}) {
       const res = await fetch(endpoint, {
@@ -199,6 +251,58 @@
       return data.data;
     }
     
+    // Fetch image as base64 for Gemini API
+    async function fetchImageAsBase64(imageUrl) {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+    
+    // Generate alt text using Google Gemini 2.0 Flash (FREE)
+    async function generateWithGemini(imageUrl) {
+      const base64Image = await fetchImageAsBase64(imageUrl);
+      
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: 'Generate concise alt text (under 125 characters) for this image. Make it descriptive and useful for screen readers and SEO. Do not start with "Image of" or "A photo of". Return ONLY the alt text, nothing else.' },
+                { inlineData: { mimeType: 'image/jpeg', data: base64Image }}
+              ]
+            }],
+            generationConfig: {
+              maxOutputTokens: 100,
+              temperature: 0.4
+            }
+          })
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message || 'Gemini API error');
+      }
+      
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw new Error('No response from Gemini');
+      }
+      
+      return data.candidates[0].content.parts[0].text.trim();
+    }
+    
     // Detect what alt text field exists on Asset
     async function detectAltField() {
       try {
@@ -206,7 +310,6 @@
         const fields = data.__type?.fields?.map(f => f.name) || [];
         console.log('Asset fields:', fields);
         
-        // Check for common alt text field names (in order of preference)
         const candidates = ['altText', 'alt', 'alternativeText', 'description', 'caption'];
         for (const name of candidates) {
           if (fields.includes(name)) {
@@ -224,7 +327,6 @@
       $('#images-container').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       allImages = [];
       
-      // Detect the alt field first
       altFieldName = await detectAltField();
       console.log('Using alt field:', altFieldName);
       
@@ -242,7 +344,6 @@
       
       while (hasMore) {
         const afterClause = after ? `, after: "${after}"` : '';
-        // Only include alt field if it exists
         const altQuery = altFieldName || '';
         
         const query = `{
@@ -275,6 +376,21 @@
       }
       
       console.log('Fetched', allImages.length, 'images');
+      
+      // Load progress and check if we have a pending bulk operation
+      completedIds = loadProgress();
+      if (completedIds.size > 0) {
+        const remaining = getMissingImages().filter(img => !completedIds.has(img.id));
+        if (remaining.length > 0) {
+          $('#rate-limit-info').style.display = 'block';
+          $('#rate-limit-info').innerHTML = `<strong>📋 Resume Available</strong><br>${completedIds.size} images already processed. ${remaining.length} remaining. <a href="#" id="resume-link" style="color: var(--accent);">Resume generation</a> or <a href="#" id="clear-link" style="color: var(--text-muted);">start fresh</a>`;
+          $('#resume-link')?.addEventListener('click', (e) => { e.preventDefault(); generateAllMissing(true); });
+          $('#clear-link')?.addEventListener('click', (e) => { e.preventDefault(); clearProgress(); fetchAllImages(); });
+        } else {
+          clearProgress();
+        }
+      }
+      
       updateStats();
       applyFilter();
     }
@@ -284,11 +400,15 @@
       return img[altFieldName];
     }
     
-    function updateStats() {
-      const missing = allImages.filter(img => {
+    function getMissingImages() {
+      return allImages.filter(img => {
         const alt = getAltValue(img);
         return !alt || (typeof alt === 'string' && alt.trim() === '');
-      }).length;
+      });
+    }
+    
+    function updateStats() {
+      const missing = getMissingImages().length;
       const hasAlt = allImages.length - missing;
       const coverage = allImages.length > 0 ? Math.round((hasAlt / allImages.length) * 100) : 0;
       
@@ -302,10 +422,7 @@
       if (!altFieldName) {
         filteredImages = [...allImages];
       } else if (currentFilter === 'missing') {
-        filteredImages = allImages.filter(img => {
-          const alt = getAltValue(img);
-          return !alt || (typeof alt === 'string' && alt.trim() === '');
-        });
+        filteredImages = getMissingImages();
       } else if (currentFilter === 'has') {
         filteredImages = allImages.filter(img => {
           const alt = getAltValue(img);
@@ -391,26 +508,8 @@
       btn.textContent = '⏳ Generating...';
       
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + openaiKey },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'text', text: 'Generate alt text for this image. Concise (under 125 characters), descriptive, useful for screen readers and SEO. Do not start with "Image of". Return ONLY the alt text.' },
-                { type: 'image_url', image_url: { url: imageUrl } }
-              ]
-            }],
-            max_tokens: 100
-          })
-        });
-        
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        
-        textarea.value = data.choices[0].message.content.trim();
+        const altText = await generateWithGemini(imageUrl);
+        textarea.value = altText;
         applyBtn.style.display = 'inline-flex';
         showToast('Alt text generated!', 'success');
       } catch (e) {
@@ -437,7 +536,6 @@
       applyBtn.textContent = '⏳ Saving...';
       
       try {
-        // Use the detected field name in the mutation
         const mutation = `mutation UpdateAssetAlt($id: ID!, $altValue: String!) { 
           updateAsset(where: { id: $id }, data: { ${altFieldName}: $altValue }) { id } 
         }`;
@@ -455,58 +553,116 @@
       }
     }
     
-    async function generateAllMissing() {
+    function updateProgressModal(current, total, currentFile, startTime) {
+      const percent = Math.round((current / total) * 100);
+      $('#progress-bar').style.width = percent + '%';
+      $('#progress-count').textContent = `${current} / ${total}`;
+      $('#progress-percent').textContent = percent + '%';
+      $('#progress-current').textContent = currentFile ? `Processing: ${currentFile}` : 'Processing...';
+      
+      // Calculate ETA
+      if (current > 0) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const avgTime = elapsed / current;
+        const remaining = (total - current) * avgTime;
+        const minutes = Math.ceil(remaining / 60);
+        $('#progress-eta').textContent = minutes > 1 ? `Estimated time: ~${minutes} minutes` : 'Almost done...';
+      }
+    }
+    
+    async function generateAllMissing(resume = false) {
       if (!altFieldName) {
         showToast('No alt field on Asset model', 'error');
         return;
       }
       
-      const missing = allImages.filter(img => {
-        const alt = getAltValue(img);
-        return !alt || (typeof alt === 'string' && alt.trim() === '');
-      });
+      let missing = getMissingImages();
       
-      if (missing.length === 0) { showToast('All images have alt text!', 'success'); return; }
-      if (!confirm(`Generate alt text for ${missing.length} images? (~$${(missing.length * 0.01).toFixed(2)} API cost)`)) return;
+      if (resume) {
+        missing = missing.filter(img => !completedIds.has(img.id));
+      } else {
+        clearProgress();
+      }
       
+      if (missing.length === 0) { 
+        showToast('All images have alt text!', 'success'); 
+        return; 
+      }
+      
+      const estimatedMinutes = Math.ceil((missing.length * RATE_LIMIT_DELAY) / 60000);
+      if (!confirm(`Generate alt text for ${missing.length} images?\n\n⏱️ Estimated time: ~${estimatedMinutes} minutes\n💰 Cost: FREE (Gemini)\n\nYou can pause and resume anytime.`)) return;
+      
+      // Show progress modal
+      bulkGenerating = true;
+      bulkPaused = false;
+      bulkCancelled = false;
+      $('#progress-modal').style.display = 'flex';
       $('#generate-all-btn').disabled = true;
+      $('#pause-btn').textContent = '⏸️ Pause';
+      
+      const startTime = Date.now();
       let completed = 0;
       
       for (const img of missing) {
-        $('#generate-all-btn').textContent = `⏳ ${completed}/${missing.length}...`;
+        if (bulkCancelled) break;
+        
+        // Handle pause
+        while (bulkPaused && !bulkCancelled) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        
+        if (bulkCancelled) break;
+        
+        updateProgressModal(completed, missing.length, img.fileName, startTime);
+        
         try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + openaiKey },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [{ role: 'user', content: [
-                { type: 'text', text: 'Generate alt text for this image. Concise (under 125 characters), descriptive. Return ONLY the alt text.' },
-                { type: 'image_url', image_url: { url: img.url } }
-              ]}],
-              max_tokens: 100
-            })
-          });
-          const data = await response.json();
-          if (!data.error) {
-            const altText = data.choices[0].message.content.trim();
-            const mutation = `mutation UpdateAssetAlt($id: ID!, $altValue: String!) { 
-              updateAsset(where: { id: $id }, data: { ${altFieldName}: $altValue }) { id } 
-            }`;
-            await gql(mutation, { id: img.id, altValue: altText });
-            img[altFieldName] = altText;
-          }
+          const altText = await generateWithGemini(img.url);
+          const mutation = `mutation UpdateAssetAlt($id: ID!, $altValue: String!) { 
+            updateAsset(where: { id: $id }, data: { ${altFieldName}: $altValue }) { id } 
+          }`;
+          await gql(mutation, { id: img.id, altValue: altText });
+          img[altFieldName] = altText;
+          completedIds.add(img.id);
+          saveProgress();
           completed++;
-          await new Promise(r => setTimeout(r, 500));
-        } catch (e) { console.warn('Error for', img.fileName, e); }
+        } catch (e) {
+          console.warn('Error for', img.fileName, e.message);
+          // Continue with next image on error
+        }
+        
+        // Rate limiting delay (4 seconds for 15 RPM)
+        if (!bulkCancelled && missing.indexOf(img) < missing.length - 1) {
+          await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
+        }
       }
       
+      // Hide progress modal
+      $('#progress-modal').style.display = 'none';
+      bulkGenerating = false;
       $('#generate-all-btn').disabled = false;
-      $('#generate-all-btn').textContent = '✨ Generate All Missing';
+      
+      if (bulkCancelled) {
+        showToast(`Cancelled. ${completed} images processed. Progress saved.`, 'info');
+      } else {
+        clearProgress();
+        showToast(`Generated alt text for ${completed} images!`, 'success');
+      }
+      
       updateStats();
       applyFilter();
-      showToast(`Generated ${completed} alt texts!`, 'success');
     }
+    
+    // Pause/Resume button
+    $('#pause-btn').onclick = () => {
+      bulkPaused = !bulkPaused;
+      $('#pause-btn').textContent = bulkPaused ? '▶️ Resume' : '⏸️ Pause';
+    };
+    
+    // Cancel button
+    $('#cancel-btn').onclick = () => {
+      bulkCancelled = true;
+      bulkPaused = false;
+    };
     
     function formatSize(bytes) {
       if (!bytes) return '?';
@@ -530,20 +686,33 @@
     $('#connect-btn').onclick = async () => {
       endpoint = $('#endpoint-input').value.trim();
       token = $('#token-input').value.trim();
-      openaiKey = $('#openai-input').value.trim();
+      geminiKey = $('#gemini-input').value.trim();
       
-      if (!endpoint || !token || !openaiKey) { $('#setup-error').textContent = 'Please fill all fields'; return; }
+      if (!endpoint || !token || !geminiKey) { $('#setup-error').textContent = 'Please fill all fields'; return; }
       
       $('#connect-btn').disabled = true;
       $('#connect-btn').textContent = 'Connecting...';
       $('#setup-error').textContent = '';
       
       try {
+        // Test Hygraph connection
         await gql('{ __typename }');
-        const testResponse = await fetch('https://api.openai.com/v1/models', { headers: { 'Authorization': 'Bearer ' + openaiKey } });
-        if (!testResponse.ok) throw new Error('Invalid OpenAI API key');
         
-        save();
+        // Test Gemini API key
+        const testResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Say "OK"' }] }]
+            })
+          }
+        );
+        const testData = await testResponse.json();
+        if (testData.error) throw new Error('Invalid Gemini API key: ' + testData.error.message);
+        
+        saveCreds();
         $('#setup-view').style.display = 'none';
         $('#main-view').style.display = 'block';
         fetchAllImages();
@@ -556,7 +725,7 @@
     };
     
     $('#refresh-btn').onclick = fetchAllImages;
-    $('#generate-all-btn').onclick = generateAllMissing;
+    $('#generate-all-btn').onclick = () => generateAllMissing(false);
     
     $$('.filter-tab').forEach(tab => {
       tab.onclick = () => {
@@ -567,20 +736,21 @@
       };
     });
     
+    // Initialize
     sdk.init({ debug: true })
       .then(async ({ props }) => {
         const sdkEndpoint = props?.context?.environment?.endpoint;
-        const saved = load();
+        const saved = loadCreds();
         
         if (sdkEndpoint) $('#endpoint-input').value = sdkEndpoint;
         if (saved?.endpoint && !sdkEndpoint) $('#endpoint-input').value = saved.endpoint;
         if (saved?.token) $('#token-input').value = saved.token;
-        if (saved?.openaiKey) $('#openai-input').value = saved.openaiKey;
+        if (saved?.geminiKey) $('#gemini-input').value = saved.geminiKey;
         
-        if ((sdkEndpoint || saved?.endpoint) && saved?.token && saved?.openaiKey) {
+        if ((sdkEndpoint || saved?.endpoint) && saved?.token && saved?.geminiKey) {
           endpoint = sdkEndpoint || saved.endpoint;
           token = saved.token;
-          openaiKey = saved.openaiKey;
+          geminiKey = saved.geminiKey;
           try {
             await gql('{ __typename }');
             $('#setup-view').style.display = 'none';
@@ -590,10 +760,10 @@
         }
       })
       .catch(() => {
-        const saved = load();
+        const saved = loadCreds();
         if (saved?.endpoint) $('#endpoint-input').value = saved.endpoint;
         if (saved?.token) $('#token-input').value = saved.token;
-        if (saved?.openaiKey) $('#openai-input').value = saved.openaiKey;
+        if (saved?.geminiKey) $('#gemini-input').value = saved.geminiKey;
       });
   </script>
 </body>
