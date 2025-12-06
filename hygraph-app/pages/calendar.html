@@ -201,7 +201,7 @@
 
   <!-- Loading -->
   <div id="loading-view" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
-    <div style="text-align:center;"><div class="spinner" style="margin:0 auto 12px;"></div><p style="color:var(--text-muted);font-size:13px;">Loading...</p></div>
+    <div style="text-align:center;"><div class="spinner" style="margin:0 auto 12px;"></div><p id="loading-message" style="color:var(--text-muted);font-size:13px;">Loading...</p></div>
   </div>
 
   <!-- Main View -->
@@ -359,9 +359,34 @@ async function gql(query, variables = {}) {
   return r.data;
 }
 
-// Discover models - simplified approach
+// Batch processing utility - runs promises in parallel with concurrency limit
+async function runInBatches(items, fn, batchSize = 10, onProgress = null) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(fn));
+    results.push(...batchResults);
+    if (onProgress) onProgress(Math.min(i + batchSize, items.length), items.length);
+  }
+  return results;
+}
+
+// Show loading progress
+function showLoadingProgress(message, current = null, total = null) {
+  const loadingEl = document.getElementById('loading-message');
+  if (loadingEl) {
+    if (current !== null && total !== null) {
+      loadingEl.textContent = `${message} (${current}/${total})`;
+    } else {
+      loadingEl.textContent = message;
+    }
+  }
+}
+
+// Discover models - PARALLEL version for scale
 async function discoverModels() {
   console.log('Discovering models...');
+  showLoadingProgress('Discovering models...');
   
   // Use a simple introspection query - just get query field names
   const queryIntro = await gql(`{ __schema { queryType { fields { name } } } }`);
@@ -381,75 +406,76 @@ async function discoverModels() {
   
   console.log('Potential model queries:', modelQueries);
   
-  const found = [];
-  
-  // For each potential model query, try to fetch its fields
-  for (const pluralApiId of modelQueries) {
-    // Guess the model name from plural (remove trailing 's', capitalize first letter)
-    let guessedName = pluralApiId.slice(0, -1);
-    guessedName = guessedName.charAt(0).toUpperCase() + guessedName.slice(1);
-    
-    // Handle common irregular plurals
-    if (pluralApiId === 'people') guessedName = 'Person';
-    if (pluralApiId === 'categories') guessedName = 'Category';
-    if (pluralApiId === 'companies') guessedName = 'Company';
-    if (pluralApiId === 'cities') guessedName = 'City';
-    if (pluralApiId === 'countries') guessedName = 'Country';
+  // Helper to guess model name from plural
+  const guessModelName = (pluralApiId) => {
+    if (pluralApiId === 'people') return 'Person';
+    if (pluralApiId === 'categories') return 'Category';
+    if (pluralApiId === 'companies') return 'Company';
+    if (pluralApiId === 'cities') return 'City';
+    if (pluralApiId === 'countries') return 'Country';
     if (pluralApiId.endsWith('ies')) {
-      guessedName = pluralApiId.slice(0, -3) + 'y';
-      guessedName = guessedName.charAt(0).toUpperCase() + guessedName.slice(1);
+      const base = pluralApiId.slice(0, -3) + 'y';
+      return base.charAt(0).toUpperCase() + base.slice(1);
     }
+    const base = pluralApiId.slice(0, -1);
+    return base.charAt(0).toUpperCase() + base.slice(1);
+  };
+  
+  // Process each model query in PARALLEL (batches of 15)
+  const processModel = async (pluralApiId) => {
+    const guessedName = guessModelName(pluralApiId);
     
-    try {
-      // Try to get type info
-      const typeInfo = await gql(`{
-        __type(name: "${guessedName}") {
-          name
-          fields { name type { name kind ofType { name } } }
-        }
-      }`);
-      
-      if (!typeInfo.__type?.fields) {
-        console.log(`Type ${guessedName} not found, skipping ${pluralApiId}`);
-        continue;
+    const typeInfo = await gql(`{
+      __type(name: "${guessedName}") {
+        name
+        fields { name type { name kind ofType { name } } }
       }
-      
-      const modelName = typeInfo.__type.name;
-      const fields = typeInfo.__type.fields;
-      
-      // Check for scheduledPublishAt or similar field
-      const scheduleField = fields.find(f => 
-        f.name === 'scheduledPublishAt' || 
-        f.name === 'publishAt' || 
-        f.name === 'scheduleDate' ||
-        f.name === 'publishDate'
-      );
-      
-      // Find a title field
-      const titleField = fields.find(f => 
-        ['title', 'name', 'heading', 'label', 'slug'].includes(f.name.toLowerCase()) &&
-        (f.type.name === 'String' || f.type.ofType?.name === 'String')
-      );
-      
-      // Guess singular API ID
-      const singularApiId = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-      
-      found.push({
-        name: modelName,
-        singularApiId: singularApiId,
-        pluralApiId: pluralApiId,
-        scheduleField: scheduleField?.name || null,
-        titleField: titleField?.name || null,
-        color: getModelColor(modelName)
-      });
-      
-      console.log(`Model ${modelName}: plural=${pluralApiId}, title=${titleField?.name}`);
-    } catch (e) {
-      // Type doesn't exist with guessed name, skip
-      console.log(`Skipping ${pluralApiId}: ${e.message}`);
-    }
-  }
-
+    }`);
+    
+    if (!typeInfo.__type?.fields) return null;
+    
+    const modelName = typeInfo.__type.name;
+    const fields = typeInfo.__type.fields;
+    
+    // Check for scheduledPublishAt or similar field
+    const scheduleField = fields.find(f => 
+      f.name === 'scheduledPublishAt' || 
+      f.name === 'publishAt' || 
+      f.name === 'scheduleDate' ||
+      f.name === 'publishDate'
+    );
+    
+    // Find a title field
+    const titleField = fields.find(f => 
+      ['title', 'name', 'heading', 'label', 'slug'].includes(f.name.toLowerCase()) &&
+      (f.type.name === 'String' || f.type.ofType?.name === 'String')
+    );
+    
+    const singularApiId = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+    
+    return {
+      name: modelName,
+      singularApiId: singularApiId,
+      pluralApiId: pluralApiId,
+      scheduleField: scheduleField?.name || null,
+      titleField: titleField?.name || null,
+      color: getModelColor(modelName)
+    };
+  };
+  
+  // Run in parallel batches of 15 for speed
+  const results = await runInBatches(
+    modelQueries, 
+    processModel, 
+    15, 
+    (done, total) => showLoadingProgress('Discovering models', done, total)
+  );
+  
+  // Filter successful results
+  const found = results
+    .filter(r => r.status === 'fulfilled' && r.value !== null)
+    .map(r => r.value);
+  
   console.log('Discovered models:', found.length);
   return found;
 }
@@ -487,89 +513,95 @@ function getDateRange() {
   }
 }
 
-// Fetch scheduled entries by querying each model's scheduledIn field
+// Fetch scheduled entries by querying each model's scheduledIn field - PARALLEL version
 async function fetchScheduledOperations() {
   const { start, end } = getDateRange();
   
   console.log(`Fetching scheduled entries for ${start.toISOString()} to ${end.toISOString()} (${viewMode} view)`);
+  showLoadingProgress('Fetching scheduled entries...');
   
-  const scheduled = [];
+  // Filter models based on active filters
+  const modelsToQuery = activeFilters.size > 0 
+    ? models.filter(m => activeFilters.has(m.name))
+    : models;
   
-  // Query each model for entries with scheduledIn
-  for (const model of models) {
-    if (activeFilters.size > 0 && !activeFilters.has(model.name)) continue;
+  // Process each model in PARALLEL
+  const processModel = async (model) => {
+    const fields = ['id', 'createdAt'];
+    if (model.titleField) fields.push(model.titleField);
     
-    try {
-      // Build fields to query
-      const fields = ['id', 'createdAt'];
-      if (model.titleField) fields.push(model.titleField);
-      
-      // Query entries with their scheduledIn relation
-      const query = `{
-        entries: ${model.pluralApiId}(
-          stage: DRAFT
-          first: 100
-          where: { scheduledIn_some: { status: PENDING } }
-        ) {
-          ${fields.join(' ')}
-          scheduledIn(where: { status: PENDING }) {
+    const query = `{
+      entries: ${model.pluralApiId}(
+        stage: DRAFT
+        first: 100
+        where: { scheduledIn_some: { status: PENDING } }
+      ) {
+        ${fields.join(' ')}
+        scheduledIn(where: { status: PENDING }) {
+          id
+          status
+          release {
             id
-            status
-            release {
-              id
-              title
-              releaseAt
-            }
+            title
+            releaseAt
           }
-        }
-      }`;
-      
-      console.log(`Querying ${model.name} for scheduled entries...`);
-      const data = await gql(query);
-      
-      for (const entry of data.entries || []) {
-        for (const op of entry.scheduledIn || []) {
-          if (!op.release?.releaseAt) continue;
-          
-          const releaseDate = new Date(op.release.releaseAt);
-          
-          // Check if in our date range
-          if (releaseDate < start || releaseDate > end) {
-            console.log(`  ${entry.id}: scheduled for ${releaseDate.toLocaleDateString()} (outside range)`);
-            continue;
-          }
-          
-          const title = entry[model.titleField] || entry.id.slice(0, 8);
-          
-          scheduled.push({
-            id: entry.id,
-            title: title,
-            date: releaseDate,
-            stage: 'SCHEDULED',
-            modelName: model.name,
-            pluralApiId: model.pluralApiId,
-            titleField: model.titleField,
-            color: model.color,
-            isScheduled: true,
-            releaseId: op.release.id,
-            releaseTitle: op.release.title,
-            createdAt: entry.createdAt ? new Date(entry.createdAt) : null,
-            author: null // createdBy requires special permissions
-          });
-          
-          console.log(`  ✓ ${title} (${model.name}) scheduled for ${releaseDate.toLocaleDateString()}`);
         }
       }
-    } catch (e) {
-      console.warn(`Could not query scheduled entries for ${model.name}:`, e.message);
+    }`;
+    
+    const data = await gql(query);
+    const modelScheduled = [];
+    
+    for (const entry of data.entries || []) {
+      for (const op of entry.scheduledIn || []) {
+        if (!op.release?.releaseAt) continue;
+        
+        const releaseDate = new Date(op.release.releaseAt);
+        
+        // Check if in our date range
+        if (releaseDate < start || releaseDate > end) continue;
+        
+        const title = entry[model.titleField] || entry.id.slice(0, 8);
+        
+        modelScheduled.push({
+          id: entry.id,
+          title: title,
+          date: releaseDate,
+          stage: 'SCHEDULED',
+          modelName: model.name,
+          pluralApiId: model.pluralApiId,
+          titleField: model.titleField,
+          color: model.color,
+          isScheduled: true,
+          releaseId: op.release.id,
+          releaseTitle: op.release.title,
+          createdAt: entry.createdAt ? new Date(entry.createdAt) : null,
+          author: null
+        });
+      }
     }
-  }
+    
+    return modelScheduled;
+  };
+  
+  // Run in parallel batches of 10 (conservative to avoid rate limits)
+  const results = await runInBatches(
+    modelsToQuery, 
+    processModel, 
+    10, 
+    (done, total) => showLoadingProgress('Fetching scheduled entries', done, total)
+  );
+  
+  // Flatten all results
+  const scheduled = results
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value || []);
   
   console.log(`Found ${scheduled.length} scheduled entries total`);
   return scheduled;
 }
 
-// Fetch entries for current month
+// Fetch entries for current month - PARALLEL version
 async function fetchEntries() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -578,23 +610,30 @@ async function fetchEntries() {
   
   const allEntries = [];
   
-  // First, get native scheduled operations
+  // First, get native scheduled operations (already parallelized)
   const scheduledOps = await fetchScheduledOperations();
   allEntries.push(...scheduledOps);
   console.log(`Found ${scheduledOps.length} scheduled operations`);
+  
+  // Track IDs from scheduled ops for deduplication
+  const scheduledIds = new Set(scheduledOps.map(e => e.id));
 
-  // Only fetch entries with custom scheduledPublishAt field (not all drafts/published)
-  // This prevents cluttering the calendar with every entry's createdAt date
-  for (const model of models) {
-    if (!model.scheduleField) continue; // Skip models without schedule field
-    if (activeFilters.size > 0 && !activeFilters.has(model.name)) continue;
+  // Filter models with custom schedule fields
+  const modelsWithScheduleField = models.filter(m => {
+    if (!m.scheduleField) return false;
+    if (activeFilters.size > 0 && !activeFilters.has(m.name)) return false;
+    return true;
+  });
+  
+  if (modelsWithScheduleField.length > 0) {
+    showLoadingProgress('Fetching custom scheduled entries...');
     
-    try {
+    // Process custom schedule fields in PARALLEL
+    const processCustomSchedule = async (model) => {
       const fields = ['id', '__typename'];
       if (model.titleField) fields.push(model.titleField);
       fields.push(model.scheduleField);
 
-      // Only query entries with scheduledPublishAt in our date range
       const query = `{
         entries: ${model.pluralApiId}(
           where: { 
@@ -609,15 +648,15 @@ async function fetchEntries() {
       }`;
 
       const data = await gql(query);
-      console.log(`Custom scheduled entries for ${model.name}:`, data.entries?.length || 0);
+      const customEntries = [];
       
       for (const entry of data.entries || []) {
         // Skip if already in scheduled ops
-        if (allEntries.some(e => e.id === entry.id)) continue;
+        if (scheduledIds.has(entry.id)) continue;
         
         const displayDate = new Date(entry[model.scheduleField]);
 
-        allEntries.push({
+        customEntries.push({
           id: entry.id,
           title: entry[model.titleField] || entry.id.slice(0, 8),
           date: displayDate,
@@ -630,8 +669,23 @@ async function fetchEntries() {
           isScheduled: true
         });
       }
-    } catch (e) {
-      console.warn(`Failed to fetch scheduled ${model.name}:`, e.message);
+      
+      return customEntries;
+    };
+    
+    // Run in parallel batches
+    const customResults = await runInBatches(
+      modelsWithScheduleField, 
+      processCustomSchedule, 
+      10,
+      (done, total) => showLoadingProgress('Fetching custom scheduled', done, total)
+    );
+    
+    // Add successful results
+    for (const result of customResults) {
+      if (result.status === 'fulfilled') {
+        allEntries.push(...(result.value || []));
+      }
     }
   }
 
