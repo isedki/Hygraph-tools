@@ -340,40 +340,52 @@
         $('#generate-all-btn').disabled = false;
       }
       
-      let hasMore = true, after = null;
+      const altQuery = altFieldName || '';
+      const imageMap = new Map(); // Deduplicate by ID
       
-      while (hasMore) {
-        const afterClause = after ? `, after: "${after}"` : '';
-        const altQuery = altFieldName || '';
+      // Fetch from both DRAFT and PUBLISHED stages
+      for (const stage of ['DRAFT', 'PUBLISHED']) {
+        let hasMore = true, after = null;
         
-        const query = `{
-          assetsConnection(first: 100${afterClause}, where: { mimeType_starts_with: "image/" }, stage: DRAFT) {
-            edges { 
-              node { 
-                id 
-                fileName 
-                url 
-                width 
-                height 
-                size 
-                ${altQuery}
-              } 
-              cursor 
+        while (hasMore) {
+          const afterClause = after ? `, after: "${after}"` : '';
+          
+          const query = `{
+            assetsConnection(first: 100${afterClause}, where: { mimeType_starts_with: "image/" }, stage: ${stage}) {
+              edges { 
+                node { 
+                  id 
+                  fileName 
+                  url 
+                  width 
+                  height 
+                  size 
+                  ${altQuery}
+                } 
+                cursor 
+              }
+              pageInfo { hasNextPage endCursor }
             }
-            pageInfo { hasNextPage endCursor }
+          }`;
+          
+          try {
+            const data = await gql(query);
+            for (const edge of (data.assetsConnection.edges || [])) {
+              // Store in map - PUBLISHED version takes priority (has latest alt text)
+              if (!imageMap.has(edge.node.id) || stage === 'PUBLISHED') {
+                imageMap.set(edge.node.id, edge.node);
+              }
+            }
+            hasMore = data.assetsConnection.pageInfo.hasNextPage;
+            after = data.assetsConnection.pageInfo.endCursor;
+          } catch (e) {
+            console.error(`Error fetching ${stage} images:`, e);
+            hasMore = false;
           }
-        }`;
-        
-        try {
-          const data = await gql(query);
-          allImages.push(...(data.assetsConnection.edges || []).map(e => e.node));
-          hasMore = data.assetsConnection.pageInfo.hasNextPage;
-          after = data.assetsConnection.pageInfo.endCursor;
-        } catch (e) {
-          console.error('Error fetching images:', e);
-          hasMore = false;
         }
       }
+      
+      allImages = Array.from(imageMap.values());
       
       console.log('Fetched', allImages.length, 'images');
       
