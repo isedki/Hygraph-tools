@@ -70,10 +70,45 @@
     import "https://unpkg.com/@hygraph/app-sdk";
 
     const button = document.getElementById("install");
-    const status = document.getElementById("status");
+    const statusEl = document.getElementById("status");
     const sdk = window["@hygraph/app-sdk"];
+    const baseUrl = window.location.origin;
 
     console.log("SDK loaded:", sdk);
+    
+    // Extract project ID and region from endpoint
+    const extractProjectId = (ep) => { const m = ep.match(/\/v2\/([^/]+)\/|\/content\/([^/]+)\//); return m ? (m[1] || m[2]) : null; };
+    const extractRegion = (ep) => { const m = ep.match(/(?:api-|\/\/)([a-z0-9-]+)(?:\.cdn)?\.hygraph\.com/); return m ? m[1] : null; };
+
+    // Exchange code for content token
+    async function exchangeForContentToken(code, projectId, region) {
+      try {
+        statusEl.textContent = "🔄 Getting authentication token...";
+        statusEl.style.color = "#6b7280";
+        
+        const response = await fetch(`${baseUrl}/api/exchange-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, projectId, region })
+        });
+        
+        const data = await response.json();
+        console.log('Token exchange response:', data);
+        
+        if (data.contentToken) {
+          // Store the content token for all tools to use!
+          localStorage.setItem('hygraph_tools_pat', data.contentToken);
+          console.log('✅ Content token stored!');
+          return true;
+        } else if (data.error) {
+          console.warn('Token exchange warning:', data.error);
+        }
+        return false;
+      } catch (error) {
+        console.error('Token exchange error:', error);
+        return false;
+      }
+    }
 
     sdk
       .init({
@@ -83,8 +118,8 @@
           if (props.installation && props.installation.status === "COMPLETED") {
             button.disabled = true;
             button.textContent = "Installation Complete ✓";
-            status.textContent = "App installed successfully!";
-            status.style.color = "#10b981";
+            statusEl.textContent = "App installed successfully!";
+            statusEl.style.color = "#10b981";
           }
         },
       })
@@ -92,8 +127,8 @@
         console.log("SDK initialized successfully:", initialState);
         const { status: initStatus, props } = initialState;
         
-        status.textContent = "Ready to install";
-        status.style.color = "#10b981";
+        statusEl.textContent = "Ready to install";
+        statusEl.style.color = "#10b981";
 
         if (initStatus === "ok" && props) {
           // Store endpoint for all tools to use
@@ -107,13 +142,36 @@
           if (props.installation && props.installation.status === "COMPLETED") {
             button.disabled = true;
             button.textContent = "Already Installed ✓";
+            
+            // Check if we have a token
+            const hasToken = localStorage.getItem('hygraph_tools_pat');
+            if (hasToken) {
+              statusEl.textContent = "✅ Ready to use - authentication token available!";
+              statusEl.style.color = "#10b981";
+            }
             return;
           }
+          
+          // Get exchange code from URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get('code');
+          const projectId = sdkEndpoint ? extractProjectId(sdkEndpoint) : null;
+          const region = sdkEndpoint ? extractRegion(sdkEndpoint) : null;
+          
+          console.log('Exchange code:', code ? 'present' : 'missing');
+          console.log('Project ID:', projectId);
+          console.log('Region:', region);
           
           button.addEventListener("click", async () => {
             button.disabled = true;
             button.textContent = "Installing...";
-            status.textContent = "Completing installation...";
+            statusEl.textContent = "Setting up authentication...";
+
+            // Try to exchange code for content token
+            let gotToken = false;
+            if (code && projectId) {
+              gotToken = await exchangeForContentToken(code, projectId, region);
+            }
 
             // Complete installation
             props.updateInstallation({
@@ -122,24 +180,28 @@
             })
             .then(() => {
               button.textContent = "Installation Complete ✓";
-              status.textContent = "Success! Enter your PAT once in any tool - it will be shared across all tools.";
-              status.style.color = "#10b981";
+              if (gotToken) {
+                statusEl.textContent = "✅ Success! All tools are ready to use - no PAT needed!";
+              } else {
+                statusEl.textContent = "✅ Installed! You may need to enter PAT once in each tool.";
+              }
+              statusEl.style.color = "#10b981";
             })
             .catch((err) => {
               console.error("Installation error:", err);
               button.disabled = false;
               button.textContent = "Retry Installation";
-              status.textContent = "Error: " + (err.message || "Unknown error");
-              status.style.color = "#ef4444";
+              statusEl.textContent = "Error: " + (err.message || "Unknown error");
+              statusEl.style.color = "#ef4444";
             });
           });
         } else if (initStatus === "validation") {
-          status.textContent = "Validating...";
+          statusEl.textContent = "Validating...";
         }
       })
       .catch((error) => {
         console.error("SDK init error:", error);
-        status.textContent = "Initializing...";
+        statusEl.textContent = "Initializing...";
       });
   </script>
 </body>
