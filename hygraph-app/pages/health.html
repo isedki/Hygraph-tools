@@ -191,12 +191,22 @@
     let daysThreshold = 30, selectedModel = 'all';
     const HEALTH_THRESHOLD = 90;
     
-    const TOKEN_KEY = 'hygraph_tools_pat'; // Shared across all Hygraph tools
-    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
-    const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
-    const saveToken = (t) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
-    const getEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
-    const saveEndpoint = (e) => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
+    // Storage keys - shared across all Hygraph tools
+    const STORAGE_KEYS = {
+      appToken: 'hygraph_tools_app_token',   // App token from OAuth exchange (preferred)
+      pat: 'hygraph_tools_pat',              // Manual PAT (fallback)
+      endpoint: 'hygraph_tools_endpoint'
+    };
+    
+    // Try app token first, then fallback to PAT
+    const getToken = () => { 
+      try { 
+        return localStorage.getItem(STORAGE_KEYS.appToken) || localStorage.getItem(STORAGE_KEYS.pat); 
+      } catch { return null; } 
+    };
+    const saveToken = (t) => { try { localStorage.setItem(STORAGE_KEYS.pat, t); } catch {} };
+    const getEndpoint = () => { try { return localStorage.getItem(STORAGE_KEYS.endpoint); } catch { return null; } };
+    const saveEndpoint = (e) => { try { localStorage.setItem(STORAGE_KEYS.endpoint, e); } catch {} };
     
     const gql = (query) => fetch(endpoint, {
       method: 'POST',

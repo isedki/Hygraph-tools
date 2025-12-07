@@ -301,7 +301,13 @@ import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
 import "https://unpkg.com/@hygraph/app-sdk";
 
 const sdk = window["@hygraph/app-sdk"];
-const TOKEN_KEY = 'hygraph_tools_pat'; // Shared across all Hygraph tools
+
+// Storage keys - shared across all Hygraph tools
+const STORAGE_KEYS = {
+  appToken: 'hygraph_tools_app_token',   // App token from OAuth exchange (preferred)
+  pat: 'hygraph_tools_pat',              // Manual PAT (fallback)
+  endpoint: 'hygraph_tools_endpoint'
+};
 
 // State
 let endpoint = null, token = null, projectId = '', region = '';
@@ -321,13 +327,22 @@ const show = id => {
   $('#main-view').style.display = id === 'main' ? 'block' : 'none';
 };
 
-// Storage
-const ENDPOINT_KEY = 'hygraph_tools_endpoint'; // Shared across all Hygraph tools
-const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
-const saveToken = t => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
-const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch {} };
-const getStoredEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
-const saveEndpoint = e => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
+// Storage - try app token first, then fallback to PAT
+const getToken = () => { 
+  try { 
+    return localStorage.getItem(STORAGE_KEYS.appToken) || localStorage.getItem(STORAGE_KEYS.pat); 
+  } catch { return null; } 
+};
+const saveToken = t => { try { localStorage.setItem(STORAGE_KEYS.pat, t); } catch {} };
+const clearToken = () => { 
+  try { 
+    localStorage.removeItem(STORAGE_KEYS.appToken); 
+    localStorage.removeItem(STORAGE_KEYS.pat); 
+    localStorage.removeItem(STORAGE_KEYS.endpoint); 
+  } catch {} 
+};
+const getStoredEndpoint = () => { try { return localStorage.getItem(STORAGE_KEYS.endpoint); } catch { return null; } };
+const saveEndpoint = e => { try { localStorage.setItem(STORAGE_KEYS.endpoint, e); } catch {} };
 
 // Extract project info
 const extractProjId = ep => { const m = ep.match(/\/v2\/([^/]+)/); return m ? m[1] : ''; };

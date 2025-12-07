@@ -309,7 +309,13 @@ import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
 import "https://unpkg.com/@hygraph/app-sdk";
 
 const sdk = window["@hygraph/app-sdk"];
-const TOKEN_KEY = 'hygraph_tools_pat'; // Shared across all Hygraph tools
+
+// Storage keys - shared across all Hygraph tools
+const STORAGE_KEYS = {
+  appToken: 'hygraph_tools_app_token',   // App token from OAuth exchange (preferred)
+  pat: 'hygraph_tools_pat',              // Manual PAT (fallback)
+  endpoint: 'hygraph_tools_endpoint'
+};
 
 // System filters - exactly matching web app's introspection.ts
 const SYSTEM_TYPE_PREFIXES = ['__','Aggregate','BatchPayload','Connection','DocumentVersion','Edge','PageInfo','Query','Mutation','Subscription','Version','RGBA','RichText','Location','Color','AssetUpload','Taxonomy','Node'];
@@ -386,9 +392,18 @@ let expandedSections = new Set();
 const $=(s)=>document.querySelector(s);
 const $$=(s)=>document.querySelectorAll(s);
 const show=(id)=>{ $('#token-view').style.display=id==='token'?'block':'none'; $('#loading-view').style.display=id==='loading'?'flex':'none'; $('#main-view').style.display=id==='main'?'block':'none'; };
-const getToken=()=>{ try{return localStorage.getItem(TOKEN_KEY);}catch{return null;} };
-const saveToken=(t)=>{ try{localStorage.setItem(TOKEN_KEY,t);}catch{} };
-const clearToken=()=>{ try{localStorage.removeItem(TOKEN_KEY);}catch{} };
+// Storage - try app token first, then fallback to PAT
+const getToken=()=>{ 
+  try{return localStorage.getItem(STORAGE_KEYS.appToken) || localStorage.getItem(STORAGE_KEYS.pat);}catch{return null;} 
+};
+const saveToken=(t)=>{ try{localStorage.setItem(STORAGE_KEYS.pat,t);}catch{} };
+const clearToken=()=>{ 
+  try{
+    localStorage.removeItem(STORAGE_KEYS.appToken);
+    localStorage.removeItem(STORAGE_KEYS.pat);
+    localStorage.removeItem(STORAGE_KEYS.endpoint);
+  }catch{} 
+};
 
 // Batch processing utility - runs promises in parallel with concurrency limit
 async function runInBatches(items, fn, batchSize = 8) {

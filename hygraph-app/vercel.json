@@ -1,12 +1,12 @@
 {
-  "buildCommand": "",
-  "outputDirectory": "pages",
-  "framework": null,
   "rewrites": [
-    { "source": "/", "destination": "/setup.html" },
-    { "source": "/setup", "destination": "/setup.html" },
-    { "source": "/page", "destination": "/page.html" },
-    { "source": "/sidebar", "destination": "/sidebar.html" }
+    { "source": "/", "destination": "/pages/setup.html" },
+    { "source": "/setup", "destination": "/pages/setup.html" },
+    { "source": "/page", "destination": "/pages/page.html" },
+    { "source": "/sidebar", "destination": "/pages/sidebar.html" },
+    { "source": "/calendar", "destination": "/pages/calendar.html" },
+    { "source": "/health", "destination": "/pages/health.html" },
+    { "source": "/alttext", "destination": "/pages/alttext.html" }
   ],
   "headers": [
     {
@@ -22,5 +22,11 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/exchange-token.js": {
+      "memory": 256,
+      "maxDuration": 10
+    }
+  }
 }

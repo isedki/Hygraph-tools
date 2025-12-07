@@ -232,21 +232,27 @@
     let bulkCancelled = false;
     let completedIds = new Set();
     
-    // Shared storage keys (used by all Hygraph tools)
-    const TOKEN_KEY = 'hygraph_tools_pat';
-    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
-    const GEMINI_KEY = 'hygraph_tools_gemini';
-    const PROGRESS_KEY = 'alttext_generator_progress';
+    // Storage keys - shared across all Hygraph tools
+    const STORAGE_KEYS = {
+      appToken: 'hygraph_tools_app_token',   // App token from OAuth exchange (preferred)
+      pat: 'hygraph_tools_pat',              // Manual PAT (fallback)
+      endpoint: 'hygraph_tools_endpoint',
+      gemini: 'hygraph_tools_gemini',
+      progress: 'alttext_generator_progress'
+    };
     
-    const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
-    const saveToken = (t) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
-    const getEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
-    const saveEndpoint = (e) => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
-    const getGeminiKey = () => { try { return localStorage.getItem(GEMINI_KEY); } catch { return null; } };
-    const saveGeminiKey = (k) => { try { localStorage.setItem(GEMINI_KEY, k); } catch {} };
-    const saveProgress = () => { try { localStorage.setItem(PROGRESS_KEY, JSON.stringify([...completedIds])); } catch(e){} };
-    const loadProgress = () => { try { return new Set(JSON.parse(localStorage.getItem(PROGRESS_KEY)) || []); } catch(e){ return new Set(); } };
-    const clearProgress = () => { try { localStorage.removeItem(PROGRESS_KEY); completedIds = new Set(); } catch(e){} };
+    // Try app token first, then fallback to PAT
+    const getToken = () => { 
+      try { return localStorage.getItem(STORAGE_KEYS.appToken) || localStorage.getItem(STORAGE_KEYS.pat); } catch { return null; } 
+    };
+    const saveToken = (t) => { try { localStorage.setItem(STORAGE_KEYS.pat, t); } catch {} };
+    const getEndpoint = () => { try { return localStorage.getItem(STORAGE_KEYS.endpoint); } catch { return null; } };
+    const saveEndpoint = (e) => { try { localStorage.setItem(STORAGE_KEYS.endpoint, e); } catch {} };
+    const getGeminiKey = () => { try { return localStorage.getItem(STORAGE_KEYS.gemini); } catch { return null; } };
+    const saveGeminiKey = (k) => { try { localStorage.setItem(STORAGE_KEYS.gemini, k); } catch {} };
+    const saveProgress = () => { try { localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify([...completedIds])); } catch(e){} };
+    const loadProgress = () => { try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.progress)) || []); } catch(e){ return new Set(); } };
+    const clearProgress = () => { try { localStorage.removeItem(STORAGE_KEYS.progress); completedIds = new Set(); } catch(e){} };
     
     async function gql(query, variables = {}) {
       const res = await fetch(endpoint, {
