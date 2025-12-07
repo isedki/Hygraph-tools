@@ -191,22 +191,14 @@
     let daysThreshold = 30, selectedModel = 'all';
     const HEALTH_THRESHOLD = 90;
     
-    // Storage keys - shared across all Hygraph tools
-    const STORAGE_KEYS = {
-      appToken: 'hygraph_tools_app_token',   // App token from OAuth exchange (preferred)
-      pat: 'hygraph_tools_pat',              // Manual PAT (fallback)
-      endpoint: 'hygraph_tools_endpoint'
-    };
+    // Simple storage - ONE PAT shared across all tools
+    const PAT_KEY = 'hygraph_tools_pat';
+    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
     
-    // Try app token first, then fallback to PAT
-    const getToken = () => { 
-      try { 
-        return localStorage.getItem(STORAGE_KEYS.appToken) || localStorage.getItem(STORAGE_KEYS.pat); 
-      } catch { return null; } 
-    };
-    const saveToken = (t) => { try { localStorage.setItem(STORAGE_KEYS.pat, t); } catch {} };
-    const getEndpoint = () => { try { return localStorage.getItem(STORAGE_KEYS.endpoint); } catch { return null; } };
-    const saveEndpoint = (e) => { try { localStorage.setItem(STORAGE_KEYS.endpoint, e); } catch {} };
+    const getStoredPat = () => { try { return localStorage.getItem(PAT_KEY); } catch { return null; } };
+    const savePat = (t) => { try { localStorage.setItem(PAT_KEY, t); } catch {} };
+    const getStoredEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
+    const saveStoredEndpoint = (e) => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
     
     const gql = (query) => fetch(endpoint, {
       method: 'POST',
@@ -471,8 +463,9 @@
       
       try {
         await gql('{ __typename }');
-        if (tkInput) saveToken(tkInput);
-        if (epInput) saveEndpoint(epInput);
+        // Save for other tools to use
+        if (tkInput) savePat(tkInput);
+        if (epInput) saveStoredEndpoint(epInput);
         $('#token-view').style.display = 'none';
         $('#main-view').style.display = 'block';
         await fetchModels();
@@ -489,14 +482,14 @@
     $('#model-filter').onchange = (e) => { selectedModel = e.target.value; filterAndRender($('#total-entries').textContent); };
     
     // Helper to show setup form with appropriate fields
-    function showSetupForm(sdkEndpoint, savedToken, savedEndpoint) {
+    function showSetupForm(sdkEndpoint, savedPat, savedEndpoint) {
       $('#token-view').style.display = 'block';
       
-      // Show endpoint only if not provided by SDK
+      // Pre-fill endpoint from SDK or saved
       if (sdkEndpoint) {
         endpoint = sdkEndpoint;
         $('#endpoint-input').value = sdkEndpoint;
-        // Keep endpoint hidden - SDK provides it
+        // Hide endpoint field - SDK provides it
       } else if (savedEndpoint) {
         $('#endpoint-input').value = savedEndpoint;
         $('#endpoint-group').style.display = 'block';
@@ -504,13 +497,11 @@
         $('#endpoint-group').style.display = 'block';
       }
       
-      // Show token only if not already saved
-      if (savedToken) {
-        $('#token-input').value = savedToken;
-        // Keep token hidden - already saved
-      } else {
-        $('#token-group').style.display = 'block';
+      // Pre-fill PAT if saved, but always show field for user to verify/change
+      if (savedPat) {
+        $('#token-input').value = savedPat;
       }
+      $('#token-group').style.display = 'block';
     }
     
     // Init with SDK
@@ -520,34 +511,16 @@
         console.log('Content Health: SDK initialized', status, props);
         
         const sdkEndpoint = props?.context?.environment?.endpoint || props?.endpoint;
-        const sdkToken = props?.authToken;
-        const savedToken = getToken();
-        const savedEndpoint = getEndpoint();
+        const savedPat = getStoredPat();
+        const savedEndpoint = getStoredEndpoint();
         
         console.log('SDK Endpoint:', sdkEndpoint);
-        console.log('SDK Token available:', !!sdkToken);
-        console.log('Saved Token available:', !!savedToken);
+        console.log('Saved PAT available:', !!savedPat);
         
-        // If SDK provides both, use them directly
-        if (sdkEndpoint && sdkToken) {
-          endpoint = sdkEndpoint;
-          token = sdkToken;
-          try {
-            await gql('{ __typename }');
-            $('#token-view').style.display = 'none';
-            $('#main-view').style.display = 'block';
-            await fetchModels();
-            analyze();
-            return;
-          } catch (e) {
-            console.log('SDK credentials failed:', e.message);
-          }
-        }
-        
-        // Try with shared PAT
-        if (savedToken && (sdkEndpoint || savedEndpoint)) {
+        // Try with saved PAT
+        if (savedPat && (sdkEndpoint || savedEndpoint)) {
           endpoint = sdkEndpoint || savedEndpoint;
-          token = savedToken;
+          token = savedPat;
           try {
             await gql('{ __typename }');
             $('#token-view').style.display = 'none';
@@ -556,30 +529,31 @@
             analyze();
             return;
           } catch (e) {
-            console.log('Saved credentials invalid');
+            console.log('Saved PAT invalid:', e.message);
           }
         }
         
-        // Show setup form
-        showSetupForm(sdkEndpoint, savedToken, savedEndpoint);
+        // Show setup form - pre-fill endpoint from SDK
+        showSetupForm(sdkEndpoint, savedPat, savedEndpoint);
       })
       .catch(e => {
         console.log('SDK failed, standalone mode:', e);
-        const savedToken = getToken();
-        const savedEndpoint = getEndpoint();
+        const savedPat = getStoredPat();
+        const savedEndpoint = getStoredEndpoint();
         
         // Try auto-connect with saved credentials
-        if (savedEndpoint && savedToken) {
-          endpoint = savedEndpoint; token = savedToken;
+        if (savedEndpoint && savedPat) {
+          endpoint = savedEndpoint; 
+          token = savedPat;
           gql('{ __typename }').then(() => {
             $('#token-view').style.display = 'none';
             $('#main-view').style.display = 'block';
             fetchModels().then(() => analyze());
           }).catch(() => {
-            showSetupForm(null, savedToken, savedEndpoint);
+            showSetupForm(null, savedPat, savedEndpoint);
           });
         } else {
-          showSetupForm(null, savedToken, savedEndpoint);
+          showSetupForm(null, savedPat, savedEndpoint);
         }
       });
   </script>

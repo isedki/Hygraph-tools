@@ -302,12 +302,9 @@ import "https://unpkg.com/@hygraph/app-sdk";
 
 const sdk = window["@hygraph/app-sdk"];
 
-// Storage keys - shared across all Hygraph tools
-const STORAGE_KEYS = {
-  appToken: 'hygraph_tools_app_token',   // App token from OAuth exchange (preferred)
-  pat: 'hygraph_tools_pat',              // Manual PAT (fallback)
-  endpoint: 'hygraph_tools_endpoint'
-};
+// Simple storage - ONE PAT shared across all tools
+const PAT_KEY = 'hygraph_tools_pat';
+const ENDPOINT_KEY = 'hygraph_tools_endpoint';
 
 // State
 let endpoint = null, token = null, projectId = '', region = '';
@@ -327,22 +324,12 @@ const show = id => {
   $('#main-view').style.display = id === 'main' ? 'block' : 'none';
 };
 
-// Storage - try app token first, then fallback to PAT
-const getToken = () => { 
-  try { 
-    return localStorage.getItem(STORAGE_KEYS.appToken) || localStorage.getItem(STORAGE_KEYS.pat); 
-  } catch { return null; } 
-};
-const saveToken = t => { try { localStorage.setItem(STORAGE_KEYS.pat, t); } catch {} };
-const clearToken = () => { 
-  try { 
-    localStorage.removeItem(STORAGE_KEYS.appToken); 
-    localStorage.removeItem(STORAGE_KEYS.pat); 
-    localStorage.removeItem(STORAGE_KEYS.endpoint); 
-  } catch {} 
-};
-const getStoredEndpoint = () => { try { return localStorage.getItem(STORAGE_KEYS.endpoint); } catch { return null; } };
-const saveEndpoint = e => { try { localStorage.setItem(STORAGE_KEYS.endpoint, e); } catch {} };
+// Storage
+const getToken = () => { try { return localStorage.getItem(PAT_KEY); } catch { return null; } };
+const saveToken = t => { try { localStorage.setItem(PAT_KEY, t); } catch {} };
+const clearToken = () => { try { localStorage.removeItem(PAT_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch {} };
+const getStoredEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
+const saveEndpoint = e => { try { localStorage.setItem(ENDPOINT_KEY, e); } catch {} };
 
 // Extract project info
 const extractProjId = ep => { const m = ep.match(/\/v2\/([^/]+)/); return m ? m[1] : ''; };
@@ -1257,7 +1244,6 @@ sdk.init({ debug: true, onProps: () => {} })
             token = stored;
             models = await discoverModels();
             
-            
             renderFilters();
             await loadEntries();
             show('main');
@@ -1280,8 +1266,7 @@ sdk.init({ debug: true, onProps: () => {} })
   })
   .catch(e => {
     console.error('SDK error:', e);
-    // Running outside Hygraph iframe, need manual endpoint
-    // Check if we have stored endpoint
+    // Running outside Hygraph iframe
     const storedEp = getStoredEndpoint();
     const storedTk = getToken();
     
