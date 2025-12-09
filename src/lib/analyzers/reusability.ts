@@ -219,16 +219,22 @@ function analyzeSharedComponents(models: HygraphModel[], components: HygraphMode
     wellSharedCount >= 3 && unusedComponents.length <= 1 ? 'good' :
     wellSharedCount > 0 ? 'warning' : 'issue';
 
+  // Build findings with specific names inline
+  const sharedComponentNames = componentUsage.map(c => c.component);
+  const duplicatedPatternNames = duplicatedPatterns.map(p => p.pattern);
+
   return {
     status,
     title: 'Shared Components',
     findings: [
-      `${componentUsage.length} component(s) used across multiple models`,
+      componentUsage.length > 0
+        ? `${componentUsage.length} component(s) used across multiple models: ${sharedComponentNames.slice(0, 5).join(', ')}${sharedComponentNames.length > 5 ? '...' : ''}`
+        : 'No components are shared across multiple models',
       ...(unusedComponents.length > 0
-        ? [`${unusedComponents.length} unused component(s): ${unusedComponents.slice(0, 3).join(', ')}${unusedComponents.length > 3 ? '...' : ''}`]
+        ? [`${unusedComponents.length} unused component(s): ${unusedComponents.slice(0, 5).join(', ')}${unusedComponents.length > 5 ? '...' : ''}`]
         : []),
       ...(duplicatedPatterns.length > 0
-        ? [`${duplicatedPatterns.length} field pattern(s) duplicated that should be components`]
+        ? [`${duplicatedPatterns.length} field pattern(s) duplicated that should be components: ${duplicatedPatternNames.slice(0, 5).join(', ')}${duplicatedPatternNames.length > 5 ? '...' : ''}`]
         : []),
     ],
     examples: [
@@ -294,13 +300,19 @@ function analyzeLayoutFlexibility(models: HygraphModel[], components: HygraphMod
     flexibleModels.length >= pageModels.length * 0.5 ? 'good' :
     flexibleModels.length > 0 ? 'warning' : 'issue';
 
+  // Include specific model names in findings
+  const flexibleModelNames = flexibleModels.map(m => m.model);
+  const rigidModelNames = rigidModels;
+
   return {
     status,
     title: 'Layout Flexibility',
     findings: [
-      `${flexibleModels.length} model(s) support flexible layouts via component lists`,
+      flexibleModels.length > 0
+        ? `${flexibleModels.length} model(s) support flexible layouts: ${flexibleModelNames.slice(0, 5).join(', ')}${flexibleModelNames.length > 5 ? '...' : ''}`
+        : 'No models support flexible layouts via component lists',
       ...(rigidModels.length > 0
-        ? [`${rigidModels.length} page-like model(s) have hardcoded structure: ${rigidModels.slice(0, 3).join(', ')}`]
+        ? [`${rigidModels.length} model(s) have fixed structure: ${rigidModelNames.slice(0, 5).join(', ')}${rigidModelNames.length > 5 ? '...' : ''}`]
         : []),
     ],
     examples: flexibleModels.map(m => ({

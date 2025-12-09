@@ -466,13 +466,19 @@ function analyzeComponentReordering(models: HygraphModel[], components: HygraphM
     modelsWithReorderableComponents.length >= models.length / 3 ? 'good' :
     modelsWithFixedStructure.length > models.length / 2 ? 'issue' : 'warning';
 
+  // Include specific model names in findings
+  const reorderableNames = modelsWithReorderableComponents.map(m => m.model);
+  const fixedNames = modelsWithFixedStructure;
+
   return {
     status,
     title: 'Component Reordering',
     findings: [
-      `${modelsWithReorderableComponents.length} model(s) support component reordering`,
+      modelsWithReorderableComponents.length > 0
+        ? `${modelsWithReorderableComponents.length} model(s) support component reordering: ${reorderableNames.slice(0, 5).join(', ')}${reorderableNames.length > 5 ? '...' : ''}`
+        : 'No models support component reordering',
       ...(modelsWithFixedStructure.length > 0
-        ? [`${modelsWithFixedStructure.length} model(s) have fixed structure (no reorderable components)`]
+        ? [`${modelsWithFixedStructure.length} model(s) have fixed structure: ${fixedNames.slice(0, 5).join(', ')}${fixedNames.length > 5 ? '...' : ''}`]
         : []),
     ],
     examples: modelsWithReorderableComponents.slice(0, 3).map(m => ({

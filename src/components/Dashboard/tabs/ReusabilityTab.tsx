@@ -67,24 +67,71 @@ export function ReusabilityTab({ result }: ReusabilityTabProps) {
         </div>
       )}
 
-      {/* Duplicates Summary */}
+      {/* Duplicates Summary - Now with specific names */}
       {(duplicates.enums.groups.length > 0 || duplicates.components.groups.length > 0 || duplicates.models.groups.length > 0) && (
         <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4">
-          <h3 className="font-semibold text-yellow-900 mb-3">Potential Duplicates</h3>
-          <div className="space-y-2 text-sm">
+          <h3 className="font-semibold text-yellow-900 mb-4">Potential Duplicates</h3>
+          <div className="space-y-4">
+            {/* Duplicate Enums */}
             {duplicates.enums.groups.length > 0 && (
-              <div className="text-yellow-700">
-                • {duplicates.enums.groups.length} duplicate enum group(s)
+              <div>
+                <div className="text-sm font-medium text-yellow-800 mb-2">
+                  {duplicates.enums.groups.length} duplicate enum group(s):
+                </div>
+                <div className="space-y-2">
+                  {duplicates.enums.groups.map((group, i) => (
+                    <div key={i} className="text-sm bg-white/50 rounded p-2">
+                      <div className="font-medium text-gray-800">
+                        {group.enums.join(', ')}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Shared values: {group.sharedValues.slice(0, 5).join(', ')}{group.sharedValues.length > 5 ? '...' : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Duplicate Components */}
             {duplicates.components.groups.length > 0 && (
-              <div className="text-yellow-700">
-                • {duplicates.components.groups.length} similar component group(s)
+              <div>
+                <div className="text-sm font-medium text-yellow-800 mb-2">
+                  {duplicates.components.groups.length} similar component group(s):
+                </div>
+                <div className="space-y-2">
+                  {duplicates.components.groups.map((group, i) => (
+                    <div key={i} className="text-sm bg-white/50 rounded p-2">
+                      <div className="font-medium text-gray-800">
+                        {group.components.join(', ')}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {group.similarity}% similar • Shared: {group.sharedFields.slice(0, 4).join(', ')}{group.sharedFields.length > 4 ? '...' : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Duplicate Models */}
             {duplicates.models.groups.length > 0 && (
-              <div className="text-yellow-700">
-                • {duplicates.models.groups.length} overlapping model group(s)
+              <div>
+                <div className="text-sm font-medium text-yellow-800 mb-2">
+                  {duplicates.models.groups.length} overlapping model group(s):
+                </div>
+                <div className="space-y-2">
+                  {duplicates.models.groups.map((group, i) => (
+                    <div key={i} className="text-sm bg-white/50 rounded p-2">
+                      <div className="font-medium text-gray-800">
+                        {group.models.join(', ')}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {group.similarity}% similar • {group.reason}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
