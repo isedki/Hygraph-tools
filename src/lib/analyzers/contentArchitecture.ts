@@ -1,6 +1,7 @@
 import type {
   HygraphSchema,
   HygraphModel,
+  HygraphTaxonomy,
   ContentArchitectureAssessment,
   TaxonomyModel,
   HierarchySupport,
@@ -41,8 +42,9 @@ export function analyzeContentArchitecture(
 ): ContentArchitectureAssessment {
   const customModels = filterSystemModels(schema.models);
   const enums = filterSystemEnums(schema.enums || []);
+  const nativeTaxonomies = schema.taxonomies || [];
 
-  const taxonomyModels = analyzeTaxonomyModels(customModels, enums, entryCounts);
+  const taxonomyModels = analyzeTaxonomyModels(customModels, enums, entryCounts, nativeTaxonomies);
   const hierarchySupport = analyzeHierarchySupport(customModels);
   const contentDistribution = analyzeContentDistribution(customModels, entryCounts);
   const navigationReadiness = analyzeNavigationReadiness(customModels);
@@ -66,12 +68,29 @@ export function analyzeContentArchitecture(
 function analyzeTaxonomyModels(
   models: HygraphModel[],
   enums: { name: string; values: string[] }[],
-  entryCounts: Record<string, { draft: number; published: number }>
+  entryCounts: Record<string, { draft: number; published: number }>,
+  nativeTaxonomies: HygraphTaxonomy[]
 ): TaxonomyModel[] {
   const taxonomyModels: TaxonomyModel[] = [];
+  const processedNames = new Set<string>();
 
-  // Find taxonomy-like models
+  // First, add native Hygraph taxonomies (highest priority)
+  for (const taxonomy of nativeTaxonomies) {
+    taxonomyModels.push({
+      name: taxonomy.name,
+      type: 'category', // Native taxonomies are hierarchical like categories
+      entryCount: taxonomy.nodeCount || 0,
+      isEnumBased: false,
+      referencedBy: taxonomy.usedInModels,
+      isNativeTaxonomy: true,
+    });
+    processedNames.add(taxonomy.name);
+  }
+
+  // Find taxonomy-like models (skip if already added as native taxonomy)
   for (const model of models) {
+    if (processedNames.has(model.name)) continue;
+    
     let type: TaxonomyModel['type'] | null = null;
 
     if (CATEGORY_PATTERNS.test(model.name)) {
@@ -97,6 +116,7 @@ function analyzeTaxonomyModels(
         isEnumBased: false,
         referencedBy,
       });
+      processedNames.add(model.name);
     }
   }
 

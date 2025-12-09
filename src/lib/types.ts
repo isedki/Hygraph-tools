@@ -19,10 +19,18 @@ export interface HygraphModel {
   isSystem?: boolean;
 }
 
+export interface HygraphTaxonomy {
+  name: string;
+  apiId: string;
+  nodeCount?: number;
+  usedInModels: string[];
+}
+
 export interface HygraphSchema {
   models: HygraphModel[];
   enums: { name: string; values: string[] }[];
   components: HygraphModel[];
+  taxonomies: HygraphTaxonomy[];
 }
 
 // Audit Issue Types
@@ -1051,6 +1059,7 @@ export interface TaxonomyModel {
   entryCount: number;
   isEnumBased: boolean;
   referencedBy: string[];
+  isNativeTaxonomy?: boolean; // True if this is a Hygraph native taxonomy
 }
 
 export interface HierarchySupport {

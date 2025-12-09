@@ -1,5 +1,5 @@
 import { GraphQLClient } from 'graphql-request';
-import type { IntrospectionResult, HygraphSchema, HygraphModel, HygraphField } from '../types';
+import type { IntrospectionResult, HygraphSchema, HygraphModel, HygraphField, HygraphTaxonomy } from '../types';
 
 const INTROSPECTION_QUERY = `
   query IntrospectionQuery {
@@ -257,10 +257,75 @@ export async function fetchSchema(client: GraphQLClient): Promise<HygraphSchema>
   // Filter out components from models
   const actualModels = models.filter(m => !m.isComponent);
   
+  // Detect Hygraph native taxonomies
+  // Taxonomies appear as types with specific patterns and are referenced by models
+  const taxonomies: HygraphTaxonomy[] = [];
+  const taxonomyTypeNames = new Set<string>();
+  
+  // Find taxonomy-related types in the schema
+  for (const type of result.__schema.types) {
+    // Hygraph taxonomies often have names ending in specific patterns
+    // or contain "Taxonomy" in their structure
+    if (type.kind === 'OBJECT' && type.fields) {
+      // Check if this looks like a taxonomy type (has path, name fields, hierarchical structure)
+      const fieldNames = type.fields.map(f => f.name);
+      const hasTaxonomyStructure = 
+        (fieldNames.includes('path') || fieldNames.includes('ancestors') || fieldNames.includes('children')) &&
+        (fieldNames.includes('name') || fieldNames.includes('title')) &&
+        !isSystemType(type.name) &&
+        !type.name.endsWith('Connection') &&
+        !type.name.endsWith('Edge');
+      
+      if (hasTaxonomyStructure) {
+        taxonomyTypeNames.add(type.name);
+      }
+    }
+  }
+  
+  // Find models that use taxonomy fields
+  for (const model of actualModels) {
+    for (const field of model.fields) {
+      // Check if this field references a taxonomy type
+      if (field.relatedModel && taxonomyTypeNames.has(field.relatedModel)) {
+        const existingTax = taxonomies.find(t => t.name === field.relatedModel);
+        if (existingTax) {
+          if (!existingTax.usedInModels.includes(model.name)) {
+            existingTax.usedInModels.push(model.name);
+          }
+        } else {
+          taxonomies.push({
+            name: field.relatedModel,
+            apiId: field.relatedModel,
+            usedInModels: [model.name],
+          });
+        }
+      }
+    }
+  }
+  
+  // Also check for fields that explicitly have "taxonomy" in their name or type
+  for (const model of actualModels) {
+    for (const field of model.fields) {
+      const fieldNameLower = field.name.toLowerCase();
+      const fieldTypeLower = field.type.toLowerCase();
+      
+      if ((fieldNameLower.includes('taxonomy') || fieldTypeLower.includes('taxonomy')) && 
+          field.relatedModel && 
+          !taxonomies.some(t => t.name === field.relatedModel)) {
+        taxonomies.push({
+          name: field.relatedModel,
+          apiId: field.relatedModel,
+          usedInModels: [model.name],
+        });
+      }
+    }
+  }
+  
   return {
     models: actualModels,
     components,
     enums,
+    taxonomies,
   };
 }
 
