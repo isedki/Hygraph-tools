@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Transform Helper</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --bg-card: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #8b5cf6;
+      --accent-light: #f5f3ff;
+      --success: #10b981;
+      --success-light: #ecfdf5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    
+    .layout { display: grid; grid-template-columns: 1fr 340px; min-height: 100vh; }
+    
+    /* Left Panel */
+    .left-panel { padding: 24px; overflow-y: auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .header h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge { background: var(--accent-light); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    
+    .tabs { display: flex; gap: 4px; background: var(--bg-card); padding: 4px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; }
+    .tab { flex: 1; padding: 8px 12px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); }
+    .tab.active { background: var(--accent); color: white; }
+    
+    /* Asset Grid */
+    .asset-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .section-title { font-weight: 600; font-size: 14px; }
+    .search-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; width: 200px; }
+    .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-height: 200px; overflow-y: auto; }
+    .asset-card { border: 2px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+    .asset-card:hover { border-color: var(--accent); }
+    .asset-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+    .asset-card img { width: 100%; height: 80px; object-fit: cover; display: block; }
+    .asset-info { padding: 6px 8px; font-size: 10px; color: var(--text-muted); background: var(--bg); }
+    .asset-info strong { display: block; color: var(--text); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+    .pagination button { padding: 6px 12px; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Compare View */
+    .compare-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .compare-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .savings-badge { background: var(--success-light); color: var(--success); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .compare-panel { padding: 16px; border-right: 1px solid var(--border); }
+    .compare-panel:last-child { border-right: none; }
+    .compare-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .compare-img-wrap { background: #f0f0f0; border-radius: 8px; padding: 8px; text-align: center; min-height: 150px; display: flex; align-items: center; justify-content: center; }
+    .compare-img { max-width: 100%; max-height: 200px; border-radius: 4px; }
+    .compare-stats { margin-top: 8px; display: flex; gap: 12px; justify-content: center; font-size: 11px; color: var(--text-muted); }
+    .compare-stats strong { color: var(--text); }
+    
+    /* Responsive Variants */
+    .variants-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-top: 20px; }
+    .variants-header { padding: 16px; border-bottom: 1px solid var(--border); }
+    .variants-header h3 { font-size: 14px; font-weight: 600; }
+    .variant-sizes { display: flex; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .variant-size { padding: 4px 10px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; }
+    .variant-size.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .variants-preview { display: flex; gap: 12px; padding: 16px; overflow-x: auto; }
+    .variant-card { text-align: center; flex-shrink: 0; }
+    .variant-card img { max-width: 100px; max-height: 60px; border-radius: 4px; border: 1px solid var(--border); }
+    .variant-width { font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 4px; }
+    .variant-est { font-size: 10px; color: var(--text-muted); }
+    
+    .output-section { padding: 16px; border-top: 1px solid var(--border); }
+    .output-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+    .output-tab { padding: 4px 10px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+    .output-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .output-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; position: relative; }
+    .output-code { font-family: monospace; font-size: 10px; white-space: pre-wrap; word-break: break-all; max-height: 100px; overflow-y: auto; }
+    .copy-btn { position: absolute; top: 6px; right: 6px; padding: 4px 8px; font-size: 10px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; }
+    
+    /* Right Panel - Controls */
+    .right-panel { background: var(--bg-card); border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; }
+    .preview-section { text-align: center; margin-bottom: 20px; }
+    .preview-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--border); }
+    .preview-stats { margin-top: 10px; font-size: 12px; color: var(--text-muted); display: flex; justify-content: center; gap: 16px; }
+    
+    .control-section { margin-bottom: 20px; }
+    .control-section h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px; }
+    
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .preset-btn { padding: 6px 12px; font-size: 12px; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+    .preset-btn:hover { border-color: var(--accent); }
+    
+    .form-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+    .form-group { flex: 1; }
+    .form-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .form-group input, .form-group select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+    .form-group input[type="range"] { padding: 0; }
+    .range-value { font-size: 12px; color: var(--accent); font-weight: 500; min-width: 40px; text-align: right; }
+    
+    .output-url { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 16px; }
+    .output-url h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+    .url-box { font-family: monospace; font-size: 10px; word-break: break-all; background: white; padding: 8px; border-radius: 4px; border: 1px solid var(--border); max-height: 60px; overflow-y: auto; }
+    .btn-copy { width: 100%; padding: 8px; margin-top: 8px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; }
+    .btn-copy:hover { opacity: 0.9; }
+    .btn-copy.copied { background: var(--success); }
+    
+    .placeholder { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .placeholder-icon { font-size: 40px; margin-bottom: 8px; }
+    
+    /* Setup */
+    .setup-view { max-width: 400px; margin: 60px auto; padding: 28px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; text-align: center; }
+    .setup-view h2 { margin-bottom: 6px; }
+    .setup-view p { color: var(--text-muted); margin-bottom: 20px; font-size: 14px; }
+    .setup-view .form-group { text-align: left; margin-bottom: 12px; }
+    .btn-primary { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+    
+    .hidden { display: none !important; }
+    
+    .info-text { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <!-- Setup View -->
+  <div id="setup-view" class="setup-view">
+    <h2>🖼️ Image Transform Helper</h2>
+    <p>Compare, optimize, and generate responsive image variants.</p>
+    <div class="form-group" id="token-group" style="display:none;">
+      <label>Permanent Auth Token</label>
+      <input type="password" id="token-input" placeholder="eyJ...">
+    </div>
+    <button class="btn-primary" id="connect-btn">Load Assets</button>
+    <div id="error-msg" style="margin-top:10px;color:#ef4444;font-size:12px;"></div>
+  </div>
+  
+  <!-- Main View -->
+  <div id="main-view" class="layout" style="display:none;">
+    <!-- Left Panel -->
+    <div class="left-panel">
+      <div class="header">
+        <h1>🖼️ Image Transform Helper</h1>
+        <span class="badge" id="asset-count">0 images</span>
+      </div>
+      
+      <div class="tabs">
+        <button class="tab active" data-view="compare">Compare</button>
+        <button class="tab" data-view="responsive">Responsive Variants</button>
+      </div>
+      
+      <!-- Asset Selection -->
+      <div class="asset-section">
+        <div class="section-header">
+          <span class="section-title">Select an Image</span>
+          <input type="text" class="search-input" id="search-input" placeholder="Search by filename...">
+        </div>
+        <div class="asset-grid" id="asset-grid"></div>
+        <div class="pagination">
+          <button id="prev-btn" disabled>← Previous</button>
+          <span id="page-info">Page 1 of 1</span>
+          <button id="next-btn" disabled>Next →</button>
+        </div>
+      </div>
+      
+      <!-- Compare View -->
+      <div id="compare-view" class="compare-section">
+        <div class="compare-header">
+          <span style="font-weight:600;">Side-by-Side Comparison</span>
+          <span class="savings-badge" id="savings-badge" style="display:none;">--% smaller</span>
+        </div>
+        <div id="compare-placeholder" class="placeholder">
+          <div class="placeholder-icon">📸</div>
+          <div>Select an image to compare</div>
+        </div>
+        <div id="compare-content" class="hidden">
+          <div class="compare-grid">
+            <div class="compare-panel">
+              <div class="compare-label"><span>Original</span><span id="orig-format">--</span></div>
+              <div class="compare-img-wrap"><img id="orig-img" class="compare-img" src=""></div>
+              <div class="compare-stats"><span><strong id="orig-dims">--</strong></span><span><strong id="orig-size">--</strong></span></div>
+            </div>
+            <div class="compare-panel">
+              <div class="compare-label"><span>Transformed</span><span id="trans-format">--</span></div>
+              <div class="compare-img-wrap"><img id="trans-img" class="compare-img" src=""></div>
+              <div class="compare-stats"><span><strong id="trans-dims">--</strong></span><span><strong id="trans-size">~--</strong></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Responsive Variants View -->
+      <div id="responsive-view" class="variants-section hidden">
+        <div class="variants-header">
+          <h3>Responsive Image Variants</h3>
+        </div>
+        <div class="variant-sizes">
+          <button class="variant-size active" data-size="320">320w</button>
+          <button class="variant-size active" data-size="640">640w</button>
+          <button class="variant-size active" data-size="768">768w</button>
+          <button class="variant-size active" data-size="1024">1024w</button>
+          <button class="variant-size active" data-size="1280">1280w</button>
+          <button class="variant-size" data-size="1536">1536w</button>
+          <button class="variant-size" data-size="1920">1920w</button>
+        </div>
+        <div id="variants-placeholder" class="placeholder">
+          <div class="placeholder-icon">📐</div>
+          <div>Select an image to generate variants</div>
+        </div>
+        <div id="variants-content" class="hidden">
+          <div class="variants-preview" id="variants-preview"></div>
+          <div class="output-section">
+            <div class="output-tabs">
+              <button class="output-tab active" data-output="srcset">srcset</button>
+              <button class="output-tab" data-output="picture">&lt;picture&gt;</button>
+              <button class="output-tab" data-output="css">CSS</button>
+            </div>
+            <div class="output-box">
+              <button class="copy-btn" id="copy-variant-btn">Copy</button>
+              <div class="output-code" id="variant-output">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right Panel - Controls -->
+    <div class="right-panel">
+      <div class="preview-section">
+        <img id="preview-img" class="preview-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-size='14'%3ENo image%3C/text%3E%3C/svg%3E">
+        <div class="preview-stats">
+          <span id="preview-dims">-- × --</span>
+          <span id="preview-size">--</span>
+          <span id="preview-format">--</span>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>Quick Presets</h3>
+        <div class="presets">
+          <button class="preset-btn" data-preset="thumbnail">Thumbnail</button>
+          <button class="preset-btn" data-preset="medium">Medium</button>
+          <button class="preset-btn" data-preset="large">Large</button>
+          <button class="preset-btn" data-preset="fullhd">Full HD</button>
+          <button class="preset-btn" data-preset="square">Square</button>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>Resize</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Width</label>
+            <input type="number" id="width" placeholder="auto">
+          </div>
+          <span style="padding-top:20px;">×</span>
+          <div class="form-group">
+            <label>Height</label>
+            <input type="number" id="height" placeholder="auto">
+          </div>
+          <span style="padding-top:20px;">px</span>
+        </div>
+        <div class="form-group">
+          <label>Fit Mode</label>
+          <select id="fit">
+            <option value="clip">Clip (keep aspect ratio)</option>
+            <option value="crop">Crop (fill exact size)</option>
+            <option value="scale">Scale (stretch to fit)</option>
+            <option value="max">Max (no upscaling)</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>Quality & Format</h3>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Quality</label>
+            <input type="range" id="quality" min="1" max="100" value="80">
+          </div>
+          <span class="range-value" id="quality-val">80%</span>
+        </div>
+        <div class="form-group">
+          <label>Output Format</label>
+          <select id="format">
+            <option value="auto">Auto (WebP/AVIF)</option>
+            <option value="webp">WebP</option>
+            <option value="jpg">JPEG</option>
+            <option value="png">PNG</option>
+          </select>
+          <div class="info-text">Auto serves best format for browser</div>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>Effects</h3>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Blur (0-20)</label>
+            <input type="range" id="blur" min="0" max="20" value="0">
+          </div>
+          <span class="range-value" id="blur-val">0</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Sharpen (0-20)</label>
+            <input type="range" id="sharpen" min="0" max="20" value="0">
+          </div>
+          <span class="range-value" id="sharpen-val">0</span>
+        </div>
+      </div>
+      
+      <!-- Generated URLs -->
+      <div class="output-url">
+        <h4>Transform URL</h4>
+        <div class="url-box" id="transform-url">Select an image...</div>
+        <button class="btn-copy" id="copy-url-btn">Copy URL</button>
+      </div>
+      
+      <div class="output-url">
+        <h4>GraphQL Query</h4>
+        <div class="url-box" id="graphql-query">Select an image...</div>
+        <button class="btn-copy" id="copy-gql-btn">Copy Query</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+    import "https://unpkg.com/@hygraph/app-sdk";
+    
+    const sdk = window["@hygraph/app-sdk"];
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    
+    const PAT_KEY = 'hygraph_tools_pat';
+    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
+    
+    let endpoint = '';
+    let token = '';
+    let assets = [];
+    let filteredAssets = [];
+    let selectedAsset = null;
+    let currentPage = 1;
+    let currentView = 'compare';
+    let currentOutput = 'srcset';
+    const ASSETS_PER_PAGE = 12;
+    
+    async function gql(query, variables = {}) {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ query, variables })
+      });
+      const json = await res.json();
+      if (json.errors) throw new Error(json.errors[0].message);
+      return json.data;
+    }
+    
+    async function fetchAssets() {
+      try {
+        const data = await gql(`{
+          assets(first: 500, stage: DRAFT, where: { mimeType_starts_with: "image/" }) {
+            id handle fileName url width height size mimeType
+          }
+        }`);
+        assets = data.assets || [];
+        filteredAssets = [...assets];
+        $('#asset-count').textContent = assets.length + ' images';
+        renderAssets();
+      } catch (e) {
+        console.error(e);
+        $('#asset-grid').innerHTML = `<div style="padding:20px;color:#ef4444;">Error: ${e.message}</div>`;
+      }
+    }
+    
+    function renderAssets() {
+      const start = (currentPage - 1) * ASSETS_PER_PAGE;
+      const end = start + ASSETS_PER_PAGE;
+      const pageAssets = filteredAssets.slice(start, end);
+      const totalPages = Math.ceil(filteredAssets.length / ASSETS_PER_PAGE) || 1;
+      
+      $('#asset-grid').innerHTML = pageAssets.map(a => `
+        <div class="asset-card ${selectedAsset?.id === a.id ? 'selected' : ''}" data-id="${a.id}">
+          <img src="${a.url}" alt="${a.fileName}" loading="lazy">
+          <div class="asset-info">
+            <strong>${a.fileName || 'Untitled'}</strong>
+            ${a.width}×${a.height}
+          </div>
+        </div>
+      `).join('') || '<div style="padding:20px;color:#64748b;">No images found</div>';
+      
+      $('#page-info').textContent = `Page ${currentPage} of ${totalPages}`;
+      $('#prev-btn').disabled = currentPage <= 1;
+      $('#next-btn').disabled = currentPage >= totalPages;
+      
+      $$('.asset-card').forEach(el => {
+        el.addEventListener('click', () => selectAsset(assets.find(a => a.id === el.dataset.id)));
+      });
+    }
+    
+    function selectAsset(asset) {
+      selectedAsset = asset;
+      $$('.asset-card').forEach(t => t.classList.remove('selected'));
+      $(`.asset-card[data-id="${asset.id}"]`)?.classList.add('selected');
+      
+      // Update preview
+      $('#preview-img').src = asset.url;
+      $('#preview-dims').textContent = `${asset.width || '?'} × ${asset.height || '?'}`;
+      $('#preview-size').textContent = formatBytes(asset.size);
+      $('#preview-format').textContent = asset.mimeType?.split('/')[1]?.toUpperCase() || '?';
+      
+      // Show compare content
+      $('#compare-placeholder').classList.add('hidden');
+      $('#compare-content').classList.remove('hidden');
+      $('#orig-img').src = asset.url;
+      $('#orig-dims').textContent = `${asset.width || '?'} × ${asset.height || '?'}`;
+      $('#orig-size').textContent = formatBytes(asset.size);
+      $('#orig-format').textContent = asset.mimeType?.split('/')[1]?.toUpperCase() || '?';
+      
+      // Show variants content
+      $('#variants-placeholder').classList.add('hidden');
+      $('#variants-content').classList.remove('hidden');
+      
+      updateTransform();
+      updateVariants();
+    }
+    
+    // Hygraph image transformations via GraphQL API (works with all CDNs)
+    // Uses url(transformation: {...}) parameter
+    function buildTransformationParams(options = {}) {
+      const w = options.width ?? $('#width').value;
+      const h = options.height ?? $('#height').value;
+      const fit = options.fit ?? $('#fit').value;
+      const quality = options.quality ?? $('#quality').value;
+      const format = options.format ?? $('#format').value;
+      
+      const parts = [];
+      
+      // Image transformations (resize)
+      const imageParts = [];
+      if (w) imageParts.push(`width: ${w}`);
+      if (h) imageParts.push(`height: ${h}`);
+      if (fit && fit !== 'clip') imageParts.push(`fit: ${fit}`);
+      if (imageParts.length > 0) {
+        parts.push(`image: { resize: { ${imageParts.join(', ')} } }`);
+      }
+      
+      // Document transformation (output format and quality)
+      const docParts = [];
+      if (format && format !== 'auto') {
+        docParts.push(`output: { format: ${format} }`);
+      }
+      if (parts.length > 0 || docParts.length > 0) {
+        // Quality is applied at top level, not in document
+      }
+      
+      return parts.length > 0 || docParts.length > 0 
+        ? `transformation: { ${[...parts, ...docParts].join(', ')} }`
+        : '';
+    }
+    
+    // Fetch transformed URL from GraphQL API
+    async function fetchTransformedUrl(options = {}) {
+      if (!selectedAsset) return selectedAsset?.url || '';
+      
+      const w = options.width ?? $('#width').value;
+      const h = options.height ?? $('#height').value;
+      const fit = options.fit ?? $('#fit').value;
+      const quality = options.quality ?? $('#quality').value;
+      const format = options.format ?? $('#format').value;
+      const blur = options.blur ?? $('#blur').value;
+      const sharpen = options.sharpen ?? $('#sharpen').value;
+      
+      // If no transforms, return original URL
+      if (!w && !h && parseInt(quality) >= 100 && format === 'auto' && parseInt(blur) === 0 && parseInt(sharpen) === 0) {
+        return selectedAsset.url;
+      }
+      
+      // Build image transformation parts
+      const imageParts = [];
+      
+      // Resize
+      if (w || h) {
+        const resizeParts = [];
+        if (w) resizeParts.push(`width: ${w}`);
+        if (h) resizeParts.push(`height: ${h}`);
+        resizeParts.push(`fit: ${fit}`);
+        imageParts.push(`resize: { ${resizeParts.join(', ')} }`);
+      }
+      
+      // Quality
+      if (quality && parseInt(quality) < 100) {
+        imageParts.push(`quality: { value: ${quality} }`);
+      }
+      
+      // Blur
+      if (blur && parseInt(blur) > 0) {
+        imageParts.push(`blur: { amount: ${blur} }`);
+      }
+      
+      // Sharpen
+      if (sharpen && parseInt(sharpen) > 0) {
+        imageParts.push(`sharpen: { amount: ${sharpen} }`);
+      }
+      
+      // Build document output parts
+      const docParts = [];
+      if (format && format !== 'auto') {
+        docParts.push(`format: ${format}`);
+      } else if (format === 'auto') {
+        docParts.push(`format: webp`);
+      }
+      
+      // Build full transformation
+      const transformParts = [];
+      if (imageParts.length) transformParts.push(`image: { ${imageParts.join(', ')} }`);
+      if (docParts.length) transformParts.push(`document: { output: { ${docParts.join(', ')} } }`);
+      
+      const transformation = transformParts.length > 0 
+        ? `transformation: { ${transformParts.join(', ')} }` 
+        : '';
+      
+      try {
+        const data = await gql(`{
+          asset(where: { id: "${selectedAsset.id}" }) {
+            url(${transformation})
+          }
+        }`);
+        return data.asset?.url || selectedAsset.url;
+      } catch (e) {
+        console.error('Transform error:', e);
+        return selectedAsset.url;
+      }
+    }
+    
+    // Synchronous URL builder for display (estimate only, actual URL from API)
+    function buildTransformUrl(options = {}) {
+      if (!selectedAsset) return '';
+      return selectedAsset.url; // Will be replaced by actual transformed URL
+    }
+    
+    function buildGraphQLQuery() {
+      if (!selectedAsset) return '';
+      
+      const w = $('#width').value;
+      const h = $('#height').value;
+      const fit = $('#fit').value;
+      const quality = $('#quality').value;
+      const format = $('#format').value;
+      const blur = $('#blur').value;
+      const sharpen = $('#sharpen').value;
+      
+      // Build image transformation parts
+      const imageParts = [];
+      
+      // Resize
+      if (w || h) {
+        const resizeParts = [];
+        if (w) resizeParts.push(`width: ${w}`);
+        if (h) resizeParts.push(`height: ${h}`);
+        resizeParts.push(`fit: ${fit}`);
+        imageParts.push(`resize: { ${resizeParts.join(', ')} }`);
+      }
+      
+      // Quality (1-100)
+      if (quality && parseInt(quality) < 100) {
+        imageParts.push(`quality: { value: ${quality} }`);
+      }
+      
+      // Blur (0-20)
+      if (blur && parseInt(blur) > 0) {
+        imageParts.push(`blur: { amount: ${blur} }`);
+      }
+      
+      // Sharpen (0-20)
+      if (sharpen && parseInt(sharpen) > 0) {
+        imageParts.push(`sharpen: { amount: ${sharpen} }`);
+      }
+      
+      // Build document output parts (format)
+      // GraphQL valid formats: jpg, png, svg, webp, gif
+      const docParts = [];
+      if (format && format !== 'auto') {
+        docParts.push(`format: ${format}`);
+      } else if (format === 'auto') {
+        // Auto not available in GraphQL - default to webp for best compression
+        docParts.push(`format: webp`);
+      }
+      
+      // Build full transformation object
+      const transformParts = [];
+      if (imageParts.length) transformParts.push(`image: { ${imageParts.join(', ')} }`);
+      if (docParts.length) transformParts.push(`document: { output: { ${docParts.join(', ')} } }`);
+      
+      const transformation = transformParts.length ? `transformation: { ${transformParts.join(', ')} }` : '';
+      
+      return `asset(where: { id: "${selectedAsset.id}" }) {\n  url(${transformation})\n}`;
+    }
+    
+    let updatePending = false;
+    
+    async function updateTransform() {
+      if (!selectedAsset) return;
+      if (updatePending) return; // Debounce
+      
+      updatePending = true;
+      const transImg = $('#trans-img');
+      
+      // Show loading state
+      transImg.style.opacity = '0.5';
+      $('#transform-url').textContent = 'Loading...';
+      
+      try {
+        // Fetch actual transformed URL from GraphQL API
+        const url = await fetchTransformedUrl();
+        console.log('Transformed URL:', url);
+        
+        transImg.onerror = () => {
+          console.error('Failed to load transformed image:', url);
+          transImg.src = selectedAsset.url;
+        };
+        transImg.onload = () => {
+          transImg.style.opacity = '1';
+        };
+        transImg.src = url;
+        $('#transform-url').textContent = url;
+        $('#graphql-query').textContent = buildGraphQLQuery();
+      } catch (e) {
+        console.error('Transform error:', e);
+        transImg.src = selectedAsset.url;
+        transImg.style.opacity = '1';
+        $('#transform-url').textContent = selectedAsset.url;
+      }
+      
+      updatePending = false;
+      
+      // Calculate estimates
+      const w = parseInt($('#width').value) || selectedAsset.width;
+      const h = parseInt($('#height').value) || selectedAsset.height;
+      const quality = parseInt($('#quality').value);
+      const format = $('#format').value;
+      
+      $('#trans-dims').textContent = `${w} × ${h}`;
+      $('#trans-format').textContent = format === 'auto' ? 'WebP' : format.toUpperCase();
+      
+      // Estimate size
+      const origSize = selectedAsset.size || 500000;
+      const pixelRatio = Math.min((w * h) / ((selectedAsset.width || 1920) * (selectedAsset.height || 1080)), 1);
+      const qualityRatio = quality / 100;
+      const formatRatio = (format === 'webp' || format === 'auto') ? 0.6 : 1;
+      const estSize = Math.max(1000, origSize * pixelRatio * qualityRatio * formatRatio);
+      const savings = Math.round(((origSize - estSize) / origSize) * 100);
+      
+      $('#trans-size').textContent = '~' + formatBytes(estSize);
+      
+      if (savings > 5) {
+        $('#savings-badge').style.display = 'inline-block';
+        $('#savings-badge').textContent = `${savings}% smaller`;
+      } else {
+        $('#savings-badge').style.display = 'none';
+      }
+    }
+    
+    async function updateVariants() {
+      if (!selectedAsset) return;
+      
+      const sizes = Array.from($$('.variant-size.active')).map(el => parseInt(el.dataset.size)).sort((a,b) => a - b);
+      
+      // Show loading state
+      $('#variants-preview').innerHTML = sizes.map(size => {
+        const estSize = Math.max(1000, (selectedAsset.size || 500000) * (size / (selectedAsset.width || 1920)) * 0.6 * 0.8);
+        return `
+          <div class="variant-card">
+            <div style="height:80px;background:#1e293b;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:11px;">Loading...</div>
+            <div class="variant-width">${size}w</div>
+            <div class="variant-est">~${formatBytes(estSize)}</div>
+          </div>
+        `;
+      }).join('');
+      
+      // Fetch all variant URLs in parallel via GraphQL
+      const variantUrls = await Promise.all(sizes.map(size => fetchTransformedUrl({ width: size, quality: 80, format: 'webp' })));
+      
+      $('#variants-preview').innerHTML = sizes.map((size, i) => {
+        const estSize = Math.max(1000, (selectedAsset.size || 500000) * (size / (selectedAsset.width || 1920)) * 0.6 * 0.8);
+        return `
+          <div class="variant-card">
+            <img src="${variantUrls[i]}" alt="${size}w">
+            <div class="variant-width">${size}w</div>
+            <div class="variant-est">~${formatBytes(estSize)}</div>
+          </div>
+        `;
+      }).join('');
+      
+      // Store URLs for output generation
+      selectedAsset._variantUrls = {};
+      sizes.forEach((size, i) => {
+        selectedAsset._variantUrls[size] = variantUrls[i];
+      });
+      
+      updateVariantOutput();
+    }
+    
+    function updateVariantOutput() {
+      if (!selectedAsset) return;
+      
+      const sizes = Array.from($$('.variant-size.active')).map(el => parseInt(el.dataset.size)).sort((a,b) => a - b);
+      const urls = selectedAsset._variantUrls || {};
+      let output = '';
+      
+      if (currentOutput === 'srcset') {
+        // Show GraphQL query for generating srcset URLs
+        output = `// GraphQL query to get responsive URLs:\n{\n  asset(where: { id: "${selectedAsset.id}" }) {\n`;
+        output += sizes.map(s => `    url${s}w: url(transformation: { image: { resize: { width: ${s} } } })`).join('\n');
+        output += `\n  }\n}\n\n// Result srcset:\n`;
+        output += sizes.map(s => `${urls[s] || '[URL]'} ${s}w`).join(',\n');
+      } else if (currentOutput === 'picture') {
+        output = `<picture>
+  <source type="image/webp" srcset="${sizes.map(s => `${urls[s] || '[URL]'} ${s}w`).join(', ')}" sizes="(max-width: 768px) 100vw, 50vw" />
+  <img srcset="${sizes.map(s => `${urls[s] || '[URL]'} ${s}w`).join(', ')}" sizes="(max-width: 768px) 100vw, 50vw" alt="" loading="lazy" />
+</picture>`;
+      } else if (currentOutput === 'css') {
+        output = `.hero {
+  background-image: url('${urls[sizes[0]] || '[URL]'}');
+}
+@media (min-width: 640px) {
+  .hero { background-image: url('${urls[sizes[1]] || urls[sizes[0]] || '[URL]'}'); }
+}
+@media (min-width: 1024px) {
+  .hero { background-image: url('${urls[sizes[sizes.length-1]] || '[URL]'}'); }
+}`;
+      }
+      
+      $('#variant-output').textContent = output;
+    }
+    
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    // Event Listeners
+    $$('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentView = tab.dataset.view;
+        $$('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        $('#compare-view').classList.toggle('hidden', currentView !== 'compare');
+        $('#responsive-view').classList.toggle('hidden', currentView !== 'responsive');
+      });
+    });
+    
+    $$('.variant-size').forEach(btn => {
+      btn.addEventListener('click', () => { btn.classList.toggle('active'); updateVariants(); });
+    });
+    
+    $$('.output-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentOutput = tab.dataset.output;
+        $$('.output-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        updateVariantOutput();
+      });
+    });
+    
+    // Presets
+    $$('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const preset = btn.dataset.preset;
+        if (preset === 'thumbnail') { $('#width').value = 150; $('#height').value = 150; $('#fit').value = 'crop'; }
+        else if (preset === 'medium') { $('#width').value = 600; $('#height').value = ''; $('#fit').value = 'clip'; }
+        else if (preset === 'large') { $('#width').value = 1200; $('#height').value = ''; $('#fit').value = 'clip'; }
+        else if (preset === 'fullhd') { $('#width').value = 1920; $('#height').value = ''; $('#fit').value = 'clip'; }
+        else if (preset === 'square') { $('#width').value = 500; $('#height').value = 500; $('#fit').value = 'crop'; }
+        updateTransform();
+      });
+    });
+    
+    // All controls
+    ['#width', '#height', '#blur', '#sharpen'].forEach(s => {
+      $(s)?.addEventListener('input', updateTransform);
+    });
+    ['#fit', '#format'].forEach(s => {
+      $(s)?.addEventListener('change', updateTransform);
+    });
+    
+    $('#quality').addEventListener('input', () => { $('#quality-val').textContent = $('#quality').value + '%'; updateTransform(); });
+    $('#blur').addEventListener('input', () => { $('#blur-val').textContent = $('#blur').value; });
+    $('#sharpen').addEventListener('input', () => { $('#sharpen-val').textContent = $('#sharpen').value; });
+    
+    // Search
+    $('#search-input').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      filteredAssets = q ? assets.filter(a => a.fileName?.toLowerCase().includes(q)) : [...assets];
+      currentPage = 1;
+      renderAssets();
+    });
+    
+    // Pagination
+    $('#prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderAssets(); } });
+    $('#next-btn').addEventListener('click', () => {
+      const totalPages = Math.ceil(filteredAssets.length / ASSETS_PER_PAGE);
+      if (currentPage < totalPages) { currentPage++; renderAssets(); }
+    });
+    
+    // Copy buttons - with fallback for iframe/security restrictions
+    function copyToClipboard(text) {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      }
+      return fallbackCopy(text);
+    }
+    
+    function fallbackCopy(text) {
+      return new Promise((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+          const success = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (success) resolve();
+          else reject(new Error('Copy failed'));
+        } catch (e) {
+          document.body.removeChild(textarea);
+          reject(e);
+        }
+      });
+    }
+    
+    async function copyAndFeedback(btn, text) {
+      try {
+        await copyToClipboard(text);
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+      } catch (e) {
+        console.error('Copy failed:', e);
+        btn.textContent = 'Failed!';
+        setTimeout(() => { btn.textContent = btn.textContent.includes('URL') ? 'Copy URL' : btn.textContent.includes('Query') ? 'Copy Query' : 'Copy'; }, 2000);
+      }
+    }
+    
+    $('#copy-url-btn').addEventListener('click', () => copyAndFeedback($('#copy-url-btn'), $('#transform-url').textContent));
+    $('#copy-gql-btn').addEventListener('click', () => copyAndFeedback($('#copy-gql-btn'), $('#graphql-query').textContent));
+    $('#copy-variant-btn').addEventListener('click', () => copyAndFeedback($('#copy-variant-btn'), $('#variant-output').textContent));
+    
+    // Connect
+    $('#connect-btn').addEventListener('click', async () => {
+      const t = $('#token-input').value.trim();
+      if (t) { token = t; localStorage.setItem(PAT_KEY, t); }
+      if (!endpoint || !token) { $('#error-msg').textContent = 'Missing credentials'; return; }
+      try {
+        await gql('{ __typename }');
+        $('#setup-view').style.display = 'none';
+        $('#main-view').style.display = 'grid';
+        fetchAssets();
+      } catch (e) { $('#error-msg').textContent = 'Error: ' + e.message; }
+    });
+    
+    // Init
+    sdk.init({ debug: true }).then(async ({ props }) => {
+      endpoint = props?.context?.environment?.endpoint || localStorage.getItem(ENDPOINT_KEY);
+      const sdkToken = props?.context?.environment?.authToken;
+      token = sdkToken || localStorage.getItem(PAT_KEY);
+      if (endpoint) localStorage.setItem(ENDPOINT_KEY, endpoint);
+      if (sdkToken) localStorage.setItem(PAT_KEY, sdkToken);
+      
+      if (endpoint && token) {
+        try {
+          await gql('{ __typename }');
+          $('#setup-view').style.display = 'none';
+          $('#main-view').style.display = 'grid';
+          fetchAssets();
+        } catch { $('#token-group').style.display = 'block'; }
+      } else { $('#token-group').style.display = 'block'; }
+    }).catch(() => {
+      endpoint = localStorage.getItem(ENDPOINT_KEY);
+      token = localStorage.getItem(PAT_KEY);
+      if (endpoint && token) {
+        gql('{ __typename }').then(() => {
+          $('#setup-view').style.display = 'none';
+          $('#main-view').style.display = 'grid';
+          fetchAssets();
+        }).catch(() => $('#token-group').style.display = 'block');
+      } else { $('#token-group').style.display = 'block'; }
+    });
+  </script>
+</body>
+</html>

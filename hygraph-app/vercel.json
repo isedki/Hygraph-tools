@@ -1,14 +1,46 @@
 {
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/", "destination": "/pages/setup.html" },
     { "source": "/setup", "destination": "/pages/setup.html" },
+    { "source": "/setup.html", "destination": "/pages/setup.html" },
     { "source": "/page", "destination": "/pages/page.html" },
+    { "source": "/page.html", "destination": "/pages/page.html" },
     { "source": "/sidebar", "destination": "/pages/sidebar.html" },
+    { "source": "/sidebar.html", "destination": "/pages/sidebar.html" },
     { "source": "/calendar", "destination": "/pages/calendar.html" },
+    { "source": "/calendar.html", "destination": "/pages/calendar.html" },
     { "source": "/health", "destination": "/pages/health.html" },
-    { "source": "/alttext", "destination": "/pages/alttext.html" }
+    { "source": "/health.html", "destination": "/pages/health.html" },
+    { "source": "/alttext", "destination": "/pages/alttext.html" },
+    { "source": "/alttext.html", "destination": "/pages/alttext.html" },
+    { "source": "/transform", "destination": "/pages/transform.html" },
+    { "source": "/transform.html", "destination": "/pages/transform.html" },
+    { "source": "/test", "destination": "/pages/test.html" },
+    { "source": "/test.html", "destination": "/pages/test.html" },
+    { "source": "/analytics", "destination": "/pages/analytics.html" },
+    { "source": "/analytics.html", "destination": "/pages/analytics.html" }
   ],
   "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.hygraph.com https://app.hygraph.com"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

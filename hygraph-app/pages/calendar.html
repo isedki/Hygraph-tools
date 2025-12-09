@@ -427,12 +427,18 @@ async function discoverModels() {
   const processModel = async (pluralApiId) => {
     const guessedName = guessModelName(pluralApiId);
     
-    const typeInfo = await gql(`{
-      __type(name: "${guessedName}") {
-        name
-        fields { name type { name kind ofType { name } } }
-      }
-    }`);
+    let typeInfo;
+    try {
+      typeInfo = await gql(`{
+        __type(name: "${guessedName}") {
+          name
+          fields { name type { name kind ofType { name } } }
+        }
+      }`);
+    } catch (e) {
+      // Model introspection failed - skip silently
+      return null;
+    }
     
     if (!typeInfo.__type?.fields) return null;
     
@@ -551,7 +557,15 @@ async function fetchScheduledOperations() {
       }
     }`;
     
-    const data = await gql(query);
+    // Try the query - some models may not support scheduledIn filter
+    let data;
+    try {
+      data = await gql(query);
+    } catch (e) {
+      // Expected for models without scheduledIn support - silently skip
+      return [];
+    }
+    
     const modelScheduled = [];
     
     for (const entry of data.entries || []) {
@@ -649,7 +663,15 @@ async function fetchEntries() {
         }
       }`;
 
-      const data = await gql(query);
+      // Try the query - may fail for certain field configurations
+      let data;
+      try {
+        data = await gql(query);
+      } catch (e) {
+        // Expected for some field types - silently skip
+        return [];
+      }
+      
       const customEntries = [];
       
       for (const entry of data.entries || []) {
@@ -1233,15 +1255,26 @@ sdk.init({ debug: true, onProps: () => {} })
     
     if (status === 'ok' && props) {
       endpoint = props.endpoint || props.context?.environment?.endpoint;
+      const sdkAuthToken = props?.context?.environment?.authToken; // NEW: SDK provides auth token!
+      
+      console.log('SDK Auth Token available:', !!sdkAuthToken);
       
       if (endpoint) {
         projectId = extractProjId(endpoint);
         region = extractRegion(endpoint);
         
+        // Prefer SDK auth token, then stored PAT
         const stored = getToken();
-        if (stored) {
+        const authToken = sdkAuthToken || stored;
+        
+        if (authToken) {
           try {
-            token = stored;
+            token = authToken;
+            // If SDK token worked, save it for future use
+            if (sdkAuthToken) {
+              localStorage.setItem(PAT_KEY, sdkAuthToken);
+              console.log('Stored SDK auth token for other tools');
+            }
             models = await discoverModels();
             
             renderFilters();

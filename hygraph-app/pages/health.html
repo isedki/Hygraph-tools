@@ -511,25 +511,35 @@
         console.log('Content Health: SDK initialized', status, props);
         
         const sdkEndpoint = props?.context?.environment?.endpoint || props?.endpoint;
+        const sdkAuthToken = props?.context?.environment?.authToken; // NEW: SDK provides auth token!
         const savedPat = getStoredPat();
         const savedEndpoint = getStoredEndpoint();
         
         console.log('SDK Endpoint:', sdkEndpoint);
+        console.log('SDK Auth Token available:', !!sdkAuthToken);
         console.log('Saved PAT available:', !!savedPat);
         
-        // Try with saved PAT
-        if (savedPat && (sdkEndpoint || savedEndpoint)) {
+        // Prefer SDK auth token, then saved PAT
+        const authToken = sdkAuthToken || savedPat;
+        
+        // Try with available token
+        if (authToken && (sdkEndpoint || savedEndpoint)) {
           endpoint = sdkEndpoint || savedEndpoint;
-          token = savedPat;
+          token = authToken;
           try {
             await gql('{ __typename }');
+            // If SDK token worked, save it for future use
+            if (sdkAuthToken) {
+              localStorage.setItem(PAT_KEY, sdkAuthToken);
+              console.log('Stored SDK auth token for other tools');
+            }
             $('#token-view').style.display = 'none';
             $('#main-view').style.display = 'block';
             await fetchModels();
             analyze();
             return;
           } catch (e) {
-            console.log('Saved PAT invalid:', e.message);
+            console.log('Token invalid:', e.message);
           }
         }
         

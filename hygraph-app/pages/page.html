@@ -379,6 +379,7 @@ function isSystemComponent(name) {
 
 let schema = { components: [], models: [], enums: [] };
 let endpoint = null, token = null, projectId = '', region = '';
+let projectUUID = '', environmentId = ''; // For Studio URLs
 let selected = null, filter = 'all', query = '', usageResult = null;
 let activeTab = 'search';
 let usageData = new Map();
@@ -410,11 +411,28 @@ const extractRegion=(ep)=>{
   const m = ep.match(/(?:api-|\/\/)([a-z0-9-]+)(?:\.cdn)?\.hygraph\.com/);
   return m ? m[1] : '';
 };
-const buildHygraphUrl=(entryId)=>{
-  // Link to project content section - user can search for entry
-  // Format: https://app-{region}.hygraph.com/{projectId}/master/content
-  const domain = region ? `app-${region}.hygraph.com` : 'app.hygraph.com';
-  // Copy entry ID to clipboard hint in title
+const buildHygraphUrl=(entryId, modelName = '')=>{
+  // Build Hygraph Studio URL
+  // Format: https://studio-{region}.hygraph.com/{projectUUID}/{environmentId}/content/{modelId}/entry/{entryId}
+  
+  const domain = region ? `studio-${region.toLowerCase()}.hygraph.com` : 'app.hygraph.com';
+  
+  // If we have project UUID and environment ID, build direct entry URL
+  if (projectUUID && environmentId) {
+    // Get model's internal ID if we have it cached
+    const model = schema.models.find(m => m.name === modelName);
+    const modelId = model?.internalId;
+    
+    if (modelId) {
+      // Direct link to entry
+      return `https://${domain}/${projectUUID}/${environmentId}/content/${modelId}/entry/${entryId}`;
+    } else {
+      // Link to content section with search
+      return `https://${domain}/${projectUUID}/${environmentId}/content?search=${entryId}`;
+    }
+  }
+  
+  // Fallback: search URL
   return `https://${domain}/${projectId}/master/content?search=${entryId}`;
 };
 
@@ -545,12 +563,19 @@ function parseSchema(intro) {
 }
 
 function generatePluralApiId(name) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith('y') && !['ay','ey','iy','oy','uy'].some(v => lower.endsWith(v))) return lower.slice(0,-1) + 'ies';
-  if (lower.endsWith('s') || lower.endsWith('x') || lower.endsWith('ch') || lower.endsWith('sh')) return lower + 'es';
-  if (lower === 'person') return 'people';
-  if (lower === 'child') return 'children';
-  return lower + 's';
+  // Keep camelCase - just add 's' or 'es' to the end
+  // NewsletterSection -> newsletterSections (lowercase first letter, add s)
+  const firstLower = name.charAt(0).toLowerCase() + name.slice(1);
+  
+  if (name.endsWith('y') && !['ay','ey','iy','oy','uy'].some(v => name.toLowerCase().endsWith(v))) {
+    return firstLower.slice(0,-1) + 'ies';
+  }
+  if (name.endsWith('s') || name.endsWith('x') || name.endsWith('ch') || name.endsWith('sh')) {
+    return firstLower + 'es';
+  }
+  if (name.toLowerCase() === 'person') return 'people';
+  if (name.toLowerCase() === 'child') return 'children';
+  return firstLower + 's';
 }
 
 // Cache for union lookups
@@ -791,7 +816,7 @@ function renderUsage() {
     <div class="section-title">Content Entries Using This ${selected.type}</div>
     <div class="usage-stats"><div class="usage-stat">Found <strong>${usageResult.length}</strong> usage${usageResult.length !== 1 ? 's' : ''}</div><div class="usage-stat">Across <strong>${models.length}</strong> model${models.length !== 1 ? 's' : ''}</div></div>
     <div class="model-filters">${models.map(m => `<span class="model-btn active">${m}</span>`).join('')}</div>
-    <div class="usage-list">${usageResult.slice(0, 30).map(u => `<div class="usage-item"><div class="usage-row"><div><div class="usage-title">${u.title || u.id}</div><div class="usage-id">${u.id}</div></div><a href="${buildHygraphUrl(u.id)}" target="_blank" class="open-link" title="Search in Hygraph">Open →</a></div><div class="usage-meta"><span class="usage-model">${u.modelName}</span> • <span class="usage-field">${u.field}</span></div></div>`).join('')}${usageResult.length > 30 ? `<p style="text-align:center;color:var(--text-muted);padding:10px;font-size:11px;">...and ${usageResult.length - 30} more</p>` : ''}</div>
+    <div class="usage-list">${usageResult.slice(0, 30).map(u => `<div class="usage-item"><div class="usage-row"><div><div class="usage-title">${u.title || u.id}</div><div class="usage-id">${u.id}</div></div><a href="${buildHygraphUrl(u.id, u.modelName)}" target="_blank" class="open-link" title="Open in Hygraph Studio">Open →</a></div><div class="usage-meta"><span class="usage-model">${u.modelName}</span> • <span class="usage-field">${u.field}</span></div></div>`).join('')}${usageResult.length > 30 ? `<p style="text-align:center;color:var(--text-muted);padding:10px;font-size:11px;">...and ${usageResult.length - 30} more</p>` : ''}</div>
   </div>`;
 }
 
@@ -802,46 +827,65 @@ function isScalarType(type) {
 
 // Helper: Find all components that could contain target (directly or nested)
 function findPathsToComponent(targetName, unions, visited = new Set(), depth = 0) {
-  if (depth >= 4 || visited.has(targetName)) return new Set();
+  if (depth >= 6 || visited.has(targetName)) return new Set();
   visited.add(targetName);
   
   const containing = new Set();
+  
+  // Find unions that contain target
+  const unionsWithTarget = unions.filter(u => u.types.includes(targetName)).map(u => u.name);
+  console.log(`Unions containing ${targetName}:`, unionsWithTarget);
   
   // Check all components for fields containing target
   for (const comp of schema.components) {
     for (const field of comp.fields) {
       const relType = field.type;
+      
       // Direct reference
-      if (relType === targetName) { containing.add(comp.name); continue; }
+      if (relType === targetName) {
+        containing.add(comp.name);
+        console.log(`✅ Component ${comp.name}.${field.name} directly references ${targetName}`);
+        continue;
+      }
+      
       // Union containing target
-      const union = unions.find(u => u.name === relType);
-      if (union && union.types.includes(targetName)) containing.add(comp.name);
-    }
-  }
-  
-  // Also check models (for intermediate components)
-  for (const model of schema.models) {
-    for (const field of model.fields) {
-      const relType = field.type;
-      // Union containing target - we add the union name to track it
-      const union = unions.find(u => u.name === relType);
-      if (union && union.types.includes(targetName)) {
-        console.log(`Model ${model.name}.${field.name} uses union ${union.name} containing ${targetName}`);
+      if (unionsWithTarget.includes(relType)) {
+        containing.add(comp.name);
+        console.log(`✅ Component ${comp.name}.${field.name} has union ${relType} containing ${targetName}`);
       }
     }
   }
   
-  // Recursively find components containing those
+  // ALSO check models - they can contain components too!
+  for (const model of schema.models) {
+    for (const field of model.fields) {
+      const relType = field.type;
+      
+      // Direct reference to target component
+      if (relType === targetName) {
+        console.log(`✅ Model ${model.name}.${field.name} directly references ${targetName}`);
+      }
+      
+      // Union containing target
+      if (unionsWithTarget.includes(relType)) {
+        console.log(`✅ Model ${model.name}.${field.name} has union ${relType} containing ${targetName}`);
+      }
+    }
+  }
+  
+  // Recursively find components containing those components
   for (const compName of [...containing]) {
     const nested = findPathsToComponent(compName, unions, new Set(visited), depth + 1);
     nested.forEach(n => containing.add(n));
   }
+  
+  console.log(`findPathsToComponent(${targetName}) found: [${[...containing].join(', ')}]`);
   return containing;
 }
 
-// Helper: Build deep query for a component (recursive up to 5 levels)
+// Helper: Build deep query for a component (recursive up to 7 levels)
 function buildDeepQuery(compName, unions, visited = new Set(), depth = 0) {
-  if (depth >= 5 || visited.has(compName)) return '__typename';
+  if (depth >= 7 || visited.has(compName)) return '__typename';
   visited.add(compName);
   
   const comp = schema.components.find(c => c.name === compName);
@@ -871,24 +915,38 @@ function buildDeepQuery(compName, unions, visited = new Set(), depth = 0) {
 }
 
 // Helper: Recursively search for component in data
-function findInValue(value, targetName, path = []) {
+function findInValue(value, targetName, path = [], depth = 0) {
+  if (depth > 10) return []; // Prevent infinite recursion
   const results = [];
+  
   if (Array.isArray(value)) {
     value.forEach((item, i) => {
       if (item && typeof item === 'object') {
-        if (item.__typename === targetName) results.push({ path: [...path, `[${i}]`], data: item });
+        // Check __typename
+        if (item.__typename === targetName) {
+          results.push({ path: [...path, `[${i}]`], data: item });
+        }
+        // Recursively search ALL object properties
         Object.entries(item).forEach(([k, v]) => {
-          if (k !== '__typename' && v && typeof v === 'object') {
-            results.push(...findInValue(v, targetName, [...path, `[${i}]`, k]));
+          if (k !== '__typename' && v != null) {
+            if (typeof v === 'object') {
+              results.push(...findInValue(v, targetName, [...path, `[${i}]`, k], depth + 1));
+            }
           }
         });
       }
     });
   } else if (value && typeof value === 'object') {
-    if (value.__typename === targetName) results.push({ path, data: value });
+    // Check __typename
+    if (value.__typename === targetName) {
+      results.push({ path, data: value });
+    }
+    // Recursively search ALL object properties
     Object.entries(value).forEach(([k, v]) => {
-      if (k !== '__typename' && v && typeof v === 'object') {
-        results.push(...findInValue(v, targetName, [...path, k]));
+      if (k !== '__typename' && v != null) {
+        if (typeof v === 'object') {
+          results.push(...findInValue(v, targetName, [...path, k], depth + 1));
+        }
       }
     });
   }
@@ -904,11 +962,20 @@ async function findUsage() {
   try {
     const targetName = selected.name;
     const targetType = selected.type;
+    console.log(`🔍 Finding usage for: ${targetName} (${targetType})`);
+    
     const unions = await discoverUnionTypes();
+    console.log(`Found ${unions.length} union types`);
     
     // Find all components that could contain target (directly or nested)
     const containingComps = targetType === 'component' ? findPathsToComponent(targetName, unions) : new Set();
-    const allRelevantTypes = new Set([targetName, ...containingComps]);
+    
+    // Also find unions that contain the target
+    const unionsWithTarget = unions.filter(u => u.types.includes(targetName)).map(u => u.name);
+    
+    const allRelevantTypes = new Set([targetName, ...containingComps, ...unionsWithTarget]);
+    console.log(`Searching in types: [${[...allRelevantTypes].join(', ')}]`);
+    console.log(`Unions with target: [${unionsWithTarget.join(', ')}]`);
     
     // System fields to skip
     const SYS_FIELDS = new Set(['stage','id','createdAt','updatedAt','publishedAt','documentInStages','history','publishedBy','createdBy','updatedBy','scheduledIn','locale','localizations']);
@@ -927,14 +994,22 @@ async function findUsage() {
             componentFields.push({ name: field.name, isUnion: false });
           }
         } else {
+          // Check if field type matches target, a containing component, or a union with target
           if (allRelevantTypes.has(field.typeName)) {
             componentFields.push({ name: field.name, isUnion: field.isUnion, unionTypes: field.isUnion ? unions.find(u => u.name === field.typeName)?.types : undefined });
+            console.log(`  → Model ${model.name}.${field.name} matches type ${field.typeName}`);
           } else if (field.isUnion) {
             const union = unions.find(u => u.name === field.typeName);
             if (union?.types.some(t => allRelevantTypes.has(t))) {
               componentFields.push({ name: field.name, isUnion: true, unionTypes: union.types });
+              console.log(`  → Model ${model.name}.${field.name} has union ${field.typeName} containing relevant type`);
             }
+          } else if (field.typeName === targetName) {
+            // Direct reference to target
+            componentFields.push({ name: field.name, isUnion: false });
+            console.log(`  → Model ${model.name}.${field.name} directly references ${targetName}`);
           } else if (schema.components.some(c => c.name === field.typeName)) {
+            // Field is a component - check if it could contain target
             componentFields.push({ name: field.name, isUnion: false });
           }
         }
@@ -958,15 +1033,41 @@ async function findUsage() {
         }
       }).join(' ');
       
-      const query = `query { entries: ${model.pluralApiId}(first: 100, stage: DRAFT) { id ${titleField} ${fieldSelections} } }`;
+      // Skip if no valid pluralApiId
+      if (!model.pluralApiId) {
+        console.warn(`Skipping ${model.name} - no pluralApiId`);
+        return modelResults;
+      }
       
-      try {
-        const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ query }) });
-        const r = await res.json();
-        if (r.errors) return modelResults;
+      // Query both DRAFT and PUBLISHED stages to find all content
+      const stages = ['DRAFT', 'PUBLISHED'];
+      const allEntries = [];
+      
+      for (const stage of stages) {
+        const query = `query { entries: ${model.pluralApiId}(first: 100, stage: ${stage}) { id ${titleField} ${fieldSelections} } }`;
+        console.log(`Query for ${model.name} (${stage}):`, query.substring(0, 150) + '...');
         
-        for (const entry of (r.data?.entries || [])) {
-          for (const cf of componentFields) {
+        try {
+          const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ query }) });
+          const r = await res.json();
+          if (r.errors) {
+            console.error(`Query error for ${model.name} (${stage}):`, r.errors[0]?.message);
+            continue;
+          }
+          // Add entries, avoiding duplicates by ID
+          const seenIds = new Set(allEntries.map(e => e.id));
+          for (const entry of (r.data?.entries || [])) {
+            if (!seenIds.has(entry.id)) {
+              allEntries.push(entry);
+              seenIds.add(entry.id);
+            }
+          }
+        } catch (e) { console.error(`Fetch error for ${model.name} (${stage}):`, e); }
+      }
+      
+      // Process all entries from both stages
+      for (const entry of allEntries) {
+        for (const cf of componentFields) {
             const fieldValue = entry[cf.name];
             if (!fieldValue) continue;
             
@@ -987,7 +1088,6 @@ async function findUsage() {
             }
           }
         }
-      } catch (e) { /* continue */ }
       
       return modelResults;
     };
@@ -1309,15 +1409,34 @@ sdk.init({ debug: true, onProps: () => {} })
   .then(async ({ status, props }) => {
     if (status === 'ok' && props) {
       endpoint = props.endpoint || props.context?.environment?.endpoint;
+      const sdkAuthToken = props?.context?.environment?.authToken;
+      
+      // Get project UUID and environment ID from SDK context
+      projectUUID = props?.context?.project?.id || '';
+      environmentId = props?.context?.environment?.id || '';
+      
+      console.log('SDK Auth Token available:', !!sdkAuthToken);
+      console.log('Project UUID:', projectUUID);
+      console.log('Environment ID:', environmentId);
+      
       if (endpoint) {
         projectId = extractProjId(endpoint);
         region = extractRegion(endpoint);
         console.log('Project:', projectId, 'Region:', region);
+        
+        // Prefer SDK auth token, then stored PAT
         const stored = getToken();
-        if (stored) {
+        const authToken = sdkAuthToken || stored;
+        
+        if (authToken) {
           try {
-            token = stored;
-            const intro = await fetchIntrospection(endpoint, stored);
+            token = authToken;
+            // If SDK token worked, save it for future use
+            if (sdkAuthToken) {
+              localStorage.setItem(PAT_KEY, sdkAuthToken);
+              console.log('Stored SDK auth token for other tools');
+            }
+            const intro = await fetchIntrospection(endpoint, authToken);
             parseSchema(intro);
             // Pre-load unions for getRefs
             cachedUnions = await discoverUnionTypes();

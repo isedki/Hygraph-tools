@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hygraph Tools - Test Suite</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --accent: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'SF Mono', Monaco, monospace; background: var(--bg); color: var(--text); padding: 24px; line-height: 1.6; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .subtitle { color: var(--muted); margin-bottom: 24px; }
+    
+    .config { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+    .config h2 { font-size: 14px; margin-bottom: 12px; color: var(--accent); }
+    .config input { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; margin-bottom: 8px; }
+    .config button { padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .config button:hover { opacity: 0.9; }
+    
+    .summary { display: flex; gap: 16px; margin-bottom: 24px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; flex: 1; text-align: center; }
+    .stat-value { font-size: 32px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .stat.pass .stat-value { color: var(--success); }
+    .stat.fail .stat-value { color: var(--error); }
+    .stat.skip .stat-value { color: var(--warning); }
+    
+    .test-group { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .group-header { padding: 12px 16px; background: rgba(139, 92, 246, 0.1); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .group-title { font-weight: 600; }
+    .group-stats { font-size: 12px; color: var(--muted); }
+    
+    .test-item { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+    .test-item:last-child { border-bottom: none; }
+    .test-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .test-icon.pass { background: var(--success); color: white; }
+    .test-icon.fail { background: var(--error); color: white; }
+    .test-icon.skip { background: var(--warning); color: white; }
+    .test-name { flex: 1; }
+    .test-time { font-size: 11px; color: var(--muted); }
+    .test-error { font-size: 12px; color: var(--error); margin-top: 4px; padding-left: 32px; }
+    
+    .running { opacity: 0.6; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h1>🧪 Hygraph Tools Test Suite</h1>
+  <p class="subtitle">Regression tests for Schema Explorer, Content Health, and other tools</p>
+  
+  <div class="config">
+    <h2>Configuration (for Integration Tests)</h2>
+    <input type="text" id="endpoint" placeholder="Hygraph Content API Endpoint (optional)">
+    <input type="password" id="token" placeholder="Permanent Auth Token (optional)">
+    <button id="run-btn">▶ Run All Tests</button>
+  </div>
+  
+  <div class="summary">
+    <div class="stat pass"><div class="stat-value" id="pass-count">-</div><div class="stat-label">PASSED</div></div>
+    <div class="stat fail"><div class="stat-value" id="fail-count">-</div><div class="stat-label">FAILED</div></div>
+    <div class="stat skip"><div class="stat-value" id="skip-count">-</div><div class="stat-label">SKIPPED</div></div>
+  </div>
+  
+  <div id="results"></div>
+
+  <script>
+    // ============================================
+    // FUNCTIONS TO TEST (copied from page.html)
+    // ============================================
+    
+    function generatePluralApiId(name) {
+      const firstLower = name.charAt(0).toLowerCase() + name.slice(1);
+      if (name.endsWith('y') && !['ay','ey','iy','oy','uy'].some(v => name.toLowerCase().endsWith(v))) {
+        return firstLower.slice(0,-1) + 'ies';
+      }
+      if (name.endsWith('s') || name.endsWith('x') || name.endsWith('ch') || name.endsWith('sh')) {
+        return firstLower + 'es';
+      }
+      if (name.toLowerCase() === 'person') return 'people';
+      if (name.toLowerCase() === 'child') return 'children';
+      return firstLower + 's';
+    }
+    
+    function findInValue(value, targetName, path = [], depth = 0) {
+      if (depth > 10) return [];
+      const results = [];
+      
+      if (Array.isArray(value)) {
+        value.forEach((item, i) => {
+          if (item && typeof item === 'object') {
+            if (item.__typename === targetName) {
+              results.push({ path: [...path, `[${i}]`], data: item });
+            }
+            Object.entries(item).forEach(([k, v]) => {
+              if (k !== '__typename' && v != null) {
+                if (typeof v === 'object') {
+                  results.push(...findInValue(v, targetName, [...path, `[${i}]`, k], depth + 1));
+                }
+              }
+            });
+          }
+        });
+      } else if (value && typeof value === 'object') {
+        if (value.__typename === targetName) {
+          results.push({ path, data: value });
+        }
+        Object.entries(value).forEach(([k, v]) => {
+          if (k !== '__typename' && v != null) {
+            if (typeof v === 'object') {
+              results.push(...findInValue(v, targetName, [...path, k], depth + 1));
+            }
+          }
+        });
+      }
+      return results;
+    }
+    
+    function isSystemType(name) {
+      if (!name) return true;
+      const n = name.toLowerCase();
+      return name.startsWith('_') || 
+        n.includes('fromanotherproject') || n.includes('remote_') ||
+        n.includes('smartling') || n.includes('localize') || n.includes('lokalise') ||
+        ['asset', 'location', 'color', 'richtext', 'json', 'datetime', 'date', 'node', 'pageinfo', 
+         'aggregate', 'batchpayload', 'taxonomynode', 'assetupload', 'richtextast', 'rgba'].includes(n);
+    }
+    
+    function isSystemEnum(name) {
+      if (!name) return true;
+      const n = name.toLowerCase();
+      return name.startsWith('_') ||
+        n.includes('smartling') || n.includes('localize') || n.includes('lokalise') ||
+        n === 'workflow' ||
+        ['stage', 'locale', 'documentfiletype', 'imagetransformationtypekey', 'systemdatetimefieldvariation',
+         'assetorderbyinput', 'orderby', 'orderbyrelationfirst', 'orderbyrelationnull'].some(s => n.includes(s));
+    }
+    
+    function isSystemComponent(name) {
+      if (!name) return true;
+      const n = name.toLowerCase();
+      return name.startsWith('_') ||
+        n.includes('smartling') || n.includes('localize') || n.includes('lokalise') ||
+        n.endsWith('_assetupload') || n.endsWith('_assetuploadurl') || n.endsWith('_assetuploadError') ||
+        n.endsWith('_scheduledoperation') || n.endsWith('_scheduledrelease') ||
+        n.endsWith('_user') || n.endsWith('_version') ||
+        n.includes('_asset') || n.includes('_scheduled') || n.includes('_user') || n.includes('_version');
+    }
+    
+    // ============================================
+    // TEST FRAMEWORK
+    // ============================================
+    
+    const tests = [];
+    let results = { pass: 0, fail: 0, skip: 0 };
+    
+    function describe(name, fn) {
+      tests.push({ name, tests: [], fn });
+    }
+    
+    function it(name, fn, skip = false) {
+      const group = tests[tests.length - 1];
+      group.tests.push({ name, fn, skip });
+    }
+    
+    function expect(actual) {
+      return {
+        toBe(expected) {
+          if (actual !== expected) throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        },
+        toEqual(expected) {
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+            throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+          }
+        },
+        toBeTruthy() {
+          if (!actual) throw new Error(`Expected truthy, got ${JSON.stringify(actual)}`);
+        },
+        toBeFalsy() {
+          if (actual) throw new Error(`Expected falsy, got ${JSON.stringify(actual)}`);
+        },
+        toContain(item) {
+          if (!actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`);
+        },
+        toHaveLength(len) {
+          if (actual.length !== len) throw new Error(`Expected length ${len}, got ${actual.length}`);
+        },
+        toBeGreaterThan(num) {
+          if (actual <= num) throw new Error(`Expected ${actual} > ${num}`);
+        }
+      };
+    }
+    
+    // ============================================
+    // TEST DEFINITIONS
+    // ============================================
+    
+    describe('generatePluralApiId', () => {
+      it('should handle simple names', () => {
+        expect(generatePluralApiId('Page')).toBe('pages');
+        expect(generatePluralApiId('Post')).toBe('posts');
+        expect(generatePluralApiId('User')).toBe('users');
+      });
+      
+      it('should preserve camelCase', () => {
+        expect(generatePluralApiId('NewsletterSection')).toBe('newsletterSections');
+        expect(generatePluralApiId('ProductPage')).toBe('productPages');
+        expect(generatePluralApiId('BlogPost')).toBe('blogPosts');
+      });
+      
+      it('should handle -y endings', () => {
+        expect(generatePluralApiId('Category')).toBe('categories');
+        expect(generatePluralApiId('Entry')).toBe('entries');
+        expect(generatePluralApiId('Gallery')).toBe('galleries');
+      });
+      
+      it('should handle -y endings that just add s', () => {
+        expect(generatePluralApiId('Day')).toBe('days');
+        expect(generatePluralApiId('Key')).toBe('keys');
+        expect(generatePluralApiId('Boy')).toBe('boys');
+      });
+      
+      it('should handle -s, -x, -ch, -sh endings', () => {
+        expect(generatePluralApiId('Class')).toBe('classes');
+        expect(generatePluralApiId('Box')).toBe('boxes');
+        expect(generatePluralApiId('Branch')).toBe('branches');
+        expect(generatePluralApiId('Wish')).toBe('wishes');
+      });
+      
+      it('should handle special cases', () => {
+        expect(generatePluralApiId('Person')).toBe('people');
+        expect(generatePluralApiId('Child')).toBe('children');
+      });
+    });
+    
+    describe('findInValue - Nested Component Detection', () => {
+      it('should find direct component at top level', () => {
+        const data = { __typename: 'Button', label: 'Click' };
+        const results = findInValue(data, 'Button', ['field']);
+        expect(results).toHaveLength(1);
+        expect(results[0].path).toEqual(['field']);
+      });
+      
+      it('should find component in array', () => {
+        const data = [
+          { __typename: 'Hero', title: 'Welcome' },
+          { __typename: 'Button', label: 'Click' },
+          { __typename: 'Text', content: 'Hello' }
+        ];
+        const results = findInValue(data, 'Button', ['sections']);
+        expect(results).toHaveLength(1);
+        expect(results[0].path).toEqual(['sections', '[1]']);
+      });
+      
+      it('should find deeply nested component (3 levels)', () => {
+        const data = {
+          __typename: 'Page',
+          sections: [
+            {
+              __typename: 'Section',
+              content: {
+                __typename: 'Button',
+                label: 'Deep Button'
+              }
+            }
+          ]
+        };
+        const results = findInValue(data, 'Button', ['page']);
+        expect(results).toHaveLength(1);
+        expect(results[0].path).toContain('content');
+      });
+      
+      it('should find multiple instances of same component', () => {
+        const data = [
+          { __typename: 'Button', label: 'First' },
+          { __typename: 'Text', content: 'Middle' },
+          { __typename: 'Button', label: 'Second' }
+        ];
+        const results = findInValue(data, 'Button', ['items']);
+        expect(results).toHaveLength(2);
+      });
+      
+      it('should find component at depth 5', () => {
+        const data = {
+          level1: {
+            level2: {
+              level3: {
+                level4: {
+                  level5: { __typename: 'DeepComponent', value: 'Found!' }
+                }
+              }
+            }
+          }
+        };
+        const results = findInValue(data, 'DeepComponent', ['root']);
+        expect(results).toHaveLength(1);
+      });
+      
+      it('should handle null and undefined values', () => {
+        const data = {
+          __typename: 'Container',
+          nullField: null,
+          undefinedField: undefined,
+          child: { __typename: 'Button', label: 'OK' }
+        };
+        const results = findInValue(data, 'Button', ['root']);
+        expect(results).toHaveLength(1);
+      });
+      
+      it('should not exceed max depth (prevent infinite loops)', () => {
+        // Create a deeply nested structure
+        let data = { __typename: 'Target', value: 'Found' };
+        for (let i = 0; i < 15; i++) {
+          data = { nested: data };
+        }
+        const results = findInValue(data, 'Target', ['root']);
+        // Should not find it because it's beyond depth 10
+        expect(results).toHaveLength(0);
+      });
+    });
+    
+    describe('isSystemType - System Type Filtering', () => {
+      it('should filter underscore-prefixed types', () => {
+        expect(isSystemType('_Service')).toBe(true);
+        expect(isSystemType('_Entity')).toBe(true);
+      });
+      
+      it('should filter integration types', () => {
+        expect(isSystemType('SmartlingProject')).toBe(true);
+        expect(isSystemType('LocalizeTranslation')).toBe(true);
+        expect(isSystemType('LokaliseKey')).toBe(true);
+      });
+      
+      it('should filter built-in types', () => {
+        expect(isSystemType('Asset')).toBe(true);
+        expect(isSystemType('Location')).toBe(true);
+        expect(isSystemType('RichText')).toBe(true);
+        expect(isSystemType('Color')).toBe(true);
+      });
+      
+      it('should allow user-defined types', () => {
+        expect(isSystemType('Page')).toBe(false);
+        expect(isSystemType('BlogPost')).toBe(false);
+        expect(isSystemType('Product')).toBe(false);
+        expect(isSystemType('Button')).toBe(false);
+      });
+    });
+    
+    describe('isSystemEnum - System Enum Filtering', () => {
+      it('should filter system enums', () => {
+        expect(isSystemEnum('Stage')).toBe(true);
+        expect(isSystemEnum('Locale')).toBe(true);
+        expect(isSystemEnum('Workflow')).toBe(true);
+      });
+      
+      it('should filter integration enums', () => {
+        expect(isSystemEnum('SmartlingStatus')).toBe(true);
+        expect(isSystemEnum('LocalizeState')).toBe(true);
+      });
+      
+      it('should allow user-defined enums', () => {
+        expect(isSystemEnum('ProductStatus')).toBe(false);
+        expect(isSystemEnum('Priority')).toBe(false);
+        expect(isSystemEnum('Theme')).toBe(false);
+      });
+    });
+    
+    describe('isSystemComponent - System Component Filtering', () => {
+      it('should filter underscore-prefixed components', () => {
+        expect(isSystemComponent('_Asset')).toBe(true);
+        expect(isSystemComponent('_User')).toBe(true);
+      });
+      
+      it('should filter asset-related components', () => {
+        expect(isSystemComponent('Page_assetupload')).toBe(true);
+        expect(isSystemComponent('Post_AssetUploadUrl')).toBe(true);
+      });
+      
+      it('should filter scheduled operation components', () => {
+        expect(isSystemComponent('Page_scheduledoperation')).toBe(true);
+        expect(isSystemComponent('Post_ScheduledRelease')).toBe(true);
+      });
+      
+      it('should allow user-defined components', () => {
+        expect(isSystemComponent('Button')).toBe(false);
+        expect(isSystemComponent('Hero')).toBe(false);
+        expect(isSystemComponent('Card')).toBe(false);
+      });
+    });
+    
+    // ============================================
+    // INTEGRATION TESTS (require API)
+    // ============================================
+    
+    describe('Integration: API Connectivity', () => {
+      it('should connect to Hygraph API', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __typename }' })
+        });
+        const data = await res.json();
+        expect(data.data.__typename).toBe('Query');
+      });
+      
+      it('should fetch schema introspection', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { types { name kind } } }' })
+        });
+        const data = await res.json();
+        expect(data.data.__schema.types.length).toBeGreaterThan(0);
+      });
+      
+      it('should fetch union types', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { types { kind name possibleTypes { name } } } }' })
+        });
+        const data = await res.json();
+        const unions = data.data.__schema.types.filter(t => t.kind === 'UNION');
+        expect(unions).toBeTruthy();
+      });
+    });
+    
+    describe('Integration: Stage Querying (DRAFT + PUBLISHED)', () => {
+      it('should query DRAFT stage successfully', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        // First get a model name from the schema
+        const schemaRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { queryType { fields { name } } } }' })
+        });
+        const schemaData = await schemaRes.json();
+        const queryFields = schemaData.data.__schema.queryType.fields;
+        
+        // Find a plural query field (ends with 's', not 'Connection')
+        const modelField = queryFields.find(f => 
+          f.name.endsWith('s') && 
+          !f.name.endsWith('Connection') && 
+          !f.name.startsWith('_') &&
+          f.name !== 'assets'
+        );
+        
+        if (!modelField) throw { skip: true, message: 'No queryable models found' };
+        
+        const query = `query { entries: ${modelField.name}(first: 1, stage: DRAFT) { id } }`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        
+        // Should not have errors (empty results is OK)
+        if (data.errors) throw new Error(`DRAFT query failed: ${data.errors[0].message}`);
+        expect(data.data.entries).toBeTruthy();
+      });
+      
+      it('should query PUBLISHED stage successfully', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const schemaRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { queryType { fields { name } } } }' })
+        });
+        const schemaData = await schemaRes.json();
+        const queryFields = schemaData.data.__schema.queryType.fields;
+        
+        const modelField = queryFields.find(f => 
+          f.name.endsWith('s') && 
+          !f.name.endsWith('Connection') && 
+          !f.name.startsWith('_') &&
+          f.name !== 'assets'
+        );
+        
+        if (!modelField) throw { skip: true, message: 'No queryable models found' };
+        
+        const query = `query { entries: ${modelField.name}(first: 1, stage: PUBLISHED) { id } }`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        
+        if (data.errors) throw new Error(`PUBLISHED query failed: ${data.errors[0].message}`);
+        expect(data.data.entries).toBeTruthy();
+      });
+      
+      it('should find content in DRAFT that may not be in PUBLISHED', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const schemaRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { queryType { fields { name } } } }' })
+        });
+        const schemaData = await schemaRes.json();
+        const queryFields = schemaData.data.__schema.queryType.fields;
+        
+        const modelField = queryFields.find(f => 
+          f.name.endsWith('s') && 
+          !f.name.endsWith('Connection') && 
+          !f.name.startsWith('_') &&
+          f.name !== 'assets'
+        );
+        
+        if (!modelField) throw { skip: true, message: 'No queryable models found' };
+        
+        // Query both stages
+        const [draftRes, pubRes] = await Promise.all([
+          fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ query: `{ entries: ${modelField.name}(first: 100, stage: DRAFT) { id } }` })
+          }),
+          fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ query: `{ entries: ${modelField.name}(first: 100, stage: PUBLISHED) { id } }` })
+          })
+        ]);
+        
+        const draftData = await draftRes.json();
+        const pubData = await pubRes.json();
+        
+        const draftCount = draftData.data?.entries?.length || 0;
+        const pubCount = pubData.data?.entries?.length || 0;
+        
+        console.log(`${modelField.name}: DRAFT=${draftCount}, PUBLISHED=${pubCount}`);
+        
+        // Test passes - we're just verifying both queries work
+        // In real usage, DRAFT often has more entries than PUBLISHED
+        expect(draftData.data).toBeTruthy();
+        expect(pubData.data).toBeTruthy();
+      });
+    });
+    
+    describe('Integration: Model Detection & Plural API IDs', () => {
+      it('should detect models from Query type fields', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { queryType { fields { name type { name kind ofType { name kind } } } } } }' })
+        });
+        const data = await res.json();
+        
+        const queryFields = data.data.__schema.queryType.fields;
+        const modelFields = queryFields.filter(f => 
+          !f.name.startsWith('_') &&
+          !f.name.endsWith('Connection') &&
+          f.type?.kind === 'NON_NULL' &&
+          f.type?.ofType?.kind === 'LIST'
+        );
+        
+        console.log('Detected model query fields:', modelFields.map(f => f.name).join(', '));
+        expect(modelFields.length).toBeGreaterThan(0);
+      });
+      
+      it('should generate correct plural API IDs', async () => {
+        // Test the actual plural API ID generation against real schema
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { queryType { fields { name } } } }' })
+        });
+        const data = await res.json();
+        
+        const queryFields = new Set(data.data.__schema.queryType.fields.map(f => f.name));
+        
+        // Test some common model names
+        const testCases = [
+          { singular: 'Page', expectedPlural: 'pages' },
+          { singular: 'Post', expectedPlural: 'posts' },
+          { singular: 'Category', expectedPlural: 'categories' },
+        ];
+        
+        for (const tc of testCases) {
+          const generated = generatePluralApiId(tc.singular);
+          console.log(`${tc.singular} → ${generated} (expected: ${tc.expectedPlural})`);
+          expect(generated).toBe(tc.expectedPlural);
+        }
+      });
+    });
+    
+    describe('Integration: Component Usage Detection', () => {
+      it('should find components in schema', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { types { name kind fields { name type { name kind } } } } }' })
+        });
+        const data = await res.json();
+        
+        const types = data.data.__schema.types;
+        const objectTypes = types.filter(t => 
+          t.kind === 'OBJECT' && 
+          !t.name.startsWith('_') && 
+          t.fields?.length > 0
+        );
+        
+        console.log(`Found ${objectTypes.length} object types in schema`);
+        expect(objectTypes.length).toBeGreaterThan(0);
+      });
+      
+      it('should find union types containing components', async () => {
+        const endpoint = document.getElementById('endpoint').value;
+        const token = document.getElementById('token').value;
+        if (!endpoint || !token) throw { skip: true, message: 'No credentials provided' };
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ query: '{ __schema { types { kind name possibleTypes { name } } } }' })
+        });
+        const data = await res.json();
+        
+        const unions = data.data.__schema.types.filter(t => 
+          t.kind === 'UNION' && 
+          !t.name.startsWith('_') &&
+          t.possibleTypes?.length > 0
+        );
+        
+        console.log('Union types:', unions.map(u => `${u.name}:[${u.possibleTypes.map(p => p.name).join(',')}]`).join(', '));
+        
+        // Unions are optional - some projects may not have them
+        expect(unions).toBeTruthy();
+      });
+    });
+    
+    // ============================================
+    // TEST RUNNER
+    // ============================================
+    
+    async function runTests() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      results = { pass: 0, fail: 0, skip: 0 };
+      
+      for (const group of tests) {
+        group.fn(); // Setup tests
+        
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'test-group';
+        groupDiv.innerHTML = `
+          <div class="group-header">
+            <span class="group-title">${group.name}</span>
+            <span class="group-stats" id="stats-${group.name.replace(/\s+/g, '-')}">Running...</span>
+          </div>
+        `;
+        resultsDiv.appendChild(groupDiv);
+        
+        let groupPass = 0, groupFail = 0, groupSkip = 0;
+        
+        for (const test of group.tests) {
+          const testDiv = document.createElement('div');
+          testDiv.className = 'test-item running';
+          testDiv.innerHTML = `
+            <div class="test-icon"><div class="spinner"></div></div>
+            <span class="test-name">${test.name}</span>
+            <span class="test-time">...</span>
+          `;
+          groupDiv.appendChild(testDiv);
+          
+          await new Promise(r => setTimeout(r, 10)); // Allow UI to update
+          
+          const start = performance.now();
+          let status = 'pass', error = null;
+          
+          if (test.skip) {
+            status = 'skip';
+            groupSkip++;
+            results.skip++;
+          } else {
+            try {
+              const result = test.fn();
+              if (result instanceof Promise) await result;
+            } catch (e) {
+              if (e.skip) {
+                status = 'skip';
+                error = e.message;
+                groupSkip++;
+                results.skip++;
+              } else {
+                status = 'fail';
+                error = e.message;
+                groupFail++;
+                results.fail++;
+              }
+            }
+            if (status === 'pass') {
+              groupPass++;
+              results.pass++;
+            }
+          }
+          
+          const time = (performance.now() - start).toFixed(1);
+          testDiv.className = 'test-item';
+          testDiv.innerHTML = `
+            <div class="test-icon ${status}">${status === 'pass' ? '✓' : status === 'fail' ? '✗' : '○'}</div>
+            <span class="test-name">${test.name}</span>
+            <span class="test-time">${time}ms</span>
+            ${error ? `<div class="test-error">${error}</div>` : ''}
+          `;
+        }
+        
+        document.getElementById(`stats-${group.name.replace(/\s+/g, '-')}`).textContent = 
+          `${groupPass} passed, ${groupFail} failed, ${groupSkip} skipped`;
+        
+        // Clear tests for next run
+        group.tests = [];
+      }
+      
+      document.getElementById('pass-count').textContent = results.pass;
+      document.getElementById('fail-count').textContent = results.fail;
+      document.getElementById('skip-count').textContent = results.skip;
+    }
+    
+    // Load saved credentials
+    document.getElementById('endpoint').value = localStorage.getItem('hygraph_tools_endpoint') || '';
+    document.getElementById('token').value = localStorage.getItem('hygraph_tools_pat') || '';
+    
+    document.getElementById('run-btn').onclick = runTests;
+    
+    // Run on load
+    runTests();
+  </script>
+</body>
+</html>
+

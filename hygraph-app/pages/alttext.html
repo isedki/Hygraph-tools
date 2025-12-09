@@ -775,9 +775,12 @@
     sdk.init({ debug: true })
       .then(async ({ props }) => {
         const sdkEndpoint = props?.context?.environment?.endpoint;
+        const sdkAuthToken = props?.context?.environment?.authToken; // NEW: SDK provides auth token!
         const savedToken = getToken();
         const savedEndpoint = getEndpoint();
         const savedGemini = getGeminiKey();
+        
+        console.log('SDK Auth Token available:', !!sdkAuthToken);
         
         // Auto-set endpoint from SDK
         if (sdkEndpoint) {
@@ -791,10 +794,16 @@
           $('#endpoint-group').style.display = 'block';
         }
         
-        // Load shared PAT
-        if (savedToken) {
-          token = savedToken;
-          $('#token-input').value = savedToken;
+        // Prefer SDK auth token, then saved PAT
+        const authToken = sdkAuthToken || savedToken;
+        if (authToken) {
+          token = authToken;
+          $('#token-input').value = authToken;
+          // If SDK token, save it for future use
+          if (sdkAuthToken) {
+            localStorage.setItem(PAT_KEY, sdkAuthToken);
+            console.log('Stored SDK auth token for other tools');
+          }
           // Keep PAT hidden if already saved
         } else {
           $('#token-group').style.display = 'block';
@@ -808,8 +817,8 @@
         
         // Auto-connect if all credentials are available
         endpoint = sdkEndpoint || savedEndpoint;
-        if (endpoint && savedToken && savedGemini) {
-          token = savedToken;
+        if (endpoint && authToken && savedGemini) {
+          token = authToken;
           geminiKey = savedGemini;
           try {
             await gql('{ __typename }');

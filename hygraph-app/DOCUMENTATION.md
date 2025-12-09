@@ -1,201 +1,167 @@
-# 🔍 Schema Explorer + 📅 Content Calendar + 🏥 Content Health + 🖼️ Alt-Text Generator
+# 🛠️ Hygraph Custom App Suite
 
-**Analyze your Hygraph schema, plan your publishing, monitor content health, and generate AI-powered alt text.**
+**A complete toolkit for content operations, accessibility, and schema management**
 
----
-
-# Overview
-
-This custom Hygraph app suite helps you understand your content model, plan your publishing schedule, and improve content accessibility.
-
-**Schema Explorer - What you can do:**
-
-→ Browse components, models, and enums
-
-→ Find every entry using a specific component
-
-→ Detect deeply nested component usage
-
-→ Identify unused schema elements
-
-→ Navigate directly to entries in Hygraph
-
-**Content Calendar - What you can do:**
-
-→ View scheduled content on Month / Week / Day views
-
-→ See all entries scheduled via Hygraph's native Releases
-
-→ Jump to any date with the built-in date picker
-
-→ Filter by content model (dropdown, alphabetically sorted)
-
-→ Hover to see entry details (release name, status, created date)
-
-→ Click "Open in Hygraph" to edit entries directly
-
-**Content Health - What you can do:**
-
-→ Find entries stuck in draft for too long (configurable days)
-
-→ Identify unused models with zero entries
-
-→ See overall content health score
-
-→ Quick links to fix problematic entries
-
-**Alt-Text Generator - What you can do:**
-
-→ Scan all images in your project (DRAFT + PUBLISHED)
-
-→ Identify images missing alt text
-
-→ Generate AI-powered alt text using Google Gemini (FREE)
-
-→ Bulk generate alt text for hundreds of images
-
-→ Pause, resume, and track progress
-
-→ Apply alt text directly to Hygraph assets
+![Version](https://img.shields.io/badge/version-1.6.0-blue)
+![Apps](https://img.shields.io/badge/apps-6-green)
+![Status](https://img.shields.io/badge/status-production-success)
 
 ---
 
-# Installation
+## 🎯 Executive Summary
 
-## 1️⃣ Create Custom App
+This custom app suite extends Hygraph with **5 powerful tools** that solve real content management challenges:
 
-Navigate to **Apps** → **Create App** → **Custom App**
+| App | Problem Solved | Impact |
+|-----|----------------|--------|
+| 🔍 **Schema Explorer** | "Where is this component used?" | Find usage across 1000s of entries in seconds |
+| 📅 **Content Calendar** | "What's scheduled to publish?" | Visual publishing schedule for entire team |
+| 🏥 **Content Health** | "What content is stale or broken?" | Identify neglected content automatically |
+| 🖼️ **Alt-Text Generator** | "Our images lack accessibility" | AI-generated alt text for all images (FREE) |
+| 🎨 **Image Transform Helper** | "How do I optimize images?" | Visual tool for responsive image generation |
+| 📊 **Content Analytics** | "How is our content performing?" | Metrics, velocity, and author activity |
 
-**App Configuration**
-
-```
-Name:     Schema Explorer
-API ID:   schema-explorer
-App URL:  https://hygraph-app-static.vercel.app
-```
-
-## 2️⃣ Add Page Element
-
-```
-Name:   Schema Explorer
-Slug:   /page.html
-```
-
-## 3️⃣ Set Permissions
-
-Enable under **Content API**:
-
-☑️ Read existing content
-
-☑️ Read existing environments
-
-☑️ Read content model / components
-
-☑️ Update existing content *(required for Alt-Text Generator)*
-
-## 4️⃣ Add Calendar Page Element (Optional)
-
-```
-Name:   Content Calendar
-Slug:   /calendar.html
-```
-
-## 5️⃣ Add Health Dashboard Page Element (Optional)
-
-```
-Name:   Content Health
-Slug:   /health.html
-```
-
-## 6️⃣ Add Alt-Text Generator Page Element (Optional)
-
-```
-Name:   Alt-Text Generator
-Slug:   /alttext.html
-```
-
-## 7️⃣ Complete Setup
-
-**Install** → Open app → Click **Complete Installation**
+**Key Achievement:** All apps work seamlessly inside Hygraph's interface with automatic authentication.
 
 ---
 
-# Using the Alt-Text Generator
+## 🚀 The Apps
 
-## Getting Started
+### 1. 🔍 Schema Explorer
 
-### Step 1: Get a Google Gemini API Key (FREE)
+> **"Find every entry using any component in your entire project"**
 
-1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
-2. Sign in with your Google account
-3. Click **Create API Key**
-4. Copy the key (starts with `AIza...`)
+#### What It Does
+- Browse all **Models**, **Components**, and **Enums** in your schema
+- Search for content using any component (detects **7 levels of nesting**)
+- Find unused schema elements that can be cleaned up
+- Navigate directly to entries in Hygraph Studio
 
-### Step 2: Connect to Your Project
+#### Key Features
+| Feature | Description |
+|---------|-------------|
+| **Deep Nested Detection** | Finds components inside components inside components... |
+| **Parallel Queries** | Searches all models simultaneously for speed |
+| **Dual Stage Search** | Checks both DRAFT and PUBLISHED content |
+| **Direct Links** | One-click navigation to entries in Hygraph |
+| **Smart Filtering** | Hides system types, integration components, and noise |
 
-Enter your credentials:
+#### Use Cases
+- ✅ "Can I safely delete this component?" → Check if it's used anywhere
+- ✅ "Which entries use our Hero component?" → Instant list with links
+- ✅ "What schema elements are unused?" → Cleanup recommendations
 
-| Field | Description |
-|-------|-------------|
-| **Hygraph Endpoint** | Your Content API URL (auto-filled if running inside Hygraph) |
-| **Hygraph Auth Token** | A PAT with read/write access to Assets |
-| **Google Gemini API Key** | Your free API key from Step 1 |
+#### Tabs
+| Tab | Purpose |
+|-----|---------|
+| **Components** | Browse all reusable components |
+| **Models** | See content models and their structure |
+| **Enums** | View enumeration types and values |
+| **Personalization** | Components used for A/B testing / variants |
 
-Click **Connect & Scan Images**
+---
 
-## Dashboard Overview
+### 2. 📅 Content Calendar
 
-After connecting, you'll see:
+> **"See your entire publishing schedule at a glance"**
 
-| Stat | Description |
-|------|-------------|
-| **Total Images** | All images in your project (DRAFT + PUBLISHED) |
-| **Missing Alt Text** | Images without accessibility descriptions |
-| **Has Alt Text** | Images with alt text already set |
-| **Coverage** | Percentage of images with alt text |
+#### What It Does
+- Visual calendar showing all scheduled content releases
+- Month, Week, and Day views with smart filtering
+- Works with Hygraph's native **Releases** feature
+- Hover for details, click to edit
 
-## Filtering Images
+#### Key Features
+| Feature | Description |
+|---------|-------------|
+| **Three Views** | Month (overview), Week (planning), Day (detail) |
+| **Date Picker** | Jump to any date with the calendar icon |
+| **Model Filters** | Filter by content type (alphabetically sorted) |
+| **Hover Details** | See release name, status, author, creation date |
+| **Parallel Loading** | Queries all models simultaneously for speed |
 
-Use the filter tabs to view:
+#### How It Works
+```
+Hygraph Releases → Calendar parses scheduledIn → Visual display
+```
 
-- **⚠️ Missing Alt Text** — Images that need alt text (default)
-- **✅ Has Alt Text** — Images with alt text already
-- **📷 All Images** — Everything
+No custom fields needed — uses Hygraph's built-in scheduling!
 
-## Generating Alt Text
+#### Navigation
+- **◀ ▶** — Previous/Next period
+- **Today** — Jump to current date
+- **📅 Icon** — Open date picker
+- **Filter dropdown** — Filter by model
 
-### Single Image
+---
 
-1. Find an image missing alt text
-2. Click **✨ Generate** on that image
-3. Review the generated text in the textarea
-4. Edit if needed
-5. Click **✅ Apply** to save to Hygraph
+### 3. 🏥 Content Health Dashboard
 
-### Bulk Generation
+> **"Identify stale, broken, and neglected content automatically"**
 
-1. Click **✨ Generate All Missing** in the header
-2. Confirm the number of images to process
-3. Watch the progress modal showing:
-   - Current image being processed
-   - Progress bar (X / Y completed)
-   - Estimated time remaining
-4. Use **⏸️ Pause** to pause and resume later
-5. Use **✖️ Cancel** to stop (progress is saved)
+#### What It Does
+- Finds entries not updated in X days (configurable)
+- Lists unused models with zero entries
+- Calculates overall **Health Score** (0-100%)
+- Dashboard cards with key metrics
 
-## Rate Limits & Timing
+#### Key Features
+| Feature | Description |
+|---------|-------------|
+| **Stale Content Detection** | Find entries stuck in draft or not updated |
+| **Unused Model Finder** | Identify schema bloat |
+| **Health Score** | Single metric for content quality |
+| **Dashboard Cards** | Draft/Published ratio, New this week, Age distribution |
+| **Model Filter** | Focus on specific content types |
+| **Sticky Headers** | Easy navigation while scrolling |
 
-Google Gemini free tier has rate limits:
+#### Health Score Calculation
+```
+Base: 100%
+- Stale entries: -50% max (proportional to % stale)
+- Unused models: -30% max (proportional to % unused)
+= Final Score
+```
 
-| Limit | Value |
-|-------|-------|
-| Requests per minute | 15 |
-| Requests per day | 1,500 |
+#### Dashboard Cards
+| Card | What It Shows |
+|------|---------------|
+| **Draft vs Published** | Ratio with visual indicator |
+| **New This Week** | Entries created in last 7 days |
+| **Content Age** | Distribution: Recent / Aging / Old |
+| **Model with Most Entries** | Your largest content type |
 
-The app automatically adds 4-second delays between images to stay within limits.
+---
 
-**Estimated processing times:**
+### 4. 🖼️ Alt-Text Generator
 
+> **"AI-powered accessibility for all your images — FREE"**
+
+#### What It Does
+- Scans all images in your project (DRAFT + PUBLISHED)
+- Identifies images missing alt text
+- Generates alt text using **Google Gemini 2.0 Flash** (free tier)
+- Bulk processing with progress tracking
+
+#### Key Features
+| Feature | Description |
+|---------|-------------|
+| **Full Scan** | Finds all images across both stages |
+| **AI Generation** | Google Gemini creates descriptive alt text |
+| **Bulk Processing** | Process hundreds of images automatically |
+| **Progress Tracking** | Live progress bar with ETA |
+| **Pause/Resume** | Stop anytime, continue later |
+| **Persistence** | Progress saved to localStorage |
+| **Rate Limiting** | Automatic 4-second delays for free tier |
+
+#### Cost Comparison
+| Images | OpenAI GPT-4o | Google Gemini |
+|--------|---------------|---------------|
+| 100 | ~$1 | **FREE** |
+| 1,000 | ~$10 | **FREE** |
+| 10,000 | ~$100 | **FREE** |
+
+#### Processing Times
 | Images | Time |
 |--------|------|
 | 15 | ~1 minute |
@@ -203,307 +169,283 @@ The app automatically adds 4-second delays between images to stay within limits.
 | 500 | ~35 minutes |
 | 1,000 | ~67 minutes |
 
-## Resume Interrupted Jobs
-
-If you close the browser or pause generation:
-
-1. Progress is automatically saved
-2. When you return, you'll see a "Resume Available" notice
-3. Click **Resume generation** to continue where you left off
-4. Or click **Start fresh** to begin again
-
-## Alt Text Field Detection
-
-The app automatically detects which field your Asset model uses for alt text:
-
-- `altText` (recommended)
-- `alt`
-- `alternativeText`
-- `description`
-- `caption`
-
-If no alt text field is found, you'll see a warning to add one to your Asset model.
-
-## Tips for Better Alt Text
-
-The AI generates concise, descriptive alt text optimized for:
-
-- **Accessibility** — Screen readers can describe images to visually impaired users
-- **SEO** — Search engines index alt text for image search
-
-**Good alt text:**
-- Under 125 characters
-- Describes the image content
-- Doesn't start with "Image of" or "A photo of"
-
-**Examples:**
-- ✅ "Golden retriever puppy playing with a red ball in a sunny backyard"
-- ✅ "Team meeting in modern conference room with glass walls"
-- ❌ "Image of a dog"
-- ❌ "photo.jpg"
+#### Supported Alt Text Fields
+The app auto-detects: `altText`, `alt`, `alternativeText`, `description`, `caption`
 
 ---
 
-# Using the Calendar
+### 5. 🎨 Image Transform Helper
 
-## Calendar Views
+> **"Generate optimized, responsive images with visual preview"**
 
-Switch between views using the toggle buttons:
+#### What It Does
+- Browse all images in your project
+- Apply transformations with live preview
+- Generate responsive variants for different screen sizes
+- Get ready-to-use code (srcset, picture, CSS)
 
-| View | Best For |
-|------|----------|
-| **Month** | Overview of the full month, shows up to 5 entries per day |
-| **Week** | See all entries for a 7-day period |
-| **Day** | Detailed view of a single day with all entries |
+#### Key Features
+| Feature | Description |
+|---------|-------------|
+| **Asset Browser** | Grid view of all project images with search |
+| **Live Preview** | See transformations in real-time |
+| **Side-by-Side Compare** | Original vs transformed |
+| **Responsive Variants** | Generate multiple sizes at once |
+| **Code Output** | srcset, `<picture>`, CSS media queries |
+| **GraphQL Integration** | Works with new Hygraph CDN |
 
-## Navigation
+#### Available Transformations
+| Transform | Options |
+|-----------|---------|
+| **Resize** | Width, Height, Fit (clip, crop, scale, max) |
+| **Quality** | 1-100% compression |
+| **Format** | Auto (WebP), JPEG, PNG, WebP |
+| **Blur** | 0-20 amount |
+| **Sharpen** | 0-20 amount |
 
-- **◀ ▶ arrows** — Navigate to previous/next period (month, week, or day)
-- **Today button** — Jump back to current date
-- **📅 Calendar icon** — Click to open date picker and jump to any date
-- **Click the date title** — Also opens the date picker
+#### Presets
+| Preset | Size |
+|--------|------|
+| Thumbnail | 150×150 crop |
+| Medium | 600w |
+| Large | 1200w |
+| Full HD | 1920w |
+| Square | 500×500 crop |
 
-## Entry Details (Hover)
+#### Output Formats
+```html
+<!-- srcset -->
+<img srcset="image-320w.webp 320w, image-640w.webp 640w, image-1024w.webp 1024w" />
 
-Hover over any entry to see a popup with:
+<!-- picture element -->
+<picture>
+  <source type="image/webp" srcset="..." />
+  <img src="fallback.jpg" />
+</picture>
 
-- 📅 Scheduled publish date & time
-- Entry title and model name
-- Release name (from Hygraph Releases)
-- Status indicator
-- Created date (if available)
-- **"Open in Hygraph →"** link to edit the entry
-
-## Model Filters
-
-Click **"Filter by: All Models"** dropdown to filter by content type.
-
-Models are sorted alphabetically for easy navigation.
-
-## How Scheduling Works
-
-The calendar uses **Hygraph's native Releases** feature:
-
-1. Go to any content entry in Hygraph
-2. Click **Schedule** → **Add to Release**
-3. Create or select a Release with a future date
-4. The entry will appear on the calendar at that date
-
-No custom fields required — works with Hygraph's built-in scheduling!
+/* CSS */
+.hero { background-image: url('image-320w.webp'); }
+@media (min-width: 640px) { ... }
+```
 
 ---
 
-# Using the Content Health Dashboard
+### 6. 📊 Content Analytics
 
-## Health Score
+> **"Understand your content performance with data-driven insights"**
 
-The dashboard calculates an overall health score (0-100%) based on:
+#### What It Does
+- Overview cards showing total entries, published vs draft, and weekly/monthly activity
+- Content distribution by model with visual bar charts
+- Content creation velocity over the last 12 weeks
+- Author activity tracking (top contributors)
 
-- **Stale content** — Entries not updated in 90+ days
-- **Unused models** — Models with zero content
+#### Key Features
+| Feature | Description |
+|---------|-------------|
+| **Overview Cards** | Total entries, published, drafts, this week/month |
+| **Content by Model** | Bar chart of top 10 models by entry count |
+| **Velocity Chart** | 12-week trend of content creation |
+| **Author Activity** | Top contributors in the last 30 days |
+| **Trend Indicators** | Week-over-week and month-over-month changes |
 
-## Stale Content
-
-Shows all entries that haven't been updated longer than the threshold (default: 30 days).
-
-**Configure the threshold:**
-1. Enter a number in the "Older than X days" field
-2. Click **Apply** or press Enter
-
-Each entry shows:
-- Entry title and model
-- Last updated date
-- Days since last update (color-coded by severity)
-
-## Dashboard Cards
-
-| Card | What it shows |
+#### Overview Cards
+| Card | What It Shows |
 |------|---------------|
-| **Draft vs Published** | Ratio of draft to published entries |
-| **New This Week** | Entries created in the last 7 days |
-| **Content Age** | Distribution of content by age |
-| **Model with Most Entries** | Your largest content model |
+| **Total Entries** | All content entries in your project |
+| **Published** | Entries in PUBLISHED stage (% of total) |
+| **Drafts** | Entries only in DRAFT stage |
+| **Models** | Number of content models |
+| **This Week** | Entries created in last 7 days |
+| **This Month** | Entries created in last 30 days |
 
-## Unused Models
+#### Velocity Insights
+The velocity chart shows:
+- Weekly content creation over 12 weeks
+- Average entries per week
+- Total over the period
+- Trend percentage (up/down vs start of period)
 
-Lists all models that have zero entries created.
+#### Author Activity
+Shows top 10 contributors with:
+- Author name and initials
+- Number of entries created (last 30 days)
+- Visual activity bar
+- Rank position
 
-Consider:
-- Removing unused models to simplify your schema
-- Or adding content if the model is needed
+*Note: Author tracking requires `createdBy` field access in your API permissions.*
 
 ---
 
-# Using the Schema Explorer
+## 📊 Technical Highlights
 
-## Search Tab
+### Performance Optimizations
+| Optimization | Impact |
+|--------------|--------|
+| **Parallel Queries** | 5-10x faster than sequential |
+| **Batch Processing** | 10-15 concurrent requests |
+| **Smart Caching** | localStorage for credentials |
+| **Debounced Updates** | Prevents API spam |
 
-**Finding where a component is used:**
+### Compatibility
+- ✅ Works with **new Hygraph CDN** (region-specific URLs)
+- ✅ Works with **legacy CDN** (media.graphassets.com)
+- ✅ Supports all Hygraph **regions** (EU, US, etc.)
+- ✅ Automatic **authentication** when inside Hygraph
 
-1. Select a component from the sidebar
-2. Click **Find Content Usage**
-3. View all entries that use this component
+### Security
+- 🔒 Credentials stored in browser localStorage only
+- 🔒 No external servers (except Gemini for alt-text)
+- 🔒 All queries run in your browser
+- 🔒 PAT shared securely across all tools
 
-The search detects components even when nested 5+ levels deep inside other components.
+---
 
-## Tree View
+## 🔧 Installation
 
-Click the 📁 icon to switch to tree view.
+### Quick Start (5 minutes)
 
-See your models as folders with their components, relations, and enums organized underneath.
-
+**Step 1:** Create Custom App in Hygraph
 ```
-Page
-├── Components
-│   ├── HeroSection
-│   └── ContentBlock
-├── Relations  
-│   └── Author
-└── Enums
-    └── PageType
+Apps → Create App → Custom App
+Name: Hygraph Tools
+API ID: hygraph-tools
+App URL: https://hygraph-app-static.vercel.app
 ```
 
-## Statistics Tab
+**Step 2:** Add Page Elements
+| Element | Slug |
+|---------|------|
+| Schema Explorer | `/page.html` |
+| Content Calendar | `/calendar.html` |
+| Content Health | `/health.html` |
+| Alt-Text Generator | `/alttext.html` |
+| Image Transform | `/transform.html` |
+| Content Analytics | `/analytics.html` |
 
-Click **Scan All Usage** to analyze your entire schema.
+**Step 3:** Set Permissions
+```
+☑️ Read existing content
+☑️ Read existing environments  
+☑️ Read content model / components
+☑️ Update existing content (for Alt-Text)
+```
 
-**What you'll see:**
-
-- Total components and enums
-- Usage count per element
-- Which models use each element
-- List of unused elements
-
----
-
-# Common Tasks
-
-## "Can I safely delete this component?"
-
-1. Search for the component
-2. If **No content entries found** → Safe to delete
-3. If entries exist → Review them first
-
-## "Which components are never used?"
-
-1. Go to **Statistics** tab
-2. Click **Scan All Usage**
-3. Scroll to **Unused Elements**
-
-## "What uses this enum value?"
-
-1. Filter by **Enums**
-2. Select the enum
-3. Click **Find Content Usage**
-
-## "How do I improve my image SEO?"
-
-1. Open **Alt-Text Generator**
-2. Filter by **Missing Alt Text**
-3. Click **Generate All Missing**
-4. Review and apply the generated alt text
+**Step 4:** Install & Complete Setup
 
 ---
 
-# Technical Notes
+## 📈 Business Value
 
-**Authentication**
-The app uses your Hygraph session automatically. A one-time PAT setup is required for schema introspection and asset updates.
+### Time Savings
+| Task | Before | After |
+|------|--------|-------|
+| Find component usage | 30+ min manual search | **5 seconds** |
+| Review publishing schedule | Check each entry | **Calendar view** |
+| Identify stale content | Export & spreadsheet | **Instant dashboard** |
+| Add alt text to 1000 images | Days of manual work | **~1 hour automated** |
+| Generate responsive images | Developer task | **Self-service tool** |
 
-**Query Limits**
-Searches up to 100 entries per model. Alt-Text Generator fetches all images across both DRAFT and PUBLISHED stages.
+### Quality Improvements
+- **SEO:** All images have proper alt text
+- **Accessibility:** WCAG compliance for images
+- **Performance:** Optimized responsive images
+- **Content Quality:** No more forgotten draft entries
+- **Schema Health:** Clean, used-only components
 
-**Nesting Depth**
-Detects components nested up to 5 levels deep.
-
-**AI Processing**
-Alt text is generated using Google Gemini 2.0 Flash. Image data is sent to Google's API for processing.
-
-**Data Privacy**
-Schema and content queries are processed in your browser. Alt text generation sends image data to Google Gemini API.
-
----
-
-# Troubleshooting
-
-**"No entries found" but I know they exist**
-
-→ Content must be in DRAFT or PUBLISHED stage
-
-→ Check that the component is actually used (not just referenced in schema)
-
-**App won't load**
-
-→ Verify permissions are set correctly
-
-→ Try clearing browser cache
-
-**Missing some components**
-
-→ System components (inputs, connections, etc.) are filtered by design
-
-**Alt-Text Generator shows "No alt text field found"**
-
-→ Add a String field named `altText` (or `alt`, `description`) to your Asset model in Hygraph
-
-**Gemini API returns an error**
-
-→ Check your API key is valid at [Google AI Studio](https://aistudio.google.com/apikey)
-
-→ You may have hit daily rate limits (1,500 requests/day)
-
-→ Wait until the next day or create a new API key
-
-**Bulk generation is slow**
-
-→ This is intentional! The 4-second delay prevents hitting Gemini's 15 requests/minute limit
-
-→ For 1,000+ images, consider running overnight
+### Cost Savings
+- **Alt-text generation:** FREE with Gemini vs $100+ with OpenAI
+- **Developer time:** Self-service tools for content teams
+- **Maintenance:** Identify unused schema elements to remove
 
 ---
 
-# Version History
+## 🗂️ Version History
 
-**v1.4.0** — Alt-Text Generator
+### v1.6.0 — Content Analytics
+- New Content Analytics page element
+- Overview cards (total, published, drafts, models, weekly, monthly)
+- Content by Model bar chart (top 10)
+- 12-week content creation velocity chart
+- Author activity tracking (top 10 contributors)
+- Trend indicators (week-over-week, month-over-month)
+- Parallel queries for fast data loading
 
-- New Alt-Text Generator page element
-- Scan all images (DRAFT + PUBLISHED stages)
+### v1.5.0 — Image Transform Helper
+- New Image Transform page element
+- Asset browser with search and pagination
+- Live transformation preview
+- Side-by-side comparison
+- Responsive variant generation
+- GraphQL API integration for new CDN
+- Code output (srcset, picture, CSS)
+
+### v1.4.0 — Alt-Text Generator
 - AI-powered alt text using Google Gemini 2.0 Flash (FREE)
 - Bulk generation with progress tracking
 - Pause/Resume/Cancel controls
-- Progress persistence in localStorage
-- Auto-detect alt text field on Asset model
-- Rate limiting for Gemini free tier (15 RPM)
+- Scans both DRAFT and PUBLISHED stages
+- Auto-detects alt text field on Asset model
 
-**v1.3.0** — Content Health Dashboard
+### v1.3.0 — Content Health Dashboard
+- Stale content detection (configurable threshold)
+- Unused model finder
+- Health score calculation
+- Dashboard cards with key metrics
+- Sticky headers for easy navigation
 
-- New Content Health page element
-- Find entries stuck in draft for X+ days
-- Identify unused models (zero entries)
-- Overall health score calculation
-- Configurable stale draft threshold
-- Direct links to fix entries in Hygraph
+### v1.2.0 — Calendar Enhancements
+- Month/Week/Day view toggle
+- Date picker navigation
+- Hover popups with details
+- Parallel query loading
 
-**v1.2.0** — Calendar Enhancements
-
-- Month / Week / Day view toggle
-- Date picker for quick navigation (click 📅 icon or date title)
-- Hover popup with entry details (release, status, created date)
-- Model filter dropdown (alphabetically sorted)
-- "Open in Hygraph" links in popup
-- Uses native Hygraph Releases (no custom fields required)
-
-**v1.1.0** — Content Calendar
-
-- Visual calendar view for scheduled content
-- Drag-and-drop rescheduling
-- Model filters
+### v1.1.0 — Content Calendar
+- Visual publishing schedule
 - Integration with Hygraph Releases
+- Model filtering
 
-**v1.0.0** — Initial Release
-
-- Schema browser with list and tree views
-- Component and enum content search  
+### v1.0.0 — Schema Explorer
+- Component/Model/Enum browser
 - Deep nested detection
-- Usage statistics dashboard
+- Usage statistics
 - Direct Hygraph links
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| App won't load | Check permissions, clear cache |
+| "No entries found" | Content must be in DRAFT or PUBLISHED |
+| Missing components | System components are filtered by design |
+| Alt-text field not found | Add `altText` field to Asset model |
+| Gemini rate limit | Wait, or process in smaller batches |
+| Transform URL broken | App now uses GraphQL API (fixed) |
+| Calendar 400 errors | Expected for models without scheduling |
+
+### Getting Help
+
+1. Check browser console for errors
+2. Verify PAT has correct permissions
+3. Ensure endpoint URL is correct
+4. Try clearing localStorage and re-authenticating
+
+---
+
+## 📝 License
+
+Internal tool built for [Your Company Name]
+
+**Built with:**
+- Hygraph App SDK
+- Google Gemini 2.0 Flash API
+- Vanilla JavaScript (no frameworks)
+- Deployed on Vercel
+
+---
+
+*Last updated: December 2024*

@@ -156,3 +156,4 @@ export default function ComponentHeatmap({ schema, usageData, onSelectElement }:
   );
 }
 
+

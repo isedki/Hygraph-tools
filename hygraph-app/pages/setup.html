@@ -41,6 +41,7 @@
     button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
     #status { margin-top: 12px; font-size: 13px; color: #6b7280; }
+    .note { background: #fef3c7; border-radius: 8px; padding: 12px; margin-top: 16px; font-size: 12px; color: #92400e; text-align: left; }
   </style>
 </head>
 <body>
@@ -59,10 +60,16 @@
         <li>Content Calendar - View scheduled content</li>
         <li>Content Health - Find stale drafts & unused models</li>
         <li>Alt-Text Generator - AI-powered image descriptions</li>
+        <li>Image Transform - Resize, optimize & generate responsive images</li>
+        <li>Content Analytics - Velocity, trends & author activity</li>
       </ul>
     </div>
     <button id="install">Complete Installation</button>
     <div id="status"></div>
+    <div class="note" id="auth-note" style="display:none;">
+      <strong>Note:</strong> The SDK provides automatic authentication. If any tool asks for a PAT, 
+      enter it once and it will be shared across all tools.
+    </div>
   </div>
 
   <script type="module">
@@ -71,50 +78,24 @@
 
     const button = document.getElementById("install");
     const statusEl = document.getElementById("status");
+    const authNote = document.getElementById("auth-note");
     const sdk = window["@hygraph/app-sdk"];
-    const baseUrl = window.location.origin;
-
-    console.log("SDK loaded:", sdk);
-    
-    // Extract project ID and region from endpoint
-    const extractProjectId = (ep) => { const m = ep.match(/\/v2\/([^/]+)\/|\/content\/([^/]+)\//); return m ? (m[1] || m[2]) : null; };
-    const extractRegion = (ep) => { const m = ep.match(/(?:api-|\/\/)([a-z0-9-]+)(?:\.cdn)?\.hygraph\.com/); return m ? m[1] : null; };
-
-    // Exchange code for content token
-    async function exchangeForContentToken(code, projectId, region) {
-      try {
-        statusEl.textContent = "🔄 Getting authentication token...";
-        statusEl.style.color = "#6b7280";
-        
-        const response = await fetch(`${baseUrl}/api/exchange-token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, projectId, region })
-        });
-        
-        const data = await response.json();
-        console.log('Token exchange response:', data);
-        
-        if (data.contentToken) {
-          // Store the content token for all tools to use!
-          localStorage.setItem('hygraph_tools_pat', data.contentToken);
-          console.log('✅ Content token stored!');
-          return true;
-        } else if (data.error) {
-          console.warn('Token exchange warning:', data.error);
-        }
-        return false;
-      } catch (error) {
-        console.error('Token exchange error:', error);
-        return false;
-      }
-    }
 
     sdk
       .init({
         debug: true,
         onProps: (props) => {
           console.log("onProps called:", props);
+          
+          // Try to save authToken from onProps (might be available here but not in initial state)
+          const authToken = props?.context?.environment?.authToken;
+          if (authToken) {
+            localStorage.setItem('hygraph_tools_pat', authToken);
+            console.log('✅ Stored authToken from onProps!', authToken.substring(0, 20) + '...');
+          } else {
+            console.log('⚠️ No authToken in onProps');
+          }
+          
           if (props.installation && props.installation.status === "COMPLETED") {
             button.disabled = true;
             button.textContent = "Installation Complete ✓";
@@ -124,7 +105,7 @@
         },
       })
       .then(async (initialState) => {
-        console.log("SDK initialized successfully:", initialState);
+        console.log("SDK initialized:", initialState);
         const { status: initStatus, props } = initialState;
         
         statusEl.textContent = "Ready to install";
@@ -133,9 +114,26 @@
         if (initStatus === "ok" && props) {
           // Store endpoint for all tools to use
           const sdkEndpoint = props.context?.environment?.endpoint;
+          const sdkAuthToken = props.context?.environment?.authToken;
+          
+          console.log('SDK Endpoint:', sdkEndpoint);
+          console.log('SDK Auth Token available:', !!sdkAuthToken);
+          console.log('Full environment:', props.context?.environment);
+          
+          // Debug: log all keys in environment
+          if (props.context?.environment) {
+            console.log('Environment keys:', Object.keys(props.context.environment));
+          }
+          
           if (sdkEndpoint) {
             localStorage.setItem('hygraph_tools_endpoint', sdkEndpoint);
             console.log('Stored endpoint:', sdkEndpoint);
+          }
+          
+          // If SDK provides auth token, save it for all tools
+          if (sdkAuthToken) {
+            localStorage.setItem('hygraph_tools_pat', sdkAuthToken);
+            console.log('Stored SDK auth token for all tools!');
           }
           
           // Check if already installed
@@ -143,35 +141,20 @@
             button.disabled = true;
             button.textContent = "Already Installed ✓";
             
-            // Check if we have a token
-            const hasToken = localStorage.getItem('hygraph_tools_pat');
-            if (hasToken) {
-              statusEl.textContent = "✅ Ready to use - authentication token available!";
-              statusEl.style.color = "#10b981";
+            if (sdkAuthToken) {
+              statusEl.textContent = "✅ Ready to use - automatic authentication active!";
+            } else {
+              statusEl.textContent = "✅ Installed - enter PAT once in any tool if needed.";
+              authNote.style.display = 'block';
             }
+            statusEl.style.color = "#10b981";
             return;
           }
-          
-          // Get exchange code from URL
-          const urlParams = new URLSearchParams(window.location.search);
-          const code = urlParams.get('code');
-          const projectId = sdkEndpoint ? extractProjectId(sdkEndpoint) : null;
-          const region = sdkEndpoint ? extractRegion(sdkEndpoint) : null;
-          
-          console.log('Exchange code:', code ? 'present' : 'missing');
-          console.log('Project ID:', projectId);
-          console.log('Region:', region);
           
           button.addEventListener("click", async () => {
             button.disabled = true;
             button.textContent = "Installing...";
-            statusEl.textContent = "Setting up authentication...";
-
-            // Try to exchange code for content token
-            let gotToken = false;
-            if (code && projectId) {
-              gotToken = await exchangeForContentToken(code, projectId, region);
-            }
+            statusEl.textContent = "Completing installation...";
 
             // Complete installation
             props.updateInstallation({
@@ -180,10 +163,11 @@
             })
             .then(() => {
               button.textContent = "Installation Complete ✓";
-              if (gotToken) {
-                statusEl.textContent = "✅ Success! All tools are ready to use - no PAT needed!";
+              if (sdkAuthToken) {
+                statusEl.textContent = "✅ Success! All tools are ready to use!";
               } else {
-                statusEl.textContent = "✅ Installed! You may need to enter PAT once in each tool.";
+                statusEl.textContent = "✅ Installed! Enter PAT once in any tool if prompted.";
+                authNote.style.display = 'block';
               }
               statusEl.style.color = "#10b981";
             })

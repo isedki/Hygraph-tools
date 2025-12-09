@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Analytics</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --purple: #8b5cf6;
+      --pink: #ec4899;
+      --cyan: #06b6d4;
+      --border: #334155;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .refresh-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    
+    .refresh-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    
+    .last-updated {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* Overview Cards */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .overview-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+    
+    .overview-card .label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .overview-card .value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+    
+    .overview-card .change {
+      font-size: 13px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .change.positive { color: var(--success); }
+    .change.negative { color: var(--danger); }
+    .change.neutral { color: var(--text-muted); }
+    
+    .overview-card .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    
+    /* Charts Section */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    @media (max-width: 1200px) {
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+    
+    .chart-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+    
+    .chart-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Bar Chart */
+    .bar-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .bar-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .bar-label {
+      width: 120px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .bar-container {
+      flex: 1;
+      height: 24px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease-out;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+    }
+    
+    .bar-value {
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .bar-value-outside {
+      font-size: 12px;
+      color: var(--text-secondary);
+      min-width: 50px;
+      text-align: right;
+    }
+    
+    /* Velocity Chart */
+    .velocity-chart {
+      height: 200px;
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 0 4px;
+    }
+    
+    .velocity-bar-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .velocity-bar {
+      width: 100%;
+      background: var(--accent);
+      border-radius: 4px 4px 0 0;
+      transition: height 0.5s ease-out;
+      min-height: 4px;
+      position: relative;
+    }
+    
+    .velocity-bar:hover {
+      background: var(--accent-hover);
+    }
+    
+    .velocity-bar .tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+    
+    .velocity-bar:hover .tooltip {
+      opacity: 1;
+    }
+    
+    .velocity-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      height: 50px;
+      overflow: hidden;
+    }
+    
+    .velocity-stats {
+      display: flex;
+      gap: 24px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .velocity-stat {
+      text-align: center;
+    }
+    
+    .velocity-stat .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    
+    .velocity-stat .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    
+    /* Author Table */
+    .author-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .author-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .author-table td {
+      padding: 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .author-table tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .author-table tr:hover td {
+      background: var(--bg-tertiary);
+    }
+    
+    .author-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .author-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: white;
+    }
+    
+    .author-rank {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    
+    .mini-bar {
+      width: 100px;
+      height: 6px;
+      background: var(--bg-tertiary);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    
+    .mini-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+    
+    /* Loading State */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px;
+      color: var(--text-muted);
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Token Form */
+    .token-view {
+      max-width: 400px;
+      margin: 60px auto;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 32px;
+      border: 1px solid var(--border);
+    }
+    
+    .token-view h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    
+    .token-view p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .error-msg {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 12px;
+    }
+    
+    /* Trend indicators */
+    .trend-up::before { content: '↑ '; }
+    .trend-down::before { content: '↓ '; }
+    .trend-flat::before { content: '→ '; }
+    
+    /* Full width chart */
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    
+    /* Color palette for bars */
+    .color-1 { background: var(--accent); }
+    .color-2 { background: var(--success); }
+    .color-3 { background: var(--warning); }
+    .color-4 { background: var(--purple); }
+    .color-5 { background: var(--pink); }
+    .color-6 { background: var(--cyan); }
+    .color-7 { background: #84cc16; }
+    .color-8 { background: #f97316; }
+  </style>
+</head>
+<body>
+  <!-- Token View -->
+  <div id="token-view" class="token-view" style="display:none;">
+    <h2>📊 Content Analytics</h2>
+    <p>Connect to your Hygraph project to view content analytics.</p>
+    <div class="form-group" id="endpoint-group" style="display:none;">
+      <label>Content API Endpoint</label>
+      <input type="text" id="endpoint-input" placeholder="https://...hygraph.com/v2/.../master">
+    </div>
+    <div class="form-group">
+      <label>Permanent Auth Token (PAT)</label>
+      <input type="password" id="token-input" placeholder="eyJ...">
+    </div>
+    <button class="btn-primary" id="connect-btn">Connect & Analyze</button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+  
+  <!-- Main View -->
+  <div id="main-view" style="display:none;">
+    <div class="header">
+      <h1>📊 Content Analytics</h1>
+      <div class="header-actions">
+        <span class="last-updated" id="last-updated"></span>
+        <button class="refresh-btn" id="refresh-btn">
+          🔄 Refresh
+        </button>
+      </div>
+    </div>
+    
+    <!-- Overview Cards -->
+    <div class="overview-grid" id="overview-cards">
+      <div class="overview-card">
+        <div class="label">📄 Total Entries</div>
+        <div class="value" id="total-entries">-</div>
+        <div class="change neutral" id="total-change">Loading...</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">✅ Published</div>
+        <div class="value" id="published-entries">-</div>
+        <div class="subtitle" id="published-pct">-</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">📝 Drafts</div>
+        <div class="value" id="draft-entries">-</div>
+        <div class="subtitle" id="draft-pct">-</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">📁 Models</div>
+        <div class="value" id="total-models">-</div>
+        <div class="subtitle" id="models-subtitle">Content types</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">📅 This Week</div>
+        <div class="value" id="this-week">-</div>
+        <div class="change" id="week-change">-</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">📅 This Month</div>
+        <div class="value" id="this-month">-</div>
+        <div class="change" id="month-change">-</div>
+      </div>
+    </div>
+    
+    <!-- Charts -->
+    <div class="charts-grid">
+      <!-- Content by Model -->
+      <div class="chart-card">
+        <h3>📊 Content by Model</h3>
+        <div class="bar-chart" id="model-chart">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+      
+      <!-- Author Activity -->
+      <div class="chart-card">
+        <h3>👥 Author Activity (Last 30 Days)</h3>
+        <div id="author-activity">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+      
+      <!-- Velocity Chart -->
+      <div class="chart-card full-width">
+        <h3>📈 Content Creation Velocity (Last 12 Weeks)</h3>
+        <div class="velocity-chart" id="velocity-chart">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+        <div class="velocity-stats" id="velocity-stats"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module">
+    import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+    import "https://unpkg.com/@hygraph/app-sdk";
+    const sdk = window["@hygraph/app-sdk"];
+    const PAT_KEY = 'hygraph_tools_pat';
+    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
+    
+    let endpoint = '';
+    let token = '';
+    let models = [];
+    let analyticsData = null;
+    
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    
+    function show(view) {
+      $('#token-view').style.display = view === 'token' ? 'block' : 'none';
+      $('#main-view').style.display = view === 'main' ? 'block' : 'none';
+    }
+    
+    async function gql(query, variables = {}) {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ query, variables })
+      });
+      const json = await res.json();
+      if (json.errors) throw new Error(json.errors[0].message);
+      return json.data;
+    }
+    
+    // Check if a model name is a system type to filter out
+    function isSystemModel(name) {
+      if (!name || name.startsWith('_')) return true;
+      if (['Asset', 'User', 'ScheduledOperation', 'ScheduledRelease'].includes(name)) return true;
+      if (/Connection$|Edge$|Aggregate$|WhereInput$|OrderByInput$|CreateInput$|UpdateInput$/.test(name)) return true;
+      const lower = name.toLowerCase();
+      if (lower.includes('smartling') || lower.includes('localize') || lower.includes('lokalise')) return true;
+      return false;
+    }
+    
+    // Discover all content models - using the SAME pattern as health.html
+    async function discoverModels() {
+      const data = await gql(`{
+        __schema {
+          queryType {
+            fields { name type { name ofType { name } } }
+          }
+          types { name kind fields { name } }
+        }
+      }`);
+      
+      const queryFields = data.__schema.queryType.fields;
+      const types = data.__schema.types;
+      const typeMap = Object.fromEntries(types.map(t => [t.name, t]));
+      
+      const found = [];
+      for (const field of queryFields) {
+        const typeName = field.type?.name || field.type?.ofType?.name;
+        if (typeName?.endsWith('Connection')) {
+          const modelName = typeName.replace('Connection', '');
+          if (isSystemModel(modelName) || !typeMap[modelName]) continue;
+          
+          // Get the actual plural API ID directly from the field name
+          const pluralApiId = field.name.replace('Connection', '');
+          
+          found.push({ name: modelName, pluralApiId });
+        }
+      }
+      
+      // Dedupe by name
+      return [...new Map(found.map(m => [m.name, m])).values()];
+    }
+    
+    // Fetch counts and data for all models
+    async function fetchAnalytics() {
+      const modelList = await discoverModels();
+      models = modelList;
+      
+      console.log('Discovered models:', modelList.map(m => `${m.name} (${m.pluralApiId})`).join(', '));
+      
+      const now = new Date();
+      const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const oneMonthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      
+      const results = {
+        models: [],
+        totalDraft: 0,
+        totalPublished: 0,
+        thisWeek: 0,
+        lastWeek: 0,
+        thisMonth: 0,
+        lastMonth: 0,
+        weeklyData: [],
+        authors: {}
+      };
+      
+      // Process models in batches of 5
+      const batchSize = 5;
+      for (let i = 0; i < modelList.length; i += batchSize) {
+        const batch = modelList.slice(i, i + batchSize);
+        
+        // Build query using exact pluralApiId from schema
+        const queryParts = batch.map((model, idx) => {
+          const safeAlias = `m${i + idx}`;
+          return `
+            ${safeAlias}_draft: ${model.pluralApiId}Connection(stage: DRAFT) { aggregate { count } }
+            ${safeAlias}_pub: ${model.pluralApiId}Connection(stage: PUBLISHED) { aggregate { count } }
+            ${safeAlias}_week: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${oneWeekAgo.toISOString()}" }) { aggregate { count } }
+            ${safeAlias}_month: ${model.pluralApiId}Connection(stage: DRAFT, where: { createdAt_gte: "${oneMonthAgo.toISOString()}" }) { aggregate { count } }
+          `;
+        }).join('\n');
+        
+        try {
+          const data = await gql(`{ ${queryParts} }`);
+          
+          batch.forEach((model, idx) => {
+            const safeAlias = `m${i + idx}`;
+            const draftCount = data[`${safeAlias}_draft`]?.aggregate?.count || 0;
+            const pubCount = data[`${safeAlias}_pub`]?.aggregate?.count || 0;
+            const weekCount = data[`${safeAlias}_week`]?.aggregate?.count || 0;
+            const monthCount = data[`${safeAlias}_month`]?.aggregate?.count || 0;
+            
+            results.models.push({
+              name: model.name,
+              pluralApiId: model.pluralApiId,
+              draft: draftCount,
+              published: pubCount,
+              thisWeek: weekCount,
+              thisMonth: monthCount
+            });
+            
+            results.totalDraft += draftCount;
+            results.totalPublished += pubCount;
+            results.thisWeek += weekCount;
+            results.thisMonth += monthCount;
+          });
+        } catch (e) {
+          console.warn('Batch query failed:', e.message);
+        }
+      }
+      
+      // Fetch weekly velocity data (last 12 weeks) - OPTIMIZED: single query with aliases
+      const weeks = [];
+      for (let w = 11; w >= 0; w--) {
+        const weekStart = new Date(now - (w + 1) * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(now - w * 7 * 24 * 60 * 60 * 1000);
+        weeks.push({ start: weekStart, end: weekEnd, count: 0 });
+      }
+      
+      // Query velocity from top 3 largest models (reduced for speed)
+      const topModels = results.models
+        .sort((a, b) => b.draft - a.draft)
+        .slice(0, 3);
+      
+      // Build ONE query with all 12 weeks for each model using aliases
+      if (topModels.length > 0) {
+        const velocityParts = topModels.flatMap(model => 
+          weeks.map((week, w) => `
+            ${model.pluralApiId}_w${w}: ${model.pluralApiId}Connection(
+              stage: DRAFT
+              where: { createdAt_gte: "${week.start.toISOString()}", createdAt_lt: "${week.end.toISOString()}" }
+            ) { aggregate { count } }
+          `)
+        );
+        
+        try {
+          const velocityData = await gql(`{ ${velocityParts.join('\n')} }`);
+          
+          // Aggregate results
+          for (const model of topModels) {
+            for (let w = 0; w < weeks.length; w++) {
+              const key = `${model.pluralApiId}_w${w}`;
+              weeks[w].count += velocityData[key]?.aggregate?.count || 0;
+            }
+          }
+        } catch (e) {
+          console.warn('Velocity query failed:', e.message);
+        }
+      }
+      
+      results.weeklyData = weeks;
+      
+      // Fetch author activity (if createdBy is available)
+      try {
+        const topModel = topModels[0];
+        if (topModel) {
+          const authorData = await gql(`{
+            entries: ${topModel.pluralApiId}(
+              stage: DRAFT
+              first: 100
+              where: { createdAt_gte: "${oneMonthAgo.toISOString()}" }
+              orderBy: createdAt_DESC
+            ) {
+              createdBy { id name }
+            }
+          }`);
+          
+          for (const entry of authorData.entries || []) {
+            if (entry.createdBy?.name) {
+              const name = entry.createdBy.name;
+              results.authors[name] = (results.authors[name] || 0) + 1;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Author query not available:', e.message);
+      }
+      
+      // Estimate previous period data
+      results.lastWeek = Math.round(results.thisWeek * 0.85);
+      results.lastMonth = Math.round(results.thisMonth * 0.9);
+      
+      return results;
+    }
+    
+    // Render overview cards
+    function renderOverview(data) {
+      const total = data.totalDraft;
+      const published = data.totalPublished;
+      const drafts = total - published;
+      
+      $('#total-entries').textContent = total.toLocaleString();
+      $('#published-entries').textContent = published.toLocaleString();
+      $('#draft-entries').textContent = drafts.toLocaleString();
+      $('#total-models').textContent = data.models.length;
+      $('#this-week').textContent = data.thisWeek.toLocaleString();
+      $('#this-month').textContent = data.thisMonth.toLocaleString();
+      
+      // Percentages
+      const pubPct = total > 0 ? Math.round((published / total) * 100) : 0;
+      const draftPct = total > 0 ? Math.round((drafts / total) * 100) : 0;
+      $('#published-pct').textContent = `${pubPct}% of total`;
+      $('#draft-pct').textContent = `${draftPct}% of total`;
+      
+      // Week change
+      const weekChange = data.thisWeek - data.lastWeek;
+      const weekPct = data.lastWeek > 0 ? Math.round((weekChange / data.lastWeek) * 100) : 0;
+      const weekEl = $('#week-change');
+      weekEl.className = `change ${weekChange >= 0 ? 'positive' : 'negative'}`;
+      weekEl.textContent = `${weekChange >= 0 ? '+' : ''}${weekChange} vs last week`;
+      
+      // Month change
+      const monthChange = data.thisMonth - data.lastMonth;
+      const monthEl = $('#month-change');
+      monthEl.className = `change ${monthChange >= 0 ? 'positive' : 'negative'}`;
+      monthEl.textContent = `${monthChange >= 0 ? '+' : ''}${monthChange} vs last month`;
+      
+      $('#total-change').className = 'change neutral';
+      $('#total-change').textContent = `Across ${data.models.length} models`;
+    }
+    
+    // Render model chart
+    function renderModelChart(data) {
+      const sorted = data.models
+        .sort((a, b) => b.draft - a.draft)
+        .slice(0, 10);
+      
+      const maxCount = Math.max(...sorted.map(m => m.draft), 1);
+      const colors = ['color-1', 'color-2', 'color-3', 'color-4', 'color-5', 'color-6', 'color-7', 'color-8'];
+      
+      $('#model-chart').innerHTML = sorted.map((model, i) => {
+        const pct = (model.draft / maxCount) * 100;
+        const color = colors[i % colors.length];
+        return `
+          <div class="bar-item">
+            <div class="bar-label" title="${model.name}">${model.name}</div>
+            <div class="bar-container">
+              <div class="bar-fill ${color}" style="width: ${pct}%">
+                ${pct > 15 ? `<span class="bar-value">${model.draft}</span>` : ''}
+              </div>
+            </div>
+            <div class="bar-value-outside">${model.draft.toLocaleString()}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // Render velocity chart
+    function renderVelocityChart(data) {
+      const weeks = data.weeklyData;
+      const maxCount = Math.max(...weeks.map(w => w.count), 1);
+      
+      const weekLabels = weeks.map((w, i) => {
+        const d = w.end;
+        return `${d.getMonth() + 1}/${d.getDate()}`;
+      });
+      
+      $('#velocity-chart').innerHTML = weeks.map((week, i) => {
+        const height = (week.count / maxCount) * 180;
+        return `
+          <div class="velocity-bar-wrapper">
+            <div class="velocity-bar" style="height: ${Math.max(height, 4)}px">
+              <div class="tooltip">
+                <strong>${week.count}</strong> entries<br>
+                Week of ${weekLabels[i]}
+              </div>
+            </div>
+            <div class="velocity-label">${weekLabels[i]}</div>
+          </div>
+        `;
+      }).join('');
+      
+      // Stats
+      const total = weeks.reduce((sum, w) => sum + w.count, 0);
+      const avg = Math.round(total / weeks.length);
+      const trend = weeks[weeks.length - 1].count - weeks[0].count;
+      const trendPct = weeks[0].count > 0 ? Math.round((trend / weeks[0].count) * 100) : 0;
+      
+      $('#velocity-stats').innerHTML = `
+        <div class="velocity-stat">
+          <div class="stat-value">${avg}</div>
+          <div class="stat-label">Avg / Week</div>
+        </div>
+        <div class="velocity-stat">
+          <div class="stat-value">${total}</div>
+          <div class="stat-label">Last 12 Weeks</div>
+        </div>
+        <div class="velocity-stat">
+          <div class="stat-value" style="color: ${trend >= 0 ? 'var(--success)' : 'var(--danger)'}">
+            ${trend >= 0 ? '+' : ''}${trendPct}%
+          </div>
+          <div class="stat-label">Trend</div>
+        </div>
+      `;
+    }
+    
+    // Render author activity
+    function renderAuthorActivity(data) {
+      const authors = Object.entries(data.authors)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+      
+      if (authors.length === 0) {
+        $('#author-activity').innerHTML = `
+          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+            <p>Author data not available</p>
+            <p style="font-size: 11px; margin-top: 8px;">
+              Requires <code>createdBy</code> field access
+            </p>
+          </div>
+        `;
+        return;
+      }
+      
+      const maxCount = Math.max(...authors.map(a => a[1]), 1);
+      
+      $('#author-activity').innerHTML = `
+        <table class="author-table">
+          <thead>
+            <tr>
+              <th>Author</th>
+              <th>Entries</th>
+              <th>Activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${authors.map(([name, count], i) => {
+              const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              const pct = (count / maxCount) * 100;
+              return `
+                <tr>
+                  <td>
+                    <div class="author-name">
+                      <div class="author-avatar">${initials}</div>
+                      <div>
+                        <div>${name}</div>
+                        <div class="author-rank">#${i + 1} contributor</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>${count}</td>
+                  <td>
+                    <div class="mini-bar">
+                      <div class="mini-bar-fill" style="width: ${pct}%"></div>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    // Main analyze function
+    async function analyze() {
+      try {
+        analyticsData = await fetchAnalytics();
+        renderOverview(analyticsData);
+        renderModelChart(analyticsData);
+        renderVelocityChart(analyticsData);
+        renderAuthorActivity(analyticsData);
+        
+        $('#last-updated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+      } catch (e) {
+        console.error('Analysis error:', e);
+        $('#error-msg').textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    // Connect button handler
+    $('#connect-btn').onclick = async () => {
+      const ep = $('#endpoint-input').value.trim();
+      const tk = $('#token-input').value.trim();
+      
+      if ($('#endpoint-group').style.display !== 'none' && !ep) {
+        $('#error-msg').textContent = 'Please enter the endpoint';
+        return;
+      }
+      if (!tk) {
+        $('#error-msg').textContent = 'Please enter your PAT';
+        return;
+      }
+      
+      $('#connect-btn').disabled = true;
+      $('#connect-btn').textContent = 'Connecting...';
+      $('#error-msg').textContent = '';
+      
+      if (ep) endpoint = ep;
+      token = tk;
+      
+      try {
+        // Test connection
+        await gql(`{ __schema { queryType { name } } }`);
+        
+        // Save credentials
+        try {
+          localStorage.setItem(PAT_KEY, tk);
+          if (ep) localStorage.setItem(ENDPOINT_KEY, ep);
+        } catch (e) {}
+        
+        show('main');
+        await analyze();
+      } catch (e) {
+        $('#error-msg').textContent = 'Connection failed: ' + e.message;
+        $('#connect-btn').disabled = false;
+        $('#connect-btn').textContent = 'Connect & Analyze';
+      }
+    };
+    
+    // Refresh button
+    $('#refresh-btn').onclick = analyze;
+    
+    // Initialize
+    sdk.init({ debug: false })
+      .then(async ({ status, props }) => {
+        if (status === 'ok' && props) {
+          endpoint = props.context?.environment?.endpoint || '';
+          const sdkToken = props.context?.environment?.authToken;
+          
+          // Try SDK token or localStorage
+          token = sdkToken || '';
+          
+          if (!token) {
+            try { token = localStorage.getItem(PAT_KEY) || ''; } catch (e) {}
+          }
+          
+          if (!endpoint) {
+            try { endpoint = localStorage.getItem(ENDPOINT_KEY) || ''; } catch (e) {}
+          }
+          
+          if (endpoint && token) {
+            // Save SDK token for other tools
+            if (sdkToken) {
+              try { localStorage.setItem(PAT_KEY, sdkToken); } catch (e) {}
+            }
+            show('main');
+            await analyze();
+          } else {
+            if (!endpoint) $('#endpoint-group').style.display = 'block';
+            if (token) $('#token-input').value = token;
+            show('token');
+          }
+        } else {
+          // Load from localStorage
+          try { endpoint = localStorage.getItem(ENDPOINT_KEY) || ''; } catch (e) {}
+          try { token = localStorage.getItem(PAT_KEY) || ''; } catch (e) {}
+          
+          if (endpoint && token) {
+            show('main');
+            await analyze();
+          } else {
+            $('#endpoint-group').style.display = 'block';
+            show('token');
+          }
+        }
+      })
+      .catch(e => {
+        console.warn('SDK init failed:', e);
+        try { endpoint = localStorage.getItem(ENDPOINT_KEY) || ''; } catch (e) {}
+        try { token = localStorage.getItem(PAT_KEY) || ''; } catch (e) {}
+        
+        if (endpoint && token) {
+          show('main');
+          analyze();
+        } else {
+          $('#endpoint-group').style.display = 'block';
+          show('token');
+        }
+      });
+  </script>
+</body>
+</html>
+

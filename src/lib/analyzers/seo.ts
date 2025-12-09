@@ -252,3 +252,4 @@ export function calculateSEOScore(analysis: SEOAnalysis, issues: AuditIssue[]): 
 }
 
 
+
