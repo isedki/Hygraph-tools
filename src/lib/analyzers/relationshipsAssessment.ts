@@ -8,6 +8,19 @@ import type {
 } from '../types';
 import { filterSystemModels, filterSystemComponents } from './systemFilters';
 
+// System types that are valid reference targets but not user-defined models
+const SYSTEM_REFERENCE_TYPES = new Set([
+  'Asset',
+  'RichText',
+  'Workflow',
+  'User',
+  'ScheduledOperation',
+  'ScheduledRelease',
+  'Location',
+  'Color',
+  'RGBA',
+]);
+
 // ============================================
 // Main Analyzer
 // ============================================
@@ -48,9 +61,20 @@ function analyzeReferenceCorrectness(
     for (const field of model.fields) {
       // Check if reference target exists
       if (field.relatedModel) {
+        // Skip system types - these are valid Hygraph internal types
+        if (SYSTEM_REFERENCE_TYPES.has(field.relatedModel)) {
+          continue;
+        }
+        
+        // Skip types that look like system embedded types (RichText variants, etc.)
+        if (field.relatedModel.endsWith('RichText') || 
+            field.relatedModel.endsWith('EmbeddedAsset') ||
+            field.relatedModel.includes('Workflow')) {
+          continue;
+        }
+
         const targetExists = modelNames.has(field.relatedModel) || 
-                            componentNames.has(field.relatedModel) ||
-                            field.relatedModel === 'Asset'; // System model
+                            componentNames.has(field.relatedModel);
 
         if (!targetExists) {
           issues.push({
