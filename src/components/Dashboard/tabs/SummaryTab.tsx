@@ -7,7 +7,7 @@ interface SummaryTabProps {
 }
 
 export function SummaryTab({ result }: SummaryTabProps) {
-  const { comprehensiveAssessment, strategicReport } = result;
+  const { comprehensiveAssessment, strategicReport, structuralObservations } = result;
   
   // Count statuses across all assessments
   const allCheckpoints = [
@@ -28,8 +28,34 @@ export function SummaryTab({ result }: SummaryTabProps) {
   const warningCount = allCheckpoints.filter(c => c.status === 'warning').length;
   const issueCount = allCheckpoints.filter(c => c.status === 'issue').length;
 
+  // Helper to render markdown-style bold text
+  const renderObservationText = (text: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   return (
     <div className="space-y-6">
+      {/* Structural Observations */}
+      {structuralObservations && structuralObservations.length > 0 && (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+          <h3 className="font-semibold text-gray-900 mb-3">Structural Observations</h3>
+          <ul className="space-y-2">
+            {structuralObservations.map((obs, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                <span className="text-slate-400 select-none">-</span>
+                <span>{renderObservationText(obs.text)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Overall Score */}
       <div className="bg-white rounded-xl border p-6">
         <div className="flex items-center justify-between mb-4">

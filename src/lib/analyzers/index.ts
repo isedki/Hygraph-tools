@@ -27,6 +27,7 @@ import { analyzeReusability } from './reusability';
 import { analyzePerformanceAssessment } from './performanceAssessment';
 import { analyzeRelationshipsAssessment } from './relationshipsAssessment';
 import { analyzeDuplicates } from './duplicates';
+import { analyzeStructuralObservations } from './structuralObservations';
 
 export async function runFullAudit(
   client: GraphQLClient,
@@ -163,6 +164,13 @@ export async function runFullAudit(
     entryCounts
   );
   
+  // Step 11: Generate structural observations (high-level architectural insights)
+  const structuralObservations = analyzeStructuralObservations(
+    schema,
+    strategicReport,
+    comprehensiveAssessment
+  );
+  
   return {
     connectionInfo: {
       endpoint,
@@ -183,6 +191,7 @@ export async function runFullAudit(
     strategicReport,
     allIssues,
     comprehensiveAssessment,
+    structuralObservations,
   };
 }
 

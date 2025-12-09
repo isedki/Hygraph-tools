@@ -877,6 +877,13 @@ export interface StrategicAuditReport {
   findings: StrategicFinding[];
 }
 
+// Structural Observations (consultant-style insights)
+export interface StructuralObservation {
+  text: string;
+  type: 'architecture' | 'issue' | 'pattern' | 'info';
+  severity?: 'high' | 'medium' | 'low';
+}
+
 export interface AuditResult {
   connectionInfo: {
     endpoint: string;
@@ -898,6 +905,8 @@ export interface AuditResult {
   allIssues: AuditIssue[];
   // NEW: Comprehensive checkpoint-based assessment
   comprehensiveAssessment: ComprehensiveAssessment;
+  // NEW: Structural observations (high-level architectural insights)
+  structuralObservations: StructuralObservation[];
 }
 
 // ============================================
