@@ -263,19 +263,24 @@ function analyzeContentDistribution(
   let totalEntries = 0;
 
   // Calculate total first
+  // Note: In Hygraph, DRAFT stage contains ALL entries, PUBLISHED contains only published ones
+  // So "draft" is actually the total count, not a separate draft-only count
   for (const model of models) {
     const counts = entryCounts[model.name] || { draft: 0, published: 0 };
-    totalEntries += counts.draft + counts.published;
+    totalEntries += counts.draft; // draft = total entries in Hygraph
   }
 
   // Build distribution entries
   for (const model of models) {
     const counts = entryCounts[model.name] || { draft: 0, published: 0 };
-    const total = counts.draft + counts.published;
+    // Total is the draft count (all entries), not draft + published
+    const total = counts.draft;
+    // Calculate actual drafts (entries not yet published)
+    const draftOnly = counts.draft - counts.published;
 
     distribution.push({
       model: model.name,
-      draft: counts.draft,
+      draft: draftOnly > 0 ? draftOnly : 0, // Only unpublished entries
       published: counts.published,
       total,
       percentage: totalEntries > 0 ? Math.round((total / totalEntries) * 100 * 10) / 10 : 0,

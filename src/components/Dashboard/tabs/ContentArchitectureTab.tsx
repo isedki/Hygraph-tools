@@ -30,9 +30,9 @@ export function ContentArchitectureTab({ result }: ContentArchitectureTabProps) 
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left font-medium text-gray-600">Model</th>
-                <th className="px-4 py-2 text-right font-medium text-gray-600">Draft</th>
-                <th className="px-4 py-2 text-right font-medium text-gray-600">Published</th>
                 <th className="px-4 py-2 text-right font-medium text-gray-600">Total</th>
+                <th className="px-4 py-2 text-right font-medium text-gray-600">Published</th>
+                <th className="px-4 py-2 text-right font-medium text-gray-600">Draft Only</th>
                 <th className="px-4 py-2 text-right font-medium text-gray-600">%</th>
               </tr>
             </thead>
@@ -40,9 +40,9 @@ export function ContentArchitectureTab({ result }: ContentArchitectureTabProps) 
               {contentArchitecture.contentDistribution.slice(0, 15).map((entry, i) => (
                 <tr key={i} className="hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium text-gray-900">{entry.model}</td>
-                  <td className="px-4 py-2 text-right text-gray-600">{entry.draft}</td>
-                  <td className="px-4 py-2 text-right text-gray-600">{entry.published}</td>
-                  <td className="px-4 py-2 text-right font-medium text-gray-900">{entry.total}</td>
+                  <td className="px-4 py-2 text-right font-medium text-gray-900">{entry.total.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right text-green-600">{entry.published.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right text-yellow-600">{entry.draft > 0 ? entry.draft.toLocaleString() : '-'}</td>
                   <td className="px-4 py-2 text-right text-gray-500">{entry.percentage}%</td>
                 </tr>
               ))}
