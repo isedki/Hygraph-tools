@@ -34,6 +34,9 @@ const SYSTEM_COMPONENTS = new Set([
   'RichTextAST',
   'Version',
   'VersionWhereInput',
+  // Taxonomy system components
+  'TaxonomyNode',
+  'TaxonomyPathNode',
 ]);
 
 /**
@@ -42,6 +45,9 @@ const SYSTEM_COMPONENTS = new Set([
 export function isSystemComponent(name: string): boolean {
   // Exact matches
   if (SYSTEM_COMPONENTS.has(name)) return true;
+
+  // Components with underscores are typically remote source configs, not real components
+  if (name.includes('_')) return true;
 
   // Patterns for system components
   if (name.startsWith('Asset') && (
@@ -116,6 +122,11 @@ const SYSTEM_ENUMS = new Set([
   'RGBAHue',
   'RGBATransparency',
   'UnpublishLocaleInput',
+  // Asset-related system enums
+  'AssetUploadStatus',
+  'AssetOrderByInput',
+  'ImageResizeFit',
+  'ImageResizeMode',
 ]);
 
 /**
