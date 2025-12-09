@@ -15,11 +15,12 @@ import { filterSystemEnums, filterSystemModels } from './systemFilters';
 // Pattern Definitions
 // ============================================
 
-// Taxonomy model patterns
+// Taxonomy model patterns - expanded to catch more naming conventions
 const CATEGORY_PATTERNS = /^(category|categories)$/i;
 const TAG_PATTERNS = /^(tag|tags)$/i;
-const TOPIC_PATTERNS = /^(topic|topics|subject|subjects)$/i;
+const TOPIC_PATTERNS = /^(topic|topics|subject|subjects|thematic|thematics|theme|themes)$/i;
 const TYPE_PATTERNS = /^(type|types|kind|kinds|contentType|articleType|postType|productType)$/i;
+const TAXONOMY_PATTERNS = /^(taxonomy|taxonomies|classification|classifications|genre|genres|sector|sectors|industry|industries|department|departments|division|divisions|segment|segments|vertical|verticals|pillar|pillars|collection|collections)$/i;
 
 // Navigation-related field patterns
 const SLUG_PATTERNS = /^(slug|url|path|permalink|handle|urlSlug|seoSlug)$/i;
@@ -81,6 +82,8 @@ function analyzeTaxonomyModels(
       type = 'topic';
     } else if (TYPE_PATTERNS.test(model.name)) {
       type = 'type';
+    } else if (TAXONOMY_PATTERNS.test(model.name)) {
+      type = 'category'; // Treat generic taxonomy names as category type
     }
 
     if (type) {
