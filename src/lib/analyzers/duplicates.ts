@@ -146,15 +146,46 @@ function analyzeDuplicateComponents(components: HygraphModel[]): DuplicatesAsses
 // Duplicate Models Analysis
 // ============================================
 
+/**
+ * Check if a model is a Hygraph auto-generated RichText embedded model
+ * These have names like "ModelNameFieldNameRichText" and are system-generated
+ */
+function isRichTextEmbeddedModel(modelName: string): boolean {
+  // RichText embedded models end with "RichText" and usually have compound names
+  if (!modelName.endsWith('RichText')) return false;
+  
+  // Must have more than just "RichText" (i.e., has a prefix)
+  const prefix = modelName.slice(0, -8); // Remove "RichText"
+  if (prefix.length < 2) return false;
+  
+  // Check for patterns like "SomethingRichText" where Something is compound
+  // These are auto-generated for each RichText field
+  return true;
+}
+
+/**
+ * Check if a model is an auto-generated embedded type
+ */
+function isEmbeddedTypeModel(modelName: string): boolean {
+  // Check for common embedded type patterns
+  const embeddedSuffixes = ['RichText', 'EmbeddedAsset', 'Link'];
+  return embeddedSuffixes.some(suffix => 
+    modelName.endsWith(suffix) && modelName.length > suffix.length
+  );
+}
+
 function analyzeDuplicateModels(models: HygraphModel[]): DuplicatesAssessment['models'] {
   const groups: DuplicateModelGroup[] = [];
   const processed = new Set<string>();
+
+  // Filter out auto-generated embedded type models (RichText, etc.)
+  const userModels = models.filter(m => !isEmbeddedTypeModel(m.name));
 
   // First, find name-based duplicates (versioned models)
   const versionPattern = /^(.+?)[_\s]?[vV]?\d+$/;
   const baseNames = new Map<string, string[]>();
 
-  for (const model of models) {
+  for (const model of userModels) {
     const match = model.name.match(versionPattern);
     const baseName = match ? match[1] : null;
     
@@ -179,39 +210,50 @@ function analyzeDuplicateModels(models: HygraphModel[]): DuplicatesAssessment['m
     }
   }
 
-  // Then find field-based duplicates
-  for (let i = 0; i < models.length; i++) {
-    if (processed.has(models[i].name)) continue;
+  // Then find field-based duplicates (only for actual content models)
+  for (let i = 0; i < userModels.length; i++) {
+    if (processed.has(userModels[i].name)) continue;
+    
+    // Skip small models (less than 5 fields) - not enough to be meaningful duplicates
+    if (userModels[i].fields.length < 5) continue;
 
-    const m1Fields = new Set(models[i].fields.map(f => f.name.toLowerCase()));
-    const similarModels: string[] = [models[i].name];
+    const m1Fields = new Set(userModels[i].fields.map(f => f.name.toLowerCase()));
+    const similarModels: string[] = [userModels[i].name];
     let sharedFields = [...m1Fields];
     let maxSimilarity = 0;
 
-    for (let j = i + 1; j < models.length; j++) {
-      if (processed.has(models[j].name)) continue;
+    for (let j = i + 1; j < userModels.length; j++) {
+      if (processed.has(userModels[j].name)) continue;
+      
+      // Skip small models
+      if (userModels[j].fields.length < 5) continue;
 
-      const m2Fields = new Set(models[j].fields.map(f => f.name.toLowerCase()));
+      const m2Fields = new Set(userModels[j].fields.map(f => f.name.toLowerCase()));
       const shared = [...m1Fields].filter(f => m2Fields.has(f));
-      const similarity = shared.length / Math.min(m1Fields.size, m2Fields.size);
+      
+      // Exclude common fields that appear in many models
+      const commonFields = new Set(['id', 'createdat', 'updatedat', 'publishedat', 'stage', 'locale', 'title', 'slug', 'name', 'description']);
+      const meaningfulShared = shared.filter(f => !commonFields.has(f));
+      
+      const similarity = meaningfulShared.length / Math.min(m1Fields.size, m2Fields.size);
 
-      // If 70%+ similarity and at least 4 shared fields
-      if (similarity >= 0.7 && shared.length >= 4) {
-        similarModels.push(models[j].name);
+      // If 70%+ similarity and at least 5 meaningful shared fields
+      if (similarity >= 0.7 && meaningfulShared.length >= 5) {
+        similarModels.push(userModels[j].name);
         sharedFields = sharedFields.filter(f => m2Fields.has(f));
         maxSimilarity = Math.max(maxSimilarity, similarity);
-        processed.add(models[j].name);
+        processed.add(userModels[j].name);
       }
     }
 
     if (similarModels.length > 1) {
-      processed.add(models[i].name);
+      processed.add(userModels[i].name);
       groups.push({
         models: similarModels,
         similarity: Math.round(maxSimilarity * 100),
         sharedFields: sharedFields.slice(0, 10),
         reason: `${Math.round(maxSimilarity * 100)}% field overlap (${sharedFields.length} shared fields)`,
-        recommendation: `Consolidate ${similarModels.join(' and ')} into a single model with a "type" discriminator field`,
+        recommendation: `Consider consolidating ${similarModels.join(' and ')} into a single model with a "type" discriminator field`,
       });
     }
   }

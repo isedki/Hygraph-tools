@@ -162,7 +162,17 @@ const SYSTEM_MODEL_NAMES = new Set([
  * Note: Most models have an `isSystem` flag, but this catches edge cases
  */
 export function isSystemModel(name: string): boolean {
-  return SYSTEM_MODEL_NAMES.has(name);
+  // Core system models
+  if (SYSTEM_MODEL_NAMES.has(name)) return true;
+  
+  // Auto-generated RichText embedded models (e.g., "PageContentRichText", "ArticleBodyRichText")
+  // These are created automatically for each RichText field
+  if (name.endsWith('RichText') && name.length > 8) return true;
+  
+  // Auto-generated embedded asset types
+  if (name.endsWith('EmbeddedAsset') && name.length > 13) return true;
+  
+  return false;
 }
 
 // ============================================
