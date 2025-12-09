@@ -6,6 +6,7 @@ import type {
   StrengthsAnalysis, 
   SchemaStrength 
 } from '../types';
+import { filterSystemComponents, filterSystemEnums, filterSystemModels } from './systemFilters';
 
 /**
  * Analyzes the schema to identify strengths and what's working well.
@@ -22,10 +23,15 @@ export function analyzeStrengths(
   const componentHighlights: string[] = [];
   const taxonomyHighlights: string[] = [];
 
+  // Filter out system items for analysis
+  const customComponents = filterSystemComponents(schema.components || []);
+  const customEnums = filterSystemEnums(schema.enums || []);
+  const customModels = filterSystemModels(schema.models);
+
   // ============================================
   // Component Architecture Strengths
   // ============================================
-  if (schema.components.length > 0) {
+  if (customComponents.length > 0) {
     const usedComponents = componentAnalysis.components.filter(c => c.usedInModels.length > 0);
     const highlyReusedComponents = componentAnalysis.components.filter(c => c.usedInModels.length >= 3);
     
@@ -33,12 +39,12 @@ export function analyzeStrengths(
       strengths.push({
         id: 'excellent-component-architecture',
         title: 'Excellent Component Architecture',
-        description: `Your schema leverages ${schema.components.length} components for modular, reusable content blocks.`,
+        description: `Your schema leverages ${customComponents.length} components for modular, reusable content blocks.`,
         impact: 'This approach provides flexibility for page builders and reduces duplication.',
         category: 'components',
-        examples: getComponentExamples(schema.components),
+        examples: getComponentExamples(customComponents),
       });
-      componentHighlights.push(`${schema.components.length} reusable components defined`);
+      componentHighlights.push(`${customComponents.length} reusable components defined`);
     }
     
     if (highlyReusedComponents.length > 0) {
@@ -58,8 +64,8 @@ export function analyzeStrengths(
   // ============================================
   // Taxonomy & Organization Strengths
   // ============================================
-  const taxonomyModels = schema.models.filter(m => 
-    /category|topic|tag|taxonomy|type/i.test(m.name) && !m.isSystem
+  const taxonomyModels = customModels.filter(m => 
+    /category|topic|tag|taxonomy|type/i.test(m.name)
   );
   
   if (taxonomyModels.length > 0) {
@@ -77,8 +83,8 @@ export function analyzeStrengths(
   // ============================================
   // Multi-Site/Multi-Brand Support
   // ============================================
-  const siteModel = schema.models.find(m => /^site$/i.test(m.name));
-  const brandModel = schema.models.find(m => /^(brand|shop|store)$/i.test(m.name));
+  const siteModel = customModels.find(m => /^site$/i.test(m.name));
+  const brandModel = customModels.find(m => /^(brand|shop|store)$/i.test(m.name));
   const siteRelations = countModelReferences(schema, 'site');
   const brandRelations = countModelReferences(schema, 'brand|shop|store');
   
@@ -109,8 +115,8 @@ export function analyzeStrengths(
   // ============================================
   // Form Architecture Strengths
   // ============================================
-  const formModel = schema.models.find(m => /^form$/i.test(m.name));
-  const formComponents = schema.components.filter(c => 
+  const formModel = customModels.find(m => /^form$/i.test(m.name));
+  const formComponents = customComponents.filter(c => 
     /form|input|field|validator|checkbox|radio|select|textarea/i.test(c.name)
   );
   
@@ -130,8 +136,8 @@ export function analyzeStrengths(
   // ============================================
   // SEO & Metadata Strengths
   // ============================================
-  const seoComponent = schema.components.find(c => /^seo$/i.test(c.name));
-  const modelsWithSeo = schema.models.filter(m => 
+  const seoComponent = customComponents.find(c => /^seo$/i.test(c.name));
+  const modelsWithSeo = customModels.filter(m => 
     m.fields.some(f => /seo|meta/i.test(f.name) || /seo/i.test(f.type))
   );
   
@@ -186,7 +192,7 @@ export function analyzeStrengths(
   // ============================================
   // Enum Usage for Styling/Layout
   // ============================================
-  const stylingEnums = schema.enums.filter(e => 
+  const stylingEnums = customEnums.filter(e => 
     /color|theme|size|variant|style|alignment|position|width|layout/i.test(e.name)
   );
   
@@ -217,8 +223,8 @@ export function analyzeStrengths(
   // ============================================
   // Good Component/Model Ratio
   // ============================================
-  const componentToModelRatio = schema.components.length / Math.max(schema.models.length, 1);
-  if (componentToModelRatio >= 1.5 && schema.components.length >= 5) {
+  const componentToModelRatio = customComponents.length / Math.max(customModels.length, 1);
+  if (componentToModelRatio >= 1.5 && customComponents.length >= 5) {
     strengths.push({
       id: 'strong-componentization',
       title: 'Strong Componentization Strategy',
@@ -279,5 +285,6 @@ function countModelReferences(schema: HygraphSchema, pattern: string): number {
   
   return count;
 }
+
 
 

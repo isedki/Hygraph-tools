@@ -1,4 +1,5 @@
 import type { HygraphSchema, EnumPurpose, EnumOverviewAnalysis } from '../types';
+import { filterSystemEnums } from './systemFilters';
 
 /**
  * Analyzes enums to understand their PURPOSE and proper categorization.
@@ -16,8 +17,9 @@ export function analyzeEnumOverview(schema: HygraphSchema): EnumOverviewAnalysis
   };
 
   const architecturalEnums: EnumPurpose[] = [];
+  const customEnums = filterSystemEnums(schema.enums || []);
 
-  for (const enumDef of schema.enums) {
+  for (const enumDef of customEnums) {
     const enumPurpose = analyzeEnumPurpose(enumDef, schema);
     
     // Add to category
@@ -65,14 +67,14 @@ export function analyzeEnumOverview(schema: HygraphSchema): EnumOverviewAnalysis
 
   // Generate overall assessment
   const overallAssessment = generateOverallAssessment(
-    schema.enums.length,
+    customEnums.length,
     enumsByCategory,
     architecturalEnums,
     healthSummary
   );
 
   return {
-    totalEnums: schema.enums.length,
+    totalEnums: customEnums.length,
     enumsByCategory,
     architecturalEnums,
     healthSummary,
@@ -366,5 +368,6 @@ function generateOverallAssessment(
 
   return parts.join(' ');
 }
+
 
 

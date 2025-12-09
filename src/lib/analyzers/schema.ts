@@ -1,4 +1,5 @@
 import type { HygraphSchema, SchemaAnalysis, AuditIssue } from '../types';
+import { filterSystemComponents, filterSystemEnums, filterSystemModels } from './systemFilters';
 
 // Build adjacency list for relation graph
 function buildRelationGraph(schema: HygraphSchema): Map<string, Set<string>> {
@@ -141,6 +142,10 @@ export function analyzeSchema(
   schema: HygraphSchema,
   entryCounts: Record<string, { draft: number; published: number }>
 ): SchemaAnalysis {
+  const customModels = filterSystemModels(schema.models);
+  const customComponents = filterSystemComponents(schema.components || []);
+  const customEnums = filterSystemEnums(schema.enums || []);
+  
   const graph = buildRelationGraph(schema);
   const twoWayReferences = identifyBidirectionalRelations(graph);
   const { maxDepth, deepPaths } = findDeepRelationChains(graph);
@@ -170,14 +175,14 @@ export function analyzeSchema(
     relationCount += model.fields.filter(f => f.relatedModel).length;
   }
   
-  // Total fields
-  const totalFields = schema.models.reduce((sum, m) => sum + m.fields.length, 0) +
-                      schema.components.reduce((sum, c) => sum + c.fields.length, 0);
+  // Total fields (custom items only)
+  const totalFields = customModels.reduce((sum, m) => sum + m.fields.length, 0) +
+                      customComponents.reduce((sum, c) => sum + c.fields.length, 0);
   
   return {
-    modelCount: schema.models.length,
-    componentCount: schema.components.length,
-    enumCount: schema.enums.length,
+    modelCount: customModels.length,
+    componentCount: customComponents.length,
+    enumCount: customEnums.length,
     totalFields,
     fieldTypeDistribution: getFieldTypeDistribution(schema),
     relationCount,

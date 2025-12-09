@@ -1,4 +1,5 @@
 import type { HygraphSchema, AuditIssue } from '../types';
+import { filterSystemEnums, filterSystemModels } from './systemFilters';
 
 export interface EnumArchitectureAnalysis {
   architecturalPatterns: {
@@ -68,7 +69,7 @@ const layoutPatterns = /^(layout|grid|column|row|section|width|height|flex|conta
 const contentTypePatterns = /^(type|kind|category|format|mode|status|state|level|priority|visibility)s?$/i;
 
 export function analyzeEnumArchitecture(schema: HygraphSchema): EnumArchitectureAnalysis {
-  const enums = schema.enums || [];
+  const enums = filterSystemEnums(schema.enums || []);
   
   // Detect architectural patterns in enums
   const architecturalPatterns = {
@@ -439,5 +440,6 @@ export function generateEnumArchitectureIssues(analysis: EnumArchitectureAnalysi
 export function calculateEnumArchitectureScore(analysis: EnumArchitectureAnalysis): number {
   return analysis.scalabilityScore;
 }
+
 
 

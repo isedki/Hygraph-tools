@@ -896,6 +896,287 @@ export interface AuditResult {
   contentStrategy: ContentStrategyAnalysis;
   strategicReport: StrategicAuditReport;
   allIssues: AuditIssue[];
+  // NEW: Comprehensive checkpoint-based assessment
+  comprehensiveAssessment: ComprehensiveAssessment;
+}
+
+// ============================================
+// NEW: Checkpoint-Based Assessment Types
+// ============================================
+export type CheckpointStatus = 'good' | 'warning' | 'issue';
+
+export interface CheckpointResult {
+  status: CheckpointStatus;
+  title: string;
+  findings: string[];
+  examples: {
+    items?: string[];
+    details?: string;
+    sharedFields?: string[];
+    uniqueToFirst?: string[];
+    uniqueToSecond?: string[];
+  }[];
+  actionItems: string[];
+}
+
+// ============================================
+// Structure & Organization Assessment
+// ============================================
+export interface StructureAssessment {
+  // 11 Core Checkpoints
+  distinctContentTypes: CheckpointResult;
+  pageVsContentSeparation: CheckpointResult;
+  redundantModels: CheckpointResult;
+  overlappingModels: CheckpointResult;
+  fieldNaming: CheckpointResult;
+  componentUsage: CheckpointResult;
+  componentReordering: CheckpointResult;
+  rteUsage: CheckpointResult;
+  localization: CheckpointResult;
+  recursiveChains: CheckpointResult;
+  assetCentralization: CheckpointResult;
+  
+  // Enum Analysis (integrated)
+  enumAnalysis: {
+    singleValueEnums: CheckpointResult;
+    oversizedEnums: CheckpointResult;
+    enumBasedTenancy: CheckpointResult;
+    duplicateEnums: CheckpointResult;
+    unusedEnums: CheckpointResult;
+  };
+}
+
+// ============================================
+// Content Architecture Assessment
+// ============================================
+export interface TaxonomyModel {
+  name: string;
+  type: 'category' | 'tag' | 'topic' | 'type' | 'other';
+  entryCount: number;
+  isEnumBased: boolean;
+  referencedBy: string[];
+}
+
+export interface HierarchySupport {
+  model: string;
+  selfRefField: string;
+  supportsNesting: boolean;
+  maxDepthEstimate: number;
+}
+
+export interface ContentDistributionEntry {
+  model: string;
+  draft: number;
+  published: number;
+  total: number;
+  percentage: number;
+}
+
+export interface FacetedFilteringAssessment {
+  score: number;
+  status: CheckpointStatus;
+  filterableFields: {
+    model: string;
+    field: string;
+    type: 'enum' | 'reference' | 'boolean';
+  }[];
+  gaps: string[];
+  recommendations: string[];
+}
+
+export interface ContentArchitectureAssessment {
+  taxonomyModels: TaxonomyModel[];
+  taxonomySummary: CheckpointResult;
+  hierarchySupport: HierarchySupport[];
+  hierarchySummary: CheckpointResult;
+  contentDistribution: ContentDistributionEntry[];
+  navigationReadiness: CheckpointResult;
+  facetedFiltering: FacetedFilteringAssessment;
+}
+
+// ============================================
+// Reusability Assessment
+// ============================================
+export interface ContentPresentationField {
+  name: string;
+  type: string;
+  category: 'content' | 'presentation' | 'config';
+  reason: string;
+}
+
+export interface LeakyModel {
+  model: string;
+  fields: ContentPresentationField[];
+  contentCount: number;
+  presentationCount: number;
+  configCount: number;
+}
+
+export interface ReusabilityAssessment {
+  sharedContent: CheckpointResult;
+  sharedComponents: CheckpointResult;
+  layoutFlexibility: CheckpointResult;
+  contentVsPresentation: {
+    status: CheckpointStatus;
+    leakyModels: LeakyModel[];
+    overallLeakageScore: number;
+    worstOffenders: string[];
+  };
+  reuseScore: number;
+  reuseScoreBreakdown: ScoreContribution[];
+}
+
+// ============================================
+// Performance Assessment (NEW TAB)
+// ============================================
+export interface NestedComponentInfo {
+  component: string;
+  depth: number;
+  path: string[];
+  parentModels: string[];
+}
+
+export interface NestedModelInfo {
+  model: string;
+  depth: number;
+  path: string[];
+  queryComplexity: 'low' | 'medium' | 'high';
+}
+
+export interface HugeModelInfo {
+  model: string;
+  fieldCount: number;
+  threshold: number;
+  recommendation: string;
+}
+
+export interface MissingRequiredFieldInfo {
+  model: string;
+  suggestedRequired: string[];
+  reason: string;
+}
+
+export interface PerformanceAssessment {
+  nestedComponents: {
+    status: CheckpointStatus;
+    findings: string[];
+    items: NestedComponentInfo[];
+    actionItems: string[];
+  };
+  nestedModels: {
+    status: CheckpointStatus;
+    findings: string[];
+    items: NestedModelInfo[];
+    actionItems: string[];
+  };
+  hugeModels: {
+    status: CheckpointStatus;
+    findings: string[];
+    items: HugeModelInfo[];
+    actionItems: string[];
+  };
+  missingRequiredFields: {
+    status: CheckpointStatus;
+    findings: string[];
+    items: MissingRequiredFieldInfo[];
+    actionItems: string[];
+  };
+  deepQueryPaths: CheckpointResult;
+  recursiveChains: CheckpointResult;
+  overallScore: number;
+}
+
+// ============================================
+// Enhanced Relationships Assessment
+// ============================================
+export interface ReferenceCorrectnessIssue {
+  model: string;
+  field: string;
+  targetModel: string;
+  issue: 'broken_reference' | 'nullable_key_reference' | 'missing_reverse_relation';
+  suggestion: string;
+}
+
+export interface RelationshipsAssessment {
+  referenceCorrectness: CheckpointResult & {
+    issues: ReferenceCorrectnessIssue[];
+  };
+  circularReferences: CheckpointResult & {
+    cycles: string[][];
+    bidirectionalPairs: [string, string][];
+  };
+  nestedVsLinked: CheckpointResult & {
+    shouldBeSplit: { model: string; fieldCount: number; suggestion: string }[];
+  };
+  queryCost: CheckpointResult & {
+    highCostPaths: { path: string[]; depth: number; estimatedCost: 'low' | 'medium' | 'high' }[];
+  };
+}
+
+// ============================================
+// Duplicates Assessment
+// ============================================
+export interface DuplicateEnumGroup {
+  enums: string[];
+  sharedValues: string[];
+  recommendation: string;
+}
+
+export interface DuplicateComponentGroup {
+  components: string[];
+  similarity: number;
+  sharedFields: string[];
+  uniqueFields: Record<string, string[]>;
+  recommendation: string;
+}
+
+export interface DuplicateModelGroup {
+  models: string[];
+  similarity: number;
+  sharedFields: string[];
+  reason: string;
+  recommendation: string;
+}
+
+export interface BooleanShowHideField {
+  model: string;
+  field: string;
+  pattern: 'show' | 'hide' | 'enable' | 'disable' | 'is';
+}
+
+export interface DuplicatesAssessment {
+  enums: {
+    status: CheckpointStatus;
+    groups: DuplicateEnumGroup[];
+    actionItems: string[];
+  };
+  components: {
+    status: CheckpointStatus;
+    groups: DuplicateComponentGroup[];
+    actionItems: string[];
+  };
+  models: {
+    status: CheckpointStatus;
+    groups: DuplicateModelGroup[];
+    actionItems: string[];
+  };
+  booleanShowHide: {
+    status: CheckpointStatus;
+    fields: BooleanShowHideField[];
+    actionItems: string[];
+  };
+}
+
+// ============================================
+// Comprehensive Audit Result Extension
+// ============================================
+export interface ComprehensiveAssessment {
+  structure: StructureAssessment;
+  contentArchitecture: ContentArchitectureAssessment;
+  reusability: ReusabilityAssessment;
+  performance: PerformanceAssessment;
+  relationships: RelationshipsAssessment;
+  duplicates: DuplicatesAssessment;
 }
 
 // GraphQL Introspection Types

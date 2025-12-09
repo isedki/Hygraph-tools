@@ -3,7 +3,8 @@ import type {
   AuditResult, 
   CategoryScore, 
   AuditIssue,
-  HygraphSchema 
+  HygraphSchema,
+  ComprehensiveAssessment,
 } from '../types';
 import { fetchSchema, fetchEntityCounts, fetchAssetStats } from '../hygraph/introspection';
 import { analyzeSchema, generateSchemaIssues, calculateSchemaScore } from './schema';
@@ -18,6 +19,14 @@ import { analyzeArchitecture, generateArchitectureIssues, calculateArchitectureS
 import { analyzeContentStrategy, generateContentStrategyIssues, calculateContentStrategyScore } from './contentStrategy';
 import { generateStrategicReport } from './strategicReport';
 import { analyzeEnumArchitecture, generateEnumArchitectureIssues } from './enumArchitecture';
+
+// New comprehensive assessment analyzers
+import { analyzeStructureOrganization } from './structureOrganization';
+import { analyzeContentArchitecture } from './contentArchitecture';
+import { analyzeReusability } from './reusability';
+import { analyzePerformanceAssessment } from './performanceAssessment';
+import { analyzeRelationshipsAssessment } from './relationshipsAssessment';
+import { analyzeDuplicates } from './duplicates';
 
 export async function runFullAudit(
   client: GraphQLClient,
@@ -44,6 +53,24 @@ export async function runFullAudit(
   const architectureAnalysis = analyzeArchitecture(schema);
   const contentStrategyAnalysis = analyzeContentStrategy(schema, entryCounts);
   const enumArchitectureAnalysis = analyzeEnumArchitecture(schema);
+  
+  // Step 4b: Run comprehensive assessment analyzers
+  const structureAssessment = analyzeStructureOrganization(schema, entryCounts);
+  const contentArchitectureAssessment = analyzeContentArchitecture(schema, entryCounts);
+  const reusabilityAssessment = analyzeReusability(schema, entryCounts);
+  const performanceAssessmentResult = analyzePerformanceAssessment(schema, entryCounts);
+  const relationshipsAssessment = analyzeRelationshipsAssessment(schema, entryCounts);
+  const duplicatesAssessment = analyzeDuplicates(schema);
+  
+  // Build comprehensive assessment
+  const comprehensiveAssessment: ComprehensiveAssessment = {
+    structure: structureAssessment,
+    contentArchitecture: contentArchitectureAssessment,
+    reusability: reusabilityAssessment,
+    performance: performanceAssessmentResult,
+    relationships: relationshipsAssessment,
+    duplicates: duplicatesAssessment,
+  };
   
   // Step 5: Generate issues for each category
   const schemaIssues = generateSchemaIssues(schemaAnalysis);
@@ -155,6 +182,7 @@ export async function runFullAudit(
     contentStrategy: contentStrategyAnalysis,
     strategicReport,
     allIssues,
+    comprehensiveAssessment,
   };
 }
 

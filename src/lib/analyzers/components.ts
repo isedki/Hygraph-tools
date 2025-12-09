@@ -1,14 +1,15 @@
-import type { HygraphSchema, ComponentAnalysis, AuditIssue } from '../types';
+import type { HygraphSchema, HygraphModel, ComponentAnalysis, AuditIssue } from '../types';
+import { filterSystemComponents, filterSystemModels } from './systemFilters';
 
 // Find which models use which components
-function findComponentUsage(schema: HygraphSchema): Map<string, string[]> {
+function findComponentUsage(customModels: HygraphModel[], customComponents: HygraphModel[]): Map<string, string[]> {
   const usage = new Map<string, string[]>();
   
-  for (const component of schema.components) {
+  for (const component of customComponents) {
     usage.set(component.name, []);
   }
   
-  for (const model of schema.models) {
+  for (const model of customModels) {
     for (const field of model.fields) {
       if (field.relatedModel && usage.has(field.relatedModel)) {
         usage.get(field.relatedModel)!.push(model.name);
@@ -17,7 +18,7 @@ function findComponentUsage(schema: HygraphSchema): Map<string, string[]> {
   }
   
   // Also check component-to-component usage
-  for (const component of schema.components) {
+  for (const component of customComponents) {
     for (const field of component.fields) {
       if (field.relatedModel && usage.has(field.relatedModel)) {
         usage.get(field.relatedModel)!.push(component.name);
@@ -29,16 +30,16 @@ function findComponentUsage(schema: HygraphSchema): Map<string, string[]> {
 }
 
 // Calculate component nesting depth
-function calculateComponentNesting(schema: HygraphSchema): Map<string, number> {
+function calculateComponentNesting(customComponents: HygraphModel[]): Map<string, number> {
   const depths = new Map<string, number>();
-  const componentNames = new Set(schema.components.map(c => c.name));
+  const componentNames = new Set(customComponents.map(c => c.name));
   
   function getDepth(componentName: string, visited: Set<string>): number {
     if (visited.has(componentName)) return 0; // Circular reference
     if (depths.has(componentName)) return depths.get(componentName)!;
     
     visited.add(componentName);
-    const component = schema.components.find(c => c.name === componentName);
+    const component = customComponents.find(c => c.name === componentName);
     if (!component) return 0;
     
     let maxChildDepth = 0;
@@ -54,7 +55,7 @@ function calculateComponentNesting(schema: HygraphSchema): Map<string, number> {
     return depth;
   }
   
-  for (const component of schema.components) {
+  for (const component of customComponents) {
     getDepth(component.name, new Set());
   }
   
@@ -156,11 +157,14 @@ function findDuplicateFieldPatterns(schema: HygraphSchema): {
 }
 
 export function analyzeComponents(schema: HygraphSchema): ComponentAnalysis {
-  const usage = findComponentUsage(schema);
-  const nestingDepths = calculateComponentNesting(schema);
+  const customModels = filterSystemModels(schema.models);
+  const customComponents = filterSystemComponents(schema.components || []);
+  
+  const usage = findComponentUsage(customModels, customComponents);
+  const nestingDepths = calculateComponentNesting(customComponents);
   const duplicatePatterns = findDuplicateFieldPatterns(schema);
   
-  const components = schema.components.map(component => ({
+  const components = customComponents.map(component => ({
     name: component.name,
     usedInModels: usage.get(component.name) || [],
     fieldCount: component.fields.length,
@@ -173,7 +177,7 @@ export function analyzeComponents(schema: HygraphSchema): ComponentAnalysis {
   
   // Calculate reuse score (0-100)
   const totalUsage = components.reduce((sum, c) => sum + c.usedInModels.length, 0);
-  const avgUsage = schema.components.length > 0 ? totalUsage / schema.components.length : 0;
+  const avgUsage = customComponents.length > 0 ? totalUsage / customComponents.length : 0;
   const reuseScore = Math.min(100, avgUsage * 25); // Max score at 4+ avg uses
   
   return {
@@ -288,5 +292,6 @@ export function calculateComponentScore(analysis: ComponentAnalysis, issues: Aud
   
   return Math.max(0, Math.min(100, score));
 }
+
 
 

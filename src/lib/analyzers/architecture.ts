@@ -1,4 +1,5 @@
 import type { HygraphSchema, AuditIssue } from '../types';
+import { filterSystemComponents, filterSystemEnums, filterSystemModels } from './systemFilters';
 
 export interface ArchitectureAnalysis {
   // Enum Analysis
@@ -116,11 +117,12 @@ function findEnumOverlaps(schema: HygraphSchema): {
   recommendation: string;
 }[] {
   const overlaps: { enums: string[]; sharedValues: string[]; recommendation: string }[] = [];
+  const customEnums = filterSystemEnums(schema.enums || []);
   
-  for (let i = 0; i < schema.enums.length; i++) {
-    for (let j = i + 1; j < schema.enums.length; j++) {
-      const enum1 = schema.enums[i];
-      const enum2 = schema.enums[j];
+  for (let i = 0; i < customEnums.length; i++) {
+    for (let j = i + 1; j < customEnums.length; j++) {
+      const enum1 = customEnums[i];
+      const enum2 = customEnums[j];
       
       const values1 = new Set(enum1.values.map(v => v.toLowerCase()));
       const values2 = new Set(enum2.values.map(v => v.toLowerCase()));
@@ -144,8 +146,9 @@ function findEnumOverlaps(schema: HygraphSchema): {
 // Detect enums being used as page types (anti-pattern)
 function findEnumsAsPageTypes(schema: HygraphSchema): string[] {
   const pagePatterns = [/page/i, /route/i, /template/i, /view/i];
+  const customEnums = filterSystemEnums(schema.enums || []);
   
-  return schema.enums
+  return customEnums
     .filter(e => {
       // Check if enum name suggests page types
       const nameMatches = pagePatterns.some(p => p.test(e.name));
@@ -410,6 +413,8 @@ function analyzeBlockProliferation(schema: HygraphSchema): {
 }
 
 export function analyzeArchitecture(schema: HygraphSchema): ArchitectureAnalysis {
+  const customEnums = filterSystemEnums(schema.enums || []);
+  const customComponents = filterSystemComponents(schema.components || []);
   const singleValueEnums = findSingleValueEnums(schema);
   const duplicateEnumValues = findDuplicateEnumValues(schema);
   const enumOverlaps = findEnumOverlaps(schema);
@@ -422,7 +427,7 @@ export function analyzeArchitecture(schema: HygraphSchema): ArchitectureAnalysis
   
   return {
     enumAnalysis: {
-      totalEnums: schema.enums.length,
+      totalEnums: customEnums.length,
       singleValueEnums,
       unusedEnums: [], // Would need usage analysis
       duplicateEnumValues,
@@ -440,7 +445,7 @@ export function analyzeArchitecture(schema: HygraphSchema): ArchitectureAnalysis
     componentVsModel: {
       modelsCouldBeComponents,
       componentsAreModels: [], // Components that should stay models
-      properComponents: schema.components.map(c => c.name),
+      properComponents: customComponents.map(c => c.name),
     },
     multitenantAnalysis,
     blockAnalysis,
