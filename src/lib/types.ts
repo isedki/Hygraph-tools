@@ -884,6 +884,91 @@ export interface StructuralObservation {
   severity?: 'high' | 'medium' | 'low';
 }
 
+// ============================================
+// NEW: Insights Tab Types
+// ============================================
+
+// Payload Efficiency Analysis
+export interface PayloadFieldBreakdown {
+  field: string;
+  type: string;
+  bytes: number;
+  percentage: number;
+  isHeavy: boolean;
+}
+
+export interface PayloadEstimate {
+  model: string;
+  estimatedBytes: number;
+  estimatedKB: number;
+  fieldBreakdown: PayloadFieldBreakdown[];
+  riskLevel: 'low' | 'medium' | 'high';
+  heavyFields: string[];
+  recommendations: string[];
+}
+
+export interface PayloadEfficiencyAnalysis {
+  estimates: PayloadEstimate[];
+  heavyModels: { model: string; kb: number; reason: string }[];
+  avgPayloadKB: number;
+  totalModelsAnalyzed: number;
+  recommendations: string[];
+  overallScore: number;
+}
+
+// Content Adoption Analysis
+export interface GhostModel {
+  model: string;
+  fieldCount: number;
+  hasRelations: boolean;
+  createdFor?: string;
+}
+
+export interface AdoptionCategory {
+  model: string;
+  entries: number;
+  published: number;
+  draftOnly: number;
+  fieldCount: number;
+}
+
+export interface ContentAdoptionAnalysis {
+  ghostModels: GhostModel[];
+  underutilized: AdoptionCategory[];
+  lowAdoption: AdoptionCategory[];
+  healthy: AdoptionCategory[];
+  highVolume: AdoptionCategory[];
+  adoptionRate: number;
+  totalModels: number;
+  modelsWithContent: number;
+  distribution: {
+    ghost: number;
+    underutilized: number;
+    lowAdoption: number;
+    healthy: number;
+    highVolume: number;
+  };
+  recommendations: string[];
+  overallScore: number;
+}
+
+// SEO Readiness Assessment
+export interface SEOReadinessAssessment {
+  metaFieldCoverage: CheckpointResult;
+  slugConsistency: CheckpointResult;
+  socialSharing: CheckpointResult;
+  structuredData: CheckpointResult;
+  altTextCoverage: CheckpointResult;
+  overallScore: number;
+}
+
+// Combined Insights
+export interface InsightsAnalysis {
+  payloadEfficiency: PayloadEfficiencyAnalysis;
+  contentAdoption: ContentAdoptionAnalysis;
+  seoReadiness: SEOReadinessAssessment;
+}
+
 export interface AuditResult {
   connectionInfo: {
     endpoint: string;
@@ -907,6 +992,8 @@ export interface AuditResult {
   comprehensiveAssessment: ComprehensiveAssessment;
   // NEW: Structural observations (high-level architectural insights)
   structuralObservations: StructuralObservation[];
+  // NEW: Insights (payload, adoption, SEO readiness)
+  insights: InsightsAnalysis;
 }
 
 // ============================================

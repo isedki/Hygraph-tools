@@ -4,3 +4,4 @@ export { ContentArchitectureTab } from './ContentArchitectureTab';
 export { ReusabilityTab } from './ReusabilityTab';
 export { PerformanceTab } from './PerformanceTab';
 export { RoadmapTab } from './RoadmapTab';
+export { InsightsTab } from './InsightsTab';

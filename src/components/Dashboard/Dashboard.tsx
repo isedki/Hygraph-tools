@@ -9,7 +9,8 @@ import {
   ContentArchitectureTab, 
   ReusabilityTab, 
   PerformanceTab,
-  RoadmapTab 
+  RoadmapTab,
+  InsightsTab
 } from './tabs';
 
 interface DashboardProps {
@@ -17,7 +18,7 @@ interface DashboardProps {
   onDisconnect: () => void;
 }
 
-type TabType = 'summary' | 'structure' | 'architecture' | 'reusability' | 'performance' | 'roadmap';
+type TabType = 'summary' | 'structure' | 'architecture' | 'reusability' | 'performance' | 'insights' | 'roadmap';
 
 const tabs = [
   { id: 'summary' as TabType, label: 'Summary', icon: '📊' },
@@ -25,6 +26,7 @@ const tabs = [
   { id: 'architecture' as TabType, label: 'Content', icon: '📁' },
   { id: 'reusability' as TabType, label: 'Reusability', icon: '♻️' },
   { id: 'performance' as TabType, label: 'Performance', icon: '⚡' },
+  { id: 'insights' as TabType, label: 'Insights', icon: '💡' },
   { id: 'roadmap' as TabType, label: 'Roadmap', icon: '🗺️' },
 ];
 
@@ -93,6 +95,7 @@ export default function Dashboard({ result, onDisconnect }: DashboardProps) {
           {activeTab === 'architecture' && <ContentArchitectureTab result={result} />}
           {activeTab === 'reusability' && <ReusabilityTab result={result} />}
           {activeTab === 'performance' && <PerformanceTab result={result} />}
+          {activeTab === 'insights' && <InsightsTab result={result} />}
           {activeTab === 'roadmap' && <RoadmapTab result={result} />}
         </div>
       </main>

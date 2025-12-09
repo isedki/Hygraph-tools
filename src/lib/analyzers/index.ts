@@ -5,13 +5,14 @@ import type {
   AuditIssue,
   HygraphSchema,
   ComprehensiveAssessment,
+  InsightsAnalysis,
 } from '../types';
 import { fetchSchema, fetchEntityCounts, fetchAssetStats } from '../hygraph/introspection';
 import { analyzeSchema, generateSchemaIssues, calculateSchemaScore } from './schema';
 import { analyzeComponents, generateComponentIssues, calculateComponentScore } from './components';
 import { analyzeContent, generateContentIssues, calculateContentScore } from './content';
 import { analyzeEditorial, generateEditorialIssues, calculateEditorialScore } from './editorial';
-import { analyzeSEO, generateSEOIssues, calculateSEOScore } from './seo';
+import { analyzeSEO, generateSEOIssues, calculateSEOScore, analyzeSEOReadiness } from './seo';
 import { analyzePerformance, generatePerformanceIssues, calculatePerformanceScore } from './performance';
 import { analyzeBestPractices, generateBestPracticesIssues, calculateBestPracticesScore } from './bestPractices';
 import { analyzeGovernance, generateGovernanceIssues, calculateGovernanceScore } from './governance';
@@ -28,6 +29,10 @@ import { analyzePerformanceAssessment } from './performanceAssessment';
 import { analyzeRelationshipsAssessment } from './relationshipsAssessment';
 import { analyzeDuplicates } from './duplicates';
 import { analyzeStructuralObservations } from './structuralObservations';
+
+// NEW: Insights analyzers
+import { analyzePayloadEfficiency } from './payloadEfficiency';
+import { analyzeContentAdoption } from './contentAdoption';
 
 export async function runFullAudit(
   client: GraphQLClient,
@@ -171,6 +176,17 @@ export async function runFullAudit(
     comprehensiveAssessment
   );
   
+  // Step 12: Run insights analyzers (payload, adoption, SEO readiness)
+  const payloadEfficiency = analyzePayloadEfficiency(schema);
+  const contentAdoption = analyzeContentAdoption(schema, entryCounts);
+  const seoReadiness = analyzeSEOReadiness(schema, assetStats);
+  
+  const insights: InsightsAnalysis = {
+    payloadEfficiency,
+    contentAdoption,
+    seoReadiness,
+  };
+  
   return {
     connectionInfo: {
       endpoint,
@@ -192,6 +208,7 @@ export async function runFullAudit(
     allIssues,
     comprehensiveAssessment,
     structuralObservations,
+    insights,
   };
 }
 

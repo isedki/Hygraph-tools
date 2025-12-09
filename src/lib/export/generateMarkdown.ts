@@ -169,6 +169,62 @@ export function generateMarkdown(result: AuditResult): string {
   lines.push(`---`);
   lines.push(``);
 
+  // Insights Section
+  lines.push(`## 💡 Insights`);
+  lines.push(``);
+  
+  // Content Adoption
+  const { contentAdoption, payloadEfficiency, seoReadiness } = result.insights;
+  
+  lines.push(`### Content Adoption`);
+  lines.push(``);
+  lines.push(`**Adoption Rate:** ${contentAdoption.adoptionRate}% of models have content`);
+  lines.push(``);
+  lines.push(`| Category | Count |`);
+  lines.push(`|----------|-------|`);
+  lines.push(`| Ghost Models (0 entries) | ${contentAdoption.distribution.ghost} |`);
+  lines.push(`| Underutilized (1-4) | ${contentAdoption.distribution.underutilized} |`);
+  lines.push(`| Low Adoption (5-19) | ${contentAdoption.distribution.lowAdoption} |`);
+  lines.push(`| Healthy (20-499) | ${contentAdoption.distribution.healthy} |`);
+  lines.push(`| High Volume (500+) | ${contentAdoption.distribution.highVolume} |`);
+  lines.push(``);
+  
+  if (contentAdoption.ghostModels.length > 0) {
+    lines.push(`**Ghost Models:**`);
+    contentAdoption.ghostModels.slice(0, 5).forEach(g => {
+      lines.push(`- ${g.model} (${g.fieldCount} fields)${g.createdFor ? ` - ${g.createdFor}` : ''}`);
+    });
+    lines.push(``);
+  }
+  
+  // API Payload Efficiency
+  lines.push(`### API Payload Efficiency`);
+  lines.push(``);
+  lines.push(`**Score:** ${payloadEfficiency.overallScore}%`);
+  lines.push(`**Average Payload:** ${payloadEfficiency.avgPayloadKB} KB`);
+  lines.push(``);
+  
+  if (payloadEfficiency.heavyModels.length > 0) {
+    lines.push(`**Heavy Models (>50KB):**`);
+    payloadEfficiency.heavyModels.forEach(m => {
+      lines.push(`- **${m.model}** - ${m.kb} KB (${m.reason})`);
+    });
+    lines.push(``);
+  }
+  
+  // SEO Readiness
+  lines.push(`### SEO Readiness`);
+  lines.push(``);
+  lines.push(`**Score:** ${seoReadiness.overallScore}%`);
+  lines.push(``);
+  lines.push(...formatCheckpoint(seoReadiness.metaFieldCoverage));
+  lines.push(...formatCheckpoint(seoReadiness.slugConsistency));
+  lines.push(...formatCheckpoint(seoReadiness.socialSharing));
+  lines.push(...formatCheckpoint(seoReadiness.structuredData));
+
+  lines.push(`---`);
+  lines.push(``);
+
   // Relationships
   lines.push(`## 🔗 Relationships`);
   lines.push(``);
