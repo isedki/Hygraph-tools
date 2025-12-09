@@ -1,34 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  /* Dark theme by default - Hygraph inspired */
-  --background: #0d0f12;
-  --foreground: #e8eaed;
-  --card: #151921;
-  --card-foreground: #e8eaed;
-  --border: #2a3142;
-  --muted: #8b919e;
-  --muted-foreground: #6b7280;
+  /* Professional dark theme */
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --border: #334155;
+  --muted: #94a3b8;
+  --muted-foreground: #64748b;
   
-  /* Accent colors */
-  --accent-purple: #8b5cf6;
-  --accent-blue: #3b82f6;
-  --accent-cyan: #06b6d4;
-  --accent-green: #10b981;
-  --accent-yellow: #f59e0b;
-  --accent-red: #ef4444;
-  --accent-orange: #f97316;
+  /* Accent colors - more muted and professional */
+  --accent-purple: #818cf8;
+  --accent-blue: #60a5fa;
+  --accent-cyan: #22d3ee;
+  --accent-green: #34d399;
+  --accent-yellow: #fbbf24;
+  --accent-red: #f87171;
+  --accent-orange: #fb923c;
   
   /* Score colors */
-  --score-excellent: #10b981;
-  --score-good: #22c55e;
-  --score-fair: #f59e0b;
-  --score-poor: #f97316;
-  --score-critical: #ef4444;
+  --score-excellent: #34d399;
+  --score-good: #4ade80;
+  --score-fair: #fbbf24;
+  --score-poor: #fb923c;
+  --score-critical: #f87171;
   
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-  --gradient-card: linear-gradient(180deg, rgba(139, 92, 246, 0.05) 0%, transparent 100%);
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --gradient-card: linear-gradient(180deg, rgba(99, 102, 241, 0.03) 0%, transparent 100%);
 }
 
 @theme inline {
@@ -85,8 +85,8 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.5); }
+  0%, 100% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.3); }
 }
 
 @keyframes shimmer {
@@ -208,23 +208,22 @@ input[type="url"]::placeholder {
 .btn-primary {
   background: var(--gradient-primary);
   color: white;
-  font-weight: 600;
+  font-weight: 500;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: opacity 0.2s, box-shadow 0.2s;
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  opacity: 0.9;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
 }
 
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
   box-shadow: none;
 }
 
