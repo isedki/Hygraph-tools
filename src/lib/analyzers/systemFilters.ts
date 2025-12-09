@@ -136,6 +136,9 @@ export function isSystemEnum(name: string): boolean {
   // Enums starting with underscore are system enums
   if (name.startsWith('_')) return true;
 
+  // Enums containing underscore are typically system/remote enums
+  if (name.includes('_')) return true;
+
   // Exact system enum matches
   if (SYSTEM_ENUMS.has(name)) return true;
 
