@@ -1,21 +1,666 @@
 # Hygraph Developer Guide
 
-A comprehensive reference for building tools and applications that integrate with Hygraph CMS. This guide documents patterns, best practices, and technical details learned from building the Hygraph Schema Audit tool.
+A comprehensive reference for building tools and applications that integrate with Hygraph CMS. This guide documents patterns, best practices, and technical details learned from building the Hygraph Schema Audit tool and Custom App Suite.
 
 ---
 
 ## Table of Contents
 
-1. [GraphQL Introspection](#graphql-introspection)
-2. [Schema Structure](#schema-structure)
-3. [System Types & Filtering](#system-types--filtering)
-4. [Native Taxonomies](#native-taxonomies)
-5. [Content Queries](#content-queries)
-6. [Asset Management](#asset-management)
-7. [Field Types Reference](#field-types-reference)
-8. [Common Patterns](#common-patterns)
-9. [Authentication](#authentication)
-10. [Best Practices](#best-practices)
+1. [Building Custom Apps](#building-custom-apps)
+2. [GraphQL Introspection](#graphql-introspection)
+3. [Schema Structure](#schema-structure)
+4. [System Types & Filtering](#system-types--filtering)
+5. [Native Taxonomies](#native-taxonomies)
+6. [Content Queries](#content-queries)
+7. [Asset Management](#asset-management)
+8. [Field Types Reference](#field-types-reference)
+9. [Common Patterns](#common-patterns)
+10. [Authentication](#authentication)
+11. [Best Practices](#best-practices)
+
+---
+
+## Building Custom Apps
+
+Hygraph allows you to build custom apps that embed directly into the Hygraph Studio interface. These apps can extend functionality with custom pages, sidebar widgets, field renderers, and more.
+
+### App Types & Elements
+
+| Element Type | Description | Use Case |
+|-------------|-------------|----------|
+| **Page** | Full-page app in the sidebar | Dashboards, tools, reports |
+| **Sidebar** | Widget in content entry sidebar | Context-specific info, actions |
+| **Field** | Custom field renderer | Special input types, integrations |
+| **Form** | Custom form renderer | Complete form customization |
+| **Table** | Custom table cell renderer | Special display in content list |
+
+### App Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                 Hygraph Studio                   │
+│  ┌───────────────────────────────────────────┐  │
+│  │              Your App (iframe)             │  │
+│  │  ┌─────────────────────────────────────┐  │  │
+│  │  │         HTML/JS/CSS                  │  │  │
+│  │  │                                      │  │  │
+│  │  │   postMessage ◄──────► Hygraph SDK   │  │  │
+│  │  │                                      │  │  │
+│  │  └─────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+            │
+            ▼
+   ┌─────────────────┐
+   │  Your Backend   │  (optional, for token exchange)
+   │   (Serverless)  │
+   └─────────────────┘
+```
+
+### Creating a Custom App
+
+**Step 1: Register the App**
+
+```
+Hygraph Studio → Apps → Create App → Custom App
+```
+
+| Field | Example |
+|-------|---------|
+| Name | My Custom Tool |
+| API ID | my-custom-tool |
+| App URL | https://your-app.vercel.app |
+
+**Step 2: Add App Elements**
+
+Each element is a page/component served at a specific path:
+
+```javascript
+// Page element at /dashboard.html
+{
+  type: 'page',
+  name: 'Dashboard',
+  slug: '/dashboard.html',
+  icon: 'chart'
+}
+
+// Sidebar element
+{
+  type: 'sidebar',
+  name: 'Quick Actions',
+  slug: '/sidebar.html'
+}
+```
+
+**Step 3: Configure Permissions**
+
+Apps need explicit permissions:
+
+```
+☑️ Read existing content
+☑️ Read existing environments
+☑️ Read content model / components
+☑️ Update existing content (if writing)
+☑️ Delete content (if needed)
+```
+
+### Authentication Flow
+
+Hygraph apps use a secure token exchange for automatic authentication:
+
+```
+┌──────────┐      ┌───────────────┐      ┌──────────────┐
+│  Hygraph │      │   Your App    │      │ Your Backend │
+│  Studio  │      │   (iframe)    │      │  (serverless)│
+└────┬─────┘      └───────┬───────┘      └──────┬───────┘
+     │                    │                     │
+     │ 1. Load iframe     │                     │
+     │ ─────────────────► │                     │
+     │                    │                     │
+     │ 2. postMessage     │                     │
+     │    (context +      │                     │
+     │     exchangeCode)  │                     │
+     │ ─────────────────► │                     │
+     │                    │                     │
+     │                    │ 3. Exchange code    │
+     │                    │    for tokens       │
+     │                    │ ──────────────────► │
+     │                    │                     │
+     │                    │                     │ 4. Call Hygraph
+     │                    │                     │    Management API
+     │                    │                     │    with clientId +
+     │                    │                     │    clientSecret +
+     │                    │                     │    exchangeCode
+     │                    │                     │
+     │                    │ 5. Return appToken  │
+     │                    │    + contentToken   │
+     │                    │ ◄────────────────── │
+     │                    │                     │
+     │                    │ 6. Use tokens       │
+     │                    │    for API calls    │
+     │                    │                     │
+```
+
+### Receiving Context via postMessage
+
+When Hygraph loads your app, it sends context via `postMessage`:
+
+```javascript
+window.addEventListener('message', (event) => {
+  // Verify origin for security
+  if (!event.origin.includes('hygraph.com')) return;
+  
+  const { type, ...context } = event.data;
+  
+  if (type === 'hgcms:init' || type === 'app:init') {
+    handleInit(context);
+  }
+});
+
+function handleInit(context) {
+  // Context contains:
+  const {
+    context: {
+      project: {
+        id,           // Project ID
+        name,         // Project name
+      },
+      environment: {
+        id,           // Environment ID (usually "master")
+        name,         // Environment name
+        endpoint,     // Content API endpoint
+      },
+      user: {
+        id,           // Current user ID
+        email,        // User email
+      },
+    },
+    exchangeCode,     // One-time code for token exchange
+    region,           // API region (e.g., "eu-central-1")
+  } = context;
+  
+  // Exchange code for tokens
+  exchangeToken(exchangeCode, project.id, region);
+}
+```
+
+### Token Exchange (Server-Side)
+
+**Keep your client secret secure on the server!**
+
+```javascript
+// api/exchange-token.js (Vercel serverless function)
+export default async function handler(req, res) {
+  // CORS for Hygraph iframe
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  
+  const { code, projectId, region } = req.body;
+  const clientId = process.env.HYGRAPH_APP_CLIENT_ID;
+  const clientSecret = process.env.HYGRAPH_APP_CLIENT_SECRET;
+  
+  // Step 1: Exchange code for App Token
+  const tokenResponse = await fetch(
+    'https://management.hygraph.com/app-exchange-token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId,
+        clientSecret,
+        exchangeCode: code,
+      }),
+    }
+  );
+  
+  const { appToken } = await tokenResponse.json();
+  
+  // Step 2: Get Content API token from Management API
+  const managementEndpoint = `https://${region}.api.hygraph.com/graphql`;
+  
+  const contentTokenResponse = await fetch(managementEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${appToken}`,
+    },
+    body: JSON.stringify({
+      query: `query {
+        _viewer {
+          ... on AppTokenViewer {
+            project(id: "${projectId}") {
+              environment(id: "master") {
+                authToken
+                endpoint
+              }
+            }
+          }
+        }
+      }`,
+    }),
+  });
+  
+  const data = await contentTokenResponse.json();
+  const contentToken = data.data?._viewer?.project?.environment?.authToken;
+  const endpoint = data.data?._viewer?.project?.environment?.endpoint;
+  
+  return res.json({ appToken, contentToken, endpoint });
+}
+```
+
+### Using Tokens in Your App
+
+```javascript
+// Store tokens after exchange
+let authToken = null;
+let apiEndpoint = null;
+
+async function initializeApp(context, exchangeCode) {
+  const response = await fetch('/api/exchange-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      code: exchangeCode,
+      projectId: context.project.id,
+      region: context.environment.region,
+    }),
+  });
+  
+  const { contentToken, endpoint } = await response.json();
+  authToken = contentToken;
+  apiEndpoint = endpoint;
+  
+  // Now you can make API calls
+  loadData();
+}
+
+async function queryContent(query) {
+  const response = await fetch(apiEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({ query }),
+  });
+  
+  return response.json();
+}
+```
+
+### Sidebar Elements
+
+Sidebar elements appear in the content entry sidebar:
+
+```javascript
+// sidebar.html
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'hgcms:init') {
+    const { entry } = event.data.context;
+    
+    // entry contains the current content entry data
+    console.log('Current entry:', entry.id, entry.__typename);
+    
+    // Render sidebar content based on entry
+    renderSidebar(entry);
+  }
+});
+```
+
+### Field Extensions
+
+Custom field renderers replace the default field UI:
+
+```javascript
+// In your app manifest / element config
+{
+  type: 'field',
+  name: 'Color Picker',
+  slug: '/field-color.html',
+  fieldType: 'STRING', // The underlying field type
+}
+
+// field-color.html
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'hgcms:field:state') {
+    const { value, field, isDisabled } = event.data;
+    renderColorPicker(value);
+  }
+});
+
+// Send value back to Hygraph
+function updateValue(newValue) {
+  window.parent.postMessage({
+    type: 'hgcms:field:change',
+    value: newValue,
+  }, '*');
+}
+```
+
+### Static HTML Apps (No Framework)
+
+You can build apps with plain HTML/JS (no React/Next.js required):
+
+```html
+<!-- page.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Hygraph App</title>
+  <style>
+    body { font-family: system-ui; padding: 20px; }
+    .loading { opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">Loading...</div>
+  </div>
+  
+  <script>
+    let config = null;
+    
+    // Listen for Hygraph context
+    window.addEventListener('message', async (event) => {
+      if (!event.origin.includes('hygraph.com')) return;
+      
+      if (event.data.type === 'hgcms:init' || event.data.type === 'app:init') {
+        config = event.data;
+        await initApp();
+      }
+    });
+    
+    async function initApp() {
+      // Exchange token
+      const tokens = await exchangeToken(config.exchangeCode);
+      
+      // Load data
+      const data = await fetchData(tokens.endpoint, tokens.contentToken);
+      
+      // Render UI
+      document.getElementById('app').innerHTML = renderUI(data);
+    }
+    
+    // ... rest of your app logic
+  </script>
+</body>
+</html>
+```
+
+### App Deployment
+
+**Recommended: Vercel**
+
+```bash
+# vercel.json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "ALLOWALL" }
+      ]
+    }
+  ]
+}
+```
+
+**Environment Variables (Vercel Dashboard):**
+
+```
+HYGRAPH_APP_CLIENT_ID=your_client_id
+HYGRAPH_APP_CLIENT_SECRET=your_client_secret
+```
+
+### App Manifest Structure
+
+When creating app elements via the Management SDK:
+
+```javascript
+// Create page element
+client.createAppElement({
+  appApiId: 'my-app',
+  apiId: 'dashboard-page',
+  type: 'page',
+  name: 'Dashboard',
+  slug: '/dashboard.html',
+  config: {
+    // Custom config passed to your app
+  },
+});
+
+// Create sidebar element
+client.createAppElement({
+  appApiId: 'my-app',
+  apiId: 'quick-actions',
+  type: 'sidebar',
+  name: 'Quick Actions',
+  slug: '/sidebar.html',
+  config: {},
+});
+```
+
+### Handling Multiple Regions
+
+Hygraph projects exist in different regions. Handle this in token exchange:
+
+```javascript
+function getManagementEndpoint(region) {
+  // Map region strings to API endpoints
+  const regionMap = {
+    'eu-central-1': 'https://eu-central-1.api.hygraph.com/graphql',
+    'eu-west-1': 'https://eu-west-1.api.hygraph.com/graphql',
+    'us-east-1': 'https://us-east-1.api.hygraph.com/graphql',
+    'us-west-2': 'https://us-west-2.api.hygraph.com/graphql',
+    'ap-northeast-1': 'https://ap-northeast-1.api.hygraph.com/graphql',
+    'ap-southeast-1': 'https://ap-southeast-1.api.hygraph.com/graphql',
+  };
+  
+  // Extract base region from complex strings
+  // e.g., "api-eu-central-1-shared-euc1-02" -> "eu-central-1"
+  for (const [key, endpoint] of Object.entries(regionMap)) {
+    if (region.includes(key)) return endpoint;
+  }
+  
+  // Fallback to management endpoint
+  return 'https://management.hygraph.com/graphql';
+}
+```
+
+### Content API Endpoint Patterns
+
+| Region | CDN Endpoint | Direct Endpoint |
+|--------|--------------|-----------------|
+| EU Central | `eu-central-1.cdn.hygraph.com` | `eu-central-1.hygraph.com` |
+| EU West | `eu-west-1.cdn.hygraph.com` | `eu-west-1.hygraph.com` |
+| US East | `us-east-1.cdn.hygraph.com` | `us-east-1.hygraph.com` |
+| US West | `us-west-2.cdn.hygraph.com` | `us-west-2.hygraph.com` |
+| Asia | `ap-northeast-1.cdn.hygraph.com` | `ap-northeast-1.hygraph.com` |
+
+Full endpoint format:
+```
+https://[region].cdn.hygraph.com/content/[project-id]/[environment]
+```
+
+### Debugging Apps
+
+1. **Check postMessage events:**
+   ```javascript
+   window.addEventListener('message', (e) => {
+     console.log('postMessage received:', e.data);
+   });
+   ```
+
+2. **Test outside Hygraph:**
+   - Provide manual PAT input for standalone testing
+   - Use localStorage to persist credentials
+
+3. **Common issues:**
+   - CORS errors → Check `Access-Control-Allow-Origin`
+   - X-Frame-Options → Must allow framing
+   - Token exchange fails → Verify client ID/secret
+
+### Example: Complete Page Element
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Schema Explorer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .error {
+      background: #fee;
+      color: #c00;
+      padding: 12px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">Connecting to Hygraph...</div>
+  </div>
+
+  <script>
+    // State
+    let endpoint = null;
+    let token = null;
+    
+    // Listen for Hygraph context
+    window.addEventListener('message', async (event) => {
+      if (!event.origin.includes('hygraph.com') && 
+          !event.origin.includes('localhost')) return;
+      
+      const { type, exchangeCode, context } = event.data;
+      
+      if (type === 'hgcms:init' || type === 'app:init') {
+        try {
+          // Exchange token
+          const tokens = await exchangeTokens(
+            exchangeCode,
+            context.project.id,
+            context.environment.region || 'eu-central-1'
+          );
+          
+          endpoint = tokens.endpoint;
+          token = tokens.contentToken;
+          
+          // Load and render data
+          await loadSchema();
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+    });
+    
+    async function exchangeTokens(code, projectId, region) {
+      const response = await fetch('/api/exchange-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, projectId, region }),
+      });
+      
+      if (!response.ok) throw new Error('Token exchange failed');
+      return response.json();
+    }
+    
+    async function loadSchema() {
+      const query = `{
+        __schema {
+          types {
+            name
+            kind
+            fields { name }
+          }
+        }
+      }`;
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query }),
+      });
+      
+      const data = await response.json();
+      renderSchema(data.data.__schema);
+    }
+    
+    function renderSchema(schema) {
+      const models = schema.types
+        .filter(t => t.kind === 'OBJECT' && !t.name.startsWith('_'))
+        .slice(0, 20);
+      
+      document.getElementById('app').innerHTML = `
+        <h1>Schema Explorer</h1>
+        <div class="card">
+          <h2>Models (${models.length})</h2>
+          <ul>
+            ${models.map(m => `
+              <li>
+                <strong>${m.name}</strong>
+                <span>(${m.fields?.length || 0} fields)</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    
+    function showError(message) {
+      document.getElementById('app').innerHTML = `
+        <div class="error">
+          <strong>Error:</strong> ${message}
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
+```
+
+### App Ideas
+
+| App Type | Description |
+|----------|-------------|
+| **Schema Explorer** | Browse components, find usage |
+| **Content Calendar** | Visual publishing schedule |
+| **Content Health** | Find stale/orphaned content |
+| **Alt-Text Generator** | AI-powered accessibility |
+| **Image Optimizer** | Transform & optimize assets |
+| **Analytics Dashboard** | Content metrics & velocity |
+| **Translation Manager** | Localization workflow |
+| **SEO Checker** | Meta field validation |
+| **Link Checker** | Find broken references |
+| **Bulk Editor** | Mass content updates |
 
 ---
 
