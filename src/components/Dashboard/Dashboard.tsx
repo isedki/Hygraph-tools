@@ -89,7 +89,7 @@ export default function Dashboard({ result, onDisconnect }: DashboardProps) {
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="animate-fade-in">
+          <div className="animate-fade-in">
           {activeTab === 'summary' && <SummaryTab result={result} />}
           {activeTab === 'structure' && <StructureTab result={result} />}
           {activeTab === 'architecture' && <ContentArchitectureTab result={result} />}
@@ -97,7 +97,7 @@ export default function Dashboard({ result, onDisconnect }: DashboardProps) {
           {activeTab === 'performance' && <PerformanceTab result={result} />}
           {activeTab === 'insights' && <InsightsTab result={result} />}
           {activeTab === 'roadmap' && <RoadmapTab result={result} />}
-        </div>
+          </div>
       </main>
       
       {/* Footer */}

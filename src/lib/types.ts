@@ -970,11 +970,114 @@ export interface SEOReadinessAssessment {
   overallScore: number;
 }
 
+// ============================================
+// NEW: Rich Text Usage Analysis
+// ============================================
+export interface RichTextUsageAnalysis {
+  modelsWithRichText: { model: string; fields: string[] }[];
+  absoluteUrls: { model: string; field: string; urls: string[]; count: number }[];
+  embeddedImages: { model: string; field: string; count: number; recommendation: string }[];
+  linkAnalysis: {
+    staticLinks: { model: string; field: string; count: number }[];
+    referenceLinks: { model: string; field: string; count: number }[];
+    ctaPatterns: { model: string; field: string; pattern: string }[];
+  };
+  recommendations: string[];
+  overallScore: number;
+}
+
+// ============================================
+// NEW: Empty Field Analysis
+// ============================================
+export interface FieldFillRate {
+  model: string;
+  field: string;
+  fillRate: number; // 0-100%
+  sampleSize: number;
+  isEmpty: number;
+  isFilled: number;
+  isRequired: boolean;
+}
+
+export interface EmptyFieldAnalysis {
+  fieldFillRates: FieldFillRate[];
+  rarelyUsedFields: { model: string; field: string; fillRate: number }[];  // <20%
+  dataQualityIssues: { model: string; field: string; fillRate: number }[]; // required but <80%
+  unusedOptionalFields: { model: string; field: string }[];                // 0% fill
+  modelSummary: { model: string; avgFillRate: number; fieldCount: number }[];
+  overallDataQuality: number; // 0-100
+  recommendations: string[];
+}
+
+// ============================================
+// NEW: Content Freshness Analysis
+// ============================================
+export interface FreshnessThresholds {
+  fresh: number;      // days (default 30)
+  aging: number;      // days (default 90)
+  stale: number;      // days (default 180)
+  dormant: number;    // days (default 365)
+}
+
+export interface ModelFreshness {
+  model: string;
+  totalEntries: number;
+  fresh: number;      // updated within fresh threshold
+  aging: number;      // updated within aging threshold
+  stale: number;      // updated within stale threshold
+  dormant: number;    // older than dormant threshold
+  avgAgeDays: number;
+  newestEntry: Date | null;
+  oldestEntry: Date | null;
+}
+
+export interface ContentFreshnessAnalysis {
+  thresholds: FreshnessThresholds;
+  modelFreshness: ModelFreshness[];
+  overallFreshness: {
+    score: number;           // 0-100
+    totalEntries: number;
+    freshPercentage: number;
+    stalePercentage: number;
+    dormantPercentage: number;
+  };
+  staleContentAlert: { model: string; staleCount: number; percentage: number }[];
+  recommendations: string[];
+}
+
+// ============================================
+// NEW: Caching & Performance Enhancement Types
+// ============================================
+export interface CachingReadiness {
+  modelsWithUniqueId: { model: string; field: string }[];
+  modelsWithoutUniqueId: string[];
+  cacheKeyRecommendations: { model: string; suggestion: string }[];
+  overallScore: number;
+}
+
+export interface EnumTaxonomyRecommendation {
+  model: string;
+  field: string;
+  currentType: string;
+  distinctValues: string[];
+  recommendation: 'enum' | 'taxonomy' | 'keep';
+  reason: string;
+}
+
+export interface EnhancedPerformanceAnalysis {
+  cachingReadiness: CachingReadiness;
+  enumTaxonomyRecommendations: EnumTaxonomyRecommendation[];
+}
+
 // Combined Insights
 export interface InsightsAnalysis {
   payloadEfficiency: PayloadEfficiencyAnalysis;
   contentAdoption: ContentAdoptionAnalysis;
   seoReadiness: SEOReadinessAssessment;
+  richTextUsage?: RichTextUsageAnalysis;
+  emptyFields?: EmptyFieldAnalysis;
+  contentFreshness?: ContentFreshnessAnalysis;
+  enhancedPerformance?: EnhancedPerformanceAnalysis;
 }
 
 export interface AuditResult {

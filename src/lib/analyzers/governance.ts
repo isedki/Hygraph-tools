@@ -519,3 +519,4 @@ export function calculateGovernanceScore(analysis: GovernanceAnalysis, issues: A
 
 
 
+

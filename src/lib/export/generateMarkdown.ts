@@ -174,7 +174,7 @@ export function generateMarkdown(result: AuditResult): string {
   lines.push(``);
   
   // Content Adoption
-  const { contentAdoption, payloadEfficiency, seoReadiness } = result.insights;
+  const { contentAdoption, payloadEfficiency, seoReadiness, contentFreshness, emptyFields, richTextUsage, enhancedPerformance } = result.insights;
   
   lines.push(`### Content Adoption`);
   lines.push(``);
@@ -197,6 +197,115 @@ export function generateMarkdown(result: AuditResult): string {
     lines.push(``);
   }
   
+  // Content Freshness
+  if (contentFreshness) {
+    lines.push(`### Content Freshness`);
+    lines.push(``);
+    lines.push(`**Freshness Score:** ${contentFreshness.overallFreshness.score}%`);
+    lines.push(`**Total Entries Analyzed:** ${contentFreshness.overallFreshness.totalEntries}`);
+    lines.push(``);
+    lines.push(`| Category | Percentage |`);
+    lines.push(`|----------|------------|`);
+    lines.push(`| Fresh (<${contentFreshness.thresholds.fresh} days) | ${contentFreshness.overallFreshness.freshPercentage}% |`);
+    lines.push(`| Stale (${contentFreshness.thresholds.aging}-${contentFreshness.thresholds.stale} days) | ${contentFreshness.overallFreshness.stalePercentage}% |`);
+    lines.push(`| Dormant (>${contentFreshness.thresholds.dormant} days) | ${contentFreshness.overallFreshness.dormantPercentage}% |`);
+    lines.push(``);
+    
+    if (contentFreshness.staleContentAlert.length > 0) {
+      lines.push(`**⚠️ Stale Content Alerts:**`);
+      contentFreshness.staleContentAlert.slice(0, 5).forEach(a => {
+        lines.push(`- **${a.model}** - ${a.percentage}% stale (${a.staleCount} entries)`);
+      });
+      lines.push(``);
+    }
+    
+    if (contentFreshness.recommendations.length > 0) {
+      lines.push(`**Recommendations:**`);
+      contentFreshness.recommendations.forEach(r => {
+        lines.push(`- ${r}`);
+      });
+      lines.push(``);
+    }
+  }
+  
+  // Data Quality (Empty Fields)
+  if (emptyFields) {
+    lines.push(`### Data Quality`);
+    lines.push(``);
+    lines.push(`**Quality Score:** ${emptyFields.overallDataQuality}%`);
+    lines.push(``);
+    lines.push(`| Issue Type | Count |`);
+    lines.push(`|------------|-------|`);
+    lines.push(`| Unused Optional Fields | ${emptyFields.unusedOptionalFields.length} |`);
+    lines.push(`| Rarely Used Fields (<20%) | ${emptyFields.rarelyUsedFields.length} |`);
+    lines.push(`| Data Quality Issues | ${emptyFields.dataQualityIssues.length} |`);
+    lines.push(``);
+    
+    if (emptyFields.dataQualityIssues.length > 0) {
+      lines.push(`**⚠️ Required Fields with Low Fill Rate:**`);
+      emptyFields.dataQualityIssues.slice(0, 5).forEach(i => {
+        lines.push(`- **${i.model}.${i.field}** - ${i.fillRate}% filled`);
+      });
+      lines.push(``);
+    }
+    
+    if (emptyFields.unusedOptionalFields.length > 0) {
+      lines.push(`**🗑️ Unused Fields (consider removing):**`);
+      emptyFields.unusedOptionalFields.slice(0, 10).forEach(f => {
+        lines.push(`- ${f.model}.${f.field}`);
+      });
+      lines.push(``);
+    }
+    
+    if (emptyFields.recommendations.length > 0) {
+      lines.push(`**Recommendations:**`);
+      emptyFields.recommendations.forEach(r => {
+        lines.push(`- ${r}`);
+      });
+      lines.push(``);
+    }
+  }
+  
+  // Rich Text Usage
+  if (richTextUsage) {
+    lines.push(`### Rich Text Analysis`);
+    lines.push(``);
+    lines.push(`**Score:** ${richTextUsage.overallScore}%`);
+    lines.push(`**Models with Rich Text:** ${richTextUsage.modelsWithRichText.length}`);
+    lines.push(``);
+    
+    if (richTextUsage.absoluteUrls.length > 0) {
+      const totalUrls = richTextUsage.absoluteUrls.reduce((sum, u) => sum + u.count, 0);
+      lines.push(`**🔗 Absolute URLs Found (${totalUrls}):**`);
+      richTextUsage.absoluteUrls.slice(0, 5).forEach(u => {
+        lines.push(`- **${u.model}.${u.field}** - ${u.count} URL(s): ${u.urls.slice(0, 2).join(', ')}${u.urls.length > 2 ? '...' : ''}`);
+      });
+      lines.push(``);
+    }
+    
+    if (richTextUsage.embeddedImages.length > 0) {
+      const totalImages = richTextUsage.embeddedImages.reduce((sum, e) => sum + e.count, 0);
+      lines.push(`**🖼️ Embedded Images (${totalImages}):**`);
+      richTextUsage.embeddedImages.slice(0, 5).forEach(e => {
+        lines.push(`- **${e.model}.${e.field}** - ${e.count} image(s)`);
+      });
+      lines.push(``);
+    }
+    
+    if (richTextUsage.linkAnalysis.staticLinks.length > 0) {
+      lines.push(`**Static Links:** ${richTextUsage.linkAnalysis.staticLinks.length} field(s) with static HTML links`);
+      lines.push(``);
+    }
+    
+    if (richTextUsage.recommendations.length > 0) {
+      lines.push(`**Recommendations:**`);
+      richTextUsage.recommendations.forEach(r => {
+        lines.push(`- ${r}`);
+      });
+      lines.push(``);
+    }
+  }
+  
   // API Payload Efficiency
   lines.push(`### API Payload Efficiency`);
   lines.push(``);
@@ -210,6 +319,58 @@ export function generateMarkdown(result: AuditResult): string {
       lines.push(`- **${m.model}** - ${m.kb} KB (${m.reason})`);
     });
     lines.push(``);
+  }
+  
+  // Caching Readiness
+  if (enhancedPerformance?.cachingReadiness) {
+    const caching = enhancedPerformance.cachingReadiness;
+    lines.push(`### Caching Readiness`);
+    lines.push(``);
+    lines.push(`**Score:** ${caching.overallScore}%`);
+    lines.push(`**Models with Unique ID:** ${caching.modelsWithUniqueId.length}`);
+    lines.push(`**Models without Unique ID:** ${caching.modelsWithoutUniqueId.length}`);
+    lines.push(``);
+    
+    if (caching.modelsWithUniqueId.length > 0) {
+      lines.push(`**✅ Models with Cache Keys:**`);
+      caching.modelsWithUniqueId.slice(0, 10).forEach(m => {
+        lines.push(`- ${m.model} (${m.field})`);
+      });
+      lines.push(``);
+    }
+    
+    if (caching.cacheKeyRecommendations.length > 0) {
+      lines.push(`**⚠️ Recommendations:**`);
+      caching.cacheKeyRecommendations.slice(0, 5).forEach(r => {
+        lines.push(`- **${r.model}** - ${r.suggestion}`);
+      });
+      lines.push(``);
+    }
+  }
+  
+  // Enum/Taxonomy Recommendations
+  if (enhancedPerformance?.enumTaxonomyRecommendations && enhancedPerformance.enumTaxonomyRecommendations.length > 0) {
+    const enumRecs = enhancedPerformance.enumTaxonomyRecommendations.filter(r => r.recommendation === 'enum');
+    const taxonomyRecs = enhancedPerformance.enumTaxonomyRecommendations.filter(r => r.recommendation === 'taxonomy');
+    
+    lines.push(`### Field Type Recommendations`);
+    lines.push(``);
+    
+    if (enumRecs.length > 0) {
+      lines.push(`**Convert to Enum (${enumRecs.length}):**`);
+      enumRecs.slice(0, 5).forEach(r => {
+        lines.push(`- **${r.model}.${r.field}** - ${r.distinctValues.length} values: ${r.distinctValues.slice(0, 5).join(', ')}${r.distinctValues.length > 5 ? '...' : ''}`);
+      });
+      lines.push(``);
+    }
+    
+    if (taxonomyRecs.length > 0) {
+      lines.push(`**Convert to Taxonomy (${taxonomyRecs.length}):**`);
+      taxonomyRecs.slice(0, 3).forEach(r => {
+        lines.push(`- **${r.model}.${r.field}** - ${r.distinctValues.length} values (${r.reason})`);
+      });
+      lines.push(``);
+    }
   }
   
   // SEO Readiness

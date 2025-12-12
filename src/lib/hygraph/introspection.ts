@@ -507,3 +507,142 @@ export async function fetchAssetStats(client: GraphQLClient): Promise<{
   return { total, withoutAlt, largeAssets };
 }
 
+// Fetch content sample with specific fields for analysis
+export async function fetchContentSample(
+  client: GraphQLClient,
+  model: HygraphModel,
+  fields: string[],
+  limit: number = 100
+): Promise<Record<string, unknown>[]> {
+  try {
+    // Filter to only include valid fields that exist on the model
+    const validFields = fields.filter(f => 
+      model.fields.some(mf => mf.name === f)
+    );
+    
+    // Always include id
+    if (!validFields.includes('id')) {
+      validFields.unshift('id');
+    }
+    
+    if (validFields.length === 0) {
+      return [];
+    }
+    
+    const query = `
+      query ContentSample${model.name} {
+        ${model.pluralApiId}(first: ${limit}, stage: DRAFT) {
+          ${validFields.join('\n          ')}
+        }
+      }
+    `;
+    
+    const result = await client.request<Record<string, Record<string, unknown>[]>>(query);
+    return result[model.pluralApiId] || [];
+  } catch {
+    return [];
+  }
+}
+
+// Fetch freshness data (updatedAt timestamps) for a model
+export async function fetchFreshnessData(
+  client: GraphQLClient,
+  model: HygraphModel,
+  limit: number = 1000
+): Promise<{ updatedAt: string; createdAt: string }[]> {
+  try {
+    const query = `
+      query FreshnessData${model.name} {
+        ${model.pluralApiId}(first: ${limit}, stage: DRAFT, orderBy: updatedAt_DESC) {
+          updatedAt
+          createdAt
+        }
+      }
+    `;
+    
+    const result = await client.request<Record<string, { updatedAt: string; createdAt: string }[]>>(query);
+    return result[model.pluralApiId] || [];
+  } catch {
+    return [];
+  }
+}
+
+// Fetch Rich Text content for analysis (HTML format)
+export async function fetchRichTextContent(
+  client: GraphQLClient,
+  model: HygraphModel,
+  richTextField: string,
+  limit: number = 50
+): Promise<{ id: string; content: { html?: string; text?: string; raw?: unknown } | null }[]> {
+  try {
+    const query = `
+      query RichTextContent${model.name} {
+        ${model.pluralApiId}(first: ${limit}, stage: DRAFT) {
+          id
+          ${richTextField} {
+            html
+            text
+          }
+        }
+      }
+    `;
+    
+    const result = await client.request<Record<string, { id: string; [key: string]: unknown }[]>>(query);
+    const entries = result[model.pluralApiId] || [];
+    
+    return entries.map(entry => ({
+      id: entry.id as string,
+      content: entry[richTextField] as { html?: string; text?: string; raw?: unknown } | null
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Fetch all scalar field values for empty field analysis
+export async function fetchFieldValues(
+  client: GraphQLClient,
+  model: HygraphModel,
+  limit: number = 100
+): Promise<Record<string, unknown>[]> {
+  try {
+    // Get all scalar fields (excluding system fields)
+    const scalarFields = model.fields
+      .filter(f => {
+        // Only scalar types
+        const scalarTypes = ['String', 'Int', 'Float', 'Boolean', 'ID', 'DateTime', 'Date', 'Json', 'Long'];
+        return scalarTypes.includes(f.type);
+      })
+      .map(f => f.name);
+    
+    // Always include id
+    if (!scalarFields.includes('id')) {
+      scalarFields.unshift('id');
+    }
+    
+    // Include Rich Text fields with just text format
+    const richTextFields = model.fields
+      .filter(f => f.type === 'RichText' || f.name.toLowerCase().includes('richtext'))
+      .map(f => `${f.name} { text }`);
+    
+    const allFields = [...scalarFields, ...richTextFields];
+    
+    if (allFields.length === 0) {
+      return [];
+    }
+    
+    const query = `
+      query FieldValues${model.name} {
+        ${model.pluralApiId}(first: ${limit}, stage: DRAFT) {
+          ${allFields.join('\n          ')}
+        }
+      }
+    `;
+    
+    const result = await client.request<Record<string, Record<string, unknown>[]>>(query);
+    return result[model.pluralApiId] || [];
+  } catch {
+    return [];
+  }
+}
+

@@ -65,43 +65,43 @@ export default function ConnectForm({ onConnect, isLoading }: ConnectFormProps) 
         {/* Form Card */}
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Endpoint Input */}
-            <div className="space-y-2">
+                {/* Endpoint Input */}
+                <div className="space-y-2">
               <label htmlFor="endpoint" className="block text-sm font-medium text-slate-300">
-                Content API Endpoint
-              </label>
-              <input
-                type="url"
-                id="endpoint"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                placeholder="https://api-xx.hygraph.com/v2/..."
-                disabled={isSubmitting}
+                    Content API Endpoint
+                  </label>
+                  <input
+                    type="url"
+                    id="endpoint"
+                    value={endpoint}
+                    onChange={(e) => setEndpoint(e.target.value)}
+                    placeholder="https://api-xx.hygraph.com/v2/..."
+                    disabled={isSubmitting}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50"
-              />
+                  />
               <p className="text-xs text-slate-500">
                 Project Settings → API Access → Content API
-              </p>
-            </div>
+                  </p>
+                </div>
 
-            {/* Token Input */}
-            <div className="space-y-2">
+                {/* Token Input */}
+                <div className="space-y-2">
               <label htmlFor="token" className="block text-sm font-medium text-slate-300">
                 Permanent Auth Token
-              </label>
-              <input
-                type="password"
-                id="token"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
+                  </label>
+                  <input
+                    type="password"
+                    id="token"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
                 placeholder="eyJhbGciOiJSUzI1NiIs..."
-                disabled={isSubmitting}
+                    disabled={isSubmitting}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50"
-              />
+                  />
               <p className="text-xs text-slate-500">
                 Create a PAT with read access
-              </p>
-            </div>
+                  </p>
+                </div>
 
             {/* Error Message */}
             {error && (

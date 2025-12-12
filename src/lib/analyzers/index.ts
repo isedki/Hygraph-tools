@@ -34,6 +34,12 @@ import { analyzeStructuralObservations } from './structuralObservations';
 import { analyzePayloadEfficiency } from './payloadEfficiency';
 import { analyzeContentAdoption } from './contentAdoption';
 
+// NEW: Content health analyzers
+import { analyzeRichTextUsage } from './richTextAnalysis';
+import { analyzeEmptyFields } from './emptyFieldAnalysis';
+import { analyzeContentFreshness } from './contentFreshness';
+import { analyzeEnhancedPerformance } from './enhancedPerformance';
+
 export async function runFullAudit(
   client: GraphQLClient,
   endpoint: string
@@ -181,10 +187,20 @@ export async function runFullAudit(
   const contentAdoption = analyzeContentAdoption(schema, entryCounts);
   const seoReadiness = analyzeSEOReadiness(schema, assetStats);
   
+  // Step 13: Run content health analyzers (Rich Text, Empty Fields, Freshness, Enhanced Performance)
+  const richTextUsage = await analyzeRichTextUsage(client, schema);
+  const emptyFields = await analyzeEmptyFields(client, schema, entryCounts);
+  const contentFreshness = await analyzeContentFreshness(client, schema, entryCounts);
+  const enhancedPerformance = await analyzeEnhancedPerformance(client, schema, entryCounts);
+  
   const insights: InsightsAnalysis = {
     payloadEfficiency,
     contentAdoption,
     seoReadiness,
+    richTextUsage,
+    emptyFields,
+    contentFreshness,
+    enhancedPerformance,
   };
   
   return {
