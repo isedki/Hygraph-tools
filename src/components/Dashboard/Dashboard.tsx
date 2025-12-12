@@ -11,15 +11,18 @@ import {
   ReusabilityTab, 
   PerformanceTab,
   RoadmapTab,
-  InsightsTab
+  InsightsTab,
+  DuplicatesTab
 } from './tabs';
 
 interface DashboardProps {
   result: AuditResult;
   onDisconnect: () => void;
+  endpoint: string;
+  token: string;
 }
 
-type TabType = 'summary' | 'structure' | 'architecture' | 'reusability' | 'performance' | 'insights' | 'roadmap';
+type TabType = 'summary' | 'structure' | 'architecture' | 'reusability' | 'performance' | 'insights' | 'duplicates' | 'roadmap';
 
 const tabs = [
   { id: 'summary' as TabType, label: 'Summary', icon: '📊' },
@@ -28,10 +31,11 @@ const tabs = [
   { id: 'reusability' as TabType, label: 'Reusability', icon: '♻️' },
   { id: 'performance' as TabType, label: 'Performance', icon: '⚡' },
   { id: 'insights' as TabType, label: 'Insights', icon: '💡' },
+  { id: 'duplicates' as TabType, label: 'Duplicates', icon: '🔍' },
   { id: 'roadmap' as TabType, label: 'Roadmap', icon: '🗺️' },
 ];
 
-export default function Dashboard({ result, onDisconnect }: DashboardProps) {
+export default function Dashboard({ result, onDisconnect, endpoint, token }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [showAll, toggleShowAll] = useIssuesFilter();
   
@@ -99,6 +103,7 @@ export default function Dashboard({ result, onDisconnect }: DashboardProps) {
           {activeTab === 'reusability' && <ReusabilityTab result={result} showAll={showAll} />}
           {activeTab === 'performance' && <PerformanceTab result={result} showAll={showAll} />}
           {activeTab === 'insights' && <InsightsTab result={result} showAll={showAll} />}
+          {activeTab === 'duplicates' && <DuplicatesTab result={result} endpoint={endpoint} token={token} />}
           {activeTab === 'roadmap' && <RoadmapTab result={result} />}
           </div>
       </main>

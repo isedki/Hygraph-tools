@@ -11,6 +11,7 @@ export default function Home() {
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [connectionInfo, setConnectionInfo] = useState<{ endpoint: string; token: string } | null>(null);
 
   const handleConnect = async (endpoint: string, token: string) => {
     setIsLoading(true);
@@ -29,6 +30,7 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
       
       setAuditResult(result);
+      setConnectionInfo({ endpoint, token });
     } catch (error) {
       console.error('Audit failed:', error);
       alert(`Audit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -40,6 +42,7 @@ export default function Home() {
 
   const handleDisconnect = () => {
     setAuditResult(null);
+    setConnectionInfo(null);
   };
 
   // Show loading overlay
@@ -63,8 +66,15 @@ export default function Home() {
   }
 
   // Show dashboard if we have results
-  if (auditResult) {
-    return <Dashboard result={auditResult} onDisconnect={handleDisconnect} />;
+  if (auditResult && connectionInfo) {
+    return (
+      <Dashboard 
+        result={auditResult} 
+        onDisconnect={handleDisconnect}
+        endpoint={connectionInfo.endpoint}
+        token={connectionInfo.token}
+      />
+    );
   }
 
   // Show connection form

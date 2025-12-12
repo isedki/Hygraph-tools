@@ -277,22 +277,22 @@ function DataQualitySection({ result }: { result: AuditResult }) {
   
   const getFillRateBar = (rate: number) => {
     const color = rate >= 80 ? 'bg-green-500' : rate >= 50 ? 'bg-yellow-500' : rate >= 20 ? 'bg-orange-500' : 'bg-red-500';
-    return (
-      <div className="w-full bg-gray-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full`} style={{ width: `${rate}%` }} />
-      </div>
-    );
-  };
+  return (
+    <div className="w-full bg-slate-700 rounded-full h-2">
+      <div className={`${color} h-2 rounded-full`} style={{ width: `${rate}%` }} />
+    </div>
+  );
+};
 
   const hasIssues = emptyFields.dataQualityIssues.length > 0 || emptyFields.unusedOptionalFields.length > 0;
 
   return (
     <div className="space-y-6">
       {/* Score Card */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between">
+      <div className="card p-4 flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-gray-900">Overall Data Quality</h3>
-          <p className="text-sm text-gray-500">{emptyFields.modelSummary.length} models analyzed</p>
+          <h3 className="font-semibold text-white">Overall Data Quality</h3>
+          <p className="text-sm text-muted-foreground">{emptyFields.modelSummary.length} models analyzed</p>
         </div>
         <div className={`px-4 py-2 rounded-full text-lg font-bold ${getScoreColor(emptyFields.overallDataQuality)}`}>
           {emptyFields.overallDataQuality}%
@@ -301,22 +301,22 @@ function DataQualitySection({ result }: { result: AuditResult }) {
       
       {/* Issues Section - Show first if there are issues */}
       {hasIssues && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="card overflow-hidden">
           {/* Data Quality Issues */}
           {emptyFields.dataQualityIssues.length > 0 && (
-            <div className="p-4 border-b border-gray-100">
-              <h4 className="text-sm font-medium text-yellow-700 mb-3 flex items-center gap-2">
+            <div className="p-4 border-b border-border">
+              <h4 className="text-sm font-medium text-yellow-400 mb-3 flex items-center gap-2">
                 <span>⚠️</span>
                 Required Fields with Low Fill Rate ({emptyFields.dataQualityIssues.length})
               </h4>
               <div className="space-y-2">
                 {emptyFields.dataQualityIssues.slice(0, 5).map((issue, i) => (
-                  <div key={i} className="flex items-center justify-between bg-yellow-50 rounded px-3 py-2">
+                  <div key={i} className="flex items-center justify-between bg-yellow-500/10 rounded px-3 py-2">
                     <span className="text-sm">
-                      <span className="font-medium">{issue.model}</span>
-                      <span className="text-gray-500">.{issue.field}</span>
+                      <span className="font-medium text-white">{issue.model}</span>
+                      <span className="text-muted-foreground">.{issue.field}</span>
                     </span>
-                    <span className="text-sm font-medium text-yellow-700">{issue.fillRate}%</span>
+                    <span className="text-sm font-medium text-yellow-400">{issue.fillRate}%</span>
                   </div>
                 ))}
               </div>
@@ -326,18 +326,18 @@ function DataQualitySection({ result }: { result: AuditResult }) {
           {/* Unused Fields */}
           {emptyFields.unusedOptionalFields.length > 0 && (
             <div className="p-4">
-              <h4 className="text-sm font-medium text-red-700 mb-3 flex items-center gap-2">
+              <h4 className="text-sm font-medium text-red-400 mb-3 flex items-center gap-2">
                 <span>🗑️</span>
                 Unused Optional Fields ({emptyFields.unusedOptionalFields.length})
               </h4>
               <div className="flex flex-wrap gap-2">
                 {emptyFields.unusedOptionalFields.slice(0, 10).map((field, i) => (
-                  <span key={i} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                  <span key={i} className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
                     {field.model}.{field.field}
                   </span>
                 ))}
                 {emptyFields.unusedOptionalFields.length > 10 && (
-                  <span className="text-xs text-gray-500">+{emptyFields.unusedOptionalFields.length - 10} more</span>
+                  <span className="text-xs text-muted-foreground">+{emptyFields.unusedOptionalFields.length - 10} more</span>
                 )}
               </div>
             </div>
@@ -346,13 +346,13 @@ function DataQualitySection({ result }: { result: AuditResult }) {
       )}
       
       {/* Field Fill Rates Table */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium text-gray-900">Field Fill Rates</h4>
+          <h4 className="font-medium text-white">Field Fill Rates</h4>
           <select
             value={sortField}
             onChange={(e) => setSortField(e.target.value as 'fillRate' | 'model')}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
+            className="text-sm bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white"
           >
             <option value="fillRate">Sort by Fill Rate</option>
             <option value="model">Sort by Model</option>
@@ -364,30 +364,30 @@ function DataQualitySection({ result }: { result: AuditResult }) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-2 font-medium text-gray-600">Model</th>
-                    <th className="text-left py-2 px-2 font-medium text-gray-600">Field</th>
-                    <th className="text-left py-2 px-2 font-medium text-gray-600 w-32">Fill Rate</th>
-                    <th className="text-right py-2 px-2 font-medium text-gray-600">Sample</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Model</th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Field</th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground w-32">Fill Rate</th>
+                    <th className="text-right py-2 px-2 font-medium text-muted-foreground">Sample</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayedFields.map((field, i) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-2 font-medium">{field.model}</td>
-                      <td className="py-2 px-2">
+                    <tr key={i} className="border-b border-border hover:bg-slate-800/50">
+                      <td className="py-2 px-2 font-medium text-purple-400">{field.model}</td>
+                      <td className="py-2 px-2 text-white">
                         {field.field}
-                        {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                        {field.isRequired && <span className="text-red-400 ml-1">*</span>}
                       </td>
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-2">
                           <div className="w-20">{getFillRateBar(field.fillRate)}</div>
-                          <span className={`text-xs font-medium ${field.fillRate < 20 ? 'text-red-600' : field.fillRate < 50 ? 'text-orange-600' : 'text-gray-600'}`}>
+                          <span className={`text-xs font-medium ${field.fillRate < 20 ? 'text-red-400' : field.fillRate < 50 ? 'text-orange-400' : 'text-muted-foreground'}`}>
                             {field.fillRate}%
                           </span>
                         </div>
                       </td>
-                      <td className="py-2 px-2 text-right text-gray-500">{field.isFilled}/{field.sampleSize}</td>
+                      <td className="py-2 px-2 text-right text-muted-foreground">{field.isFilled}/{field.sampleSize}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -397,24 +397,24 @@ function DataQualitySection({ result }: { result: AuditResult }) {
             {sortedFillRates.length > 15 && (
               <button
                 onClick={() => setShowAllFields(!showAllFields)}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-800"
+                className="mt-3 text-sm text-purple-400 hover:text-purple-300"
               >
                 {showAllFields ? 'Show less' : `Show all ${sortedFillRates.length} fields`}
               </button>
             )}
           </>
         ) : (
-          <p className="text-gray-500 text-sm">No field data available</p>
+          <p className="text-muted-foreground text-sm">No field data available</p>
         )}
       </div>
       
       {/* Recommendations */}
       {emptyFields.recommendations.length > 0 && (
-        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-          <h4 className="text-sm font-medium text-blue-700 mb-3">💡 Recommendations</h4>
+        <div className="card p-4 border-blue-500/30 bg-blue-500/10">
+          <h4 className="text-sm font-medium text-blue-400 mb-3">💡 Recommendations</h4>
           <ul className="space-y-2">
             {emptyFields.recommendations.map((rec, i) => (
-              <li key={i} className="text-sm text-blue-900 flex items-start gap-2">
+              <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
                 <span className="text-blue-400 mt-1">•</span>
                 <span>{rec}</span>
               </li>

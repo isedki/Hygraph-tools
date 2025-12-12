@@ -5,3 +5,4 @@ export { ReusabilityTab } from './ReusabilityTab';
 export { PerformanceTab } from './PerformanceTab';
 export { RoadmapTab } from './RoadmapTab';
 export { InsightsTab } from './InsightsTab';
+export { DuplicatesTab } from './DuplicatesTab';
