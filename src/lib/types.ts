@@ -1422,3 +1422,26 @@ export interface IntrospectionResult {
   };
 }
 
+// ============================================
+// Duplicate Entry Detection Types
+// ============================================
+
+export interface DuplicateEntry {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface DuplicateGroup {
+  matchKey: string;
+  matchedFields: string[];
+  entries: DuplicateEntry[];
+}
+
+export interface DuplicateCheckResult {
+  model: string;
+  totalEntries: number;
+  duplicateGroups: DuplicateGroup[];
+  analyzedFields: string[];
+  timestamp: Date;
+}
+

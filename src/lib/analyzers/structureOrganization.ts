@@ -610,6 +610,11 @@ function analyzeRecursiveChains(schema: HygraphSchema): CheckpointResult {
   const recursiveChains: string[][] = [];
   const graph: Map<string, string[]> = new Map();
   const customModels = filterSystemModels(schema.models);
+  
+  // SAFEGUARD: Limit exploration to prevent stack overflow
+  let explorationCount = 0;
+  const MAX_EXPLORATIONS = 200;
+  const MAX_CHAINS = 10;
 
   // Build relationship graph
   for (const model of customModels) {
@@ -622,16 +627,21 @@ function analyzeRecursiveChains(schema: HygraphSchema): CheckpointResult {
     graph.set(model.name, relations);
   }
 
-  // Find paths longer than 3 hops using DFS
+  // Find paths longer than 3 hops using DFS (with safeguards)
   function findDeepPaths(start: string, visited: Set<string>, path: string[]): void {
+    // Early termination
+    if (explorationCount >= MAX_EXPLORATIONS) return;
+    if (recursiveChains.length >= MAX_CHAINS) return;
+    
     if (path.length > 4) {
       recursiveChains.push([...path]);
       return;
     }
 
-    const neighbors = graph.get(start) || [];
+    explorationCount++;
+    const neighbors = (graph.get(start) || []).slice(0, 5); // Limit neighbors
     for (const neighbor of neighbors) {
-      if (!visited.has(neighbor)) {
+      if (!visited.has(neighbor) && explorationCount < MAX_EXPLORATIONS) {
         visited.add(neighbor);
         path.push(neighbor);
         findDeepPaths(neighbor, visited, path);
@@ -641,7 +651,10 @@ function analyzeRecursiveChains(schema: HygraphSchema): CheckpointResult {
     }
   }
 
-  for (const model of customModels) {
+  // Only analyze a subset of models
+  const modelsToAnalyze = customModels.slice(0, 20);
+  for (const model of modelsToAnalyze) {
+    if (explorationCount >= MAX_EXPLORATIONS || recursiveChains.length >= MAX_CHAINS) break;
     const visited = new Set<string>([model.name]);
     findDeepPaths(model.name, visited, [model.name]);
   }

@@ -52,6 +52,10 @@ const MAX_ENUM_VALUES = 20;        // If more than 20 distinct values, might be 
 const MIN_ENTRIES_FOR_ANALYSIS = 10;
 const MAX_TAXONOMY_VALUES = 100;   // Beyond this, keep as text
 
+// Sampling limits for scalability
+const MAX_MODELS_TO_ANALYZE = 10;
+const MAX_ENTRIES_PER_MODEL = 50;
+
 function hasUniqueIdField(model: HygraphModel): { hasUniqueId: boolean; field: string } {
   for (const field of model.fields) {
     // Check if field matches unique ID pattern
@@ -140,12 +144,17 @@ export async function analyzeEnumTaxonomyOpportunities(
   entryCounts: Record<string, { draft: number; published: number }>
 ): Promise<EnumTaxonomyRecommendation[]> {
   const recommendations: EnumTaxonomyRecommendation[] = [];
-  const models = filterSystemModels(schema.models).filter(m => !SYSTEM_TYPES.has(m.name));
   
-  for (const model of models) {
-    // Skip models with few entries
-    const counts = entryCounts[model.name];
-    if (!counts || counts.draft < MIN_ENTRIES_FOR_ANALYSIS) continue;
+  // Filter and limit models for scalability
+  const modelsToAnalyze = filterSystemModels(schema.models)
+    .filter(m => !SYSTEM_TYPES.has(m.name))
+    .filter(m => {
+      const counts = entryCounts[m.name];
+      return counts && counts.draft >= MIN_ENTRIES_FOR_ANALYSIS;
+    })
+    .slice(0, MAX_MODELS_TO_ANALYZE);
+  
+  for (const model of modelsToAnalyze) {
     
     // Get string fields that might be enum candidates
     const stringFields = getStringFields(model);
@@ -161,7 +170,7 @@ export async function analyzeEnumTaxonomyOpportunities(
       const allFieldsToCheck = [...candidateFields, ...otherFields.slice(0, 5)];
       if (allFieldsToCheck.length === 0) continue;
       
-      const samples = await fetchContentSample(client, model, allFieldsToCheck, 100);
+      const samples = await fetchContentSample(client, model, allFieldsToCheck, MAX_ENTRIES_PER_MODEL);
       
       if (samples.length < MIN_ENTRIES_FOR_ANALYSIS) continue;
       

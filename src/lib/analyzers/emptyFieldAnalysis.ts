@@ -11,6 +11,10 @@ const SYSTEM_FIELDS = new Set([
   'publishedBy', 'stage', 'documentInStages', 'history', 'scheduledIn', '__typename'
 ]);
 
+// Sampling limits for scalability
+const MAX_MODELS_TO_ANALYZE = 15;
+const MAX_ENTRIES_PER_MODEL = 50;
+
 function isValueEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   if (typeof value === 'string' && value.trim() === '') return true;
@@ -46,20 +50,23 @@ export async function analyzeEmptyFields(
   const modelSummary: { model: string; avgFillRate: number; fieldCount: number }[] = [];
   const recommendations: string[] = [];
   
+  // Filter and limit models for scalability
+  const modelsToAnalyze = schema.models
+    .filter(m => !m.isSystem && !SYSTEM_TYPES.has(m.name))
+    .filter(m => {
+      const entryCount = entryCounts[m.name];
+      return entryCount && entryCount.draft > 0;
+    })
+    .slice(0, MAX_MODELS_TO_ANALYZE);
+  
   // Analyze each model
-  for (const model of schema.models) {
-    if (model.isSystem || SYSTEM_TYPES.has(model.name)) continue;
-    
-    // Skip models with no entries
-    const entryCount = entryCounts[model.name];
-    if (!entryCount || entryCount.draft === 0) continue;
-    
+  for (const model of modelsToAnalyze) {
     const analyzableFields = getAnalyzableFields(model);
     if (analyzableFields.length === 0) continue;
     
     try {
-      // Fetch sample content
-      const samples = await fetchFieldValues(client, model, 100);
+      // Fetch sample content (limited)
+      const samples = await fetchFieldValues(client, model, MAX_ENTRIES_PER_MODEL);
       const sampleSize = samples.length;
       
       if (sampleSize === 0) continue;

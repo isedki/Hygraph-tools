@@ -37,41 +37,143 @@ import { analyzeContentAdoption } from './contentAdoption';
 // NEW: Content health analyzers
 import { analyzeRichTextUsage } from './richTextAnalysis';
 import { analyzeEmptyFields } from './emptyFieldAnalysis';
-import { analyzeContentFreshness } from './contentFreshness';
+import { analyzeContentFreshness, DEFAULT_FRESHNESS_THRESHOLDS } from './contentFreshness';
 import { analyzeEnhancedPerformance } from './enhancedPerformance';
+import type {
+  RichTextUsageAnalysis,
+  EmptyFieldAnalysis,
+  ContentFreshnessAnalysis,
+  EnhancedPerformanceAnalysis,
+} from '../types';
+
+// Default fallbacks for deep analyzers (in case of errors)
+function getDefaultRichTextUsage(): RichTextUsageAnalysis {
+  return {
+    modelsWithRichText: [],
+    absoluteUrls: [],
+    embeddedImages: [],
+    linkAnalysis: { staticLinks: [], referenceLinks: [], ctaPatterns: [] },
+    recommendations: ['Rich text analysis skipped due to an error.'],
+    overallScore: 100,
+  };
+}
+
+function getDefaultEmptyFields(): EmptyFieldAnalysis {
+  return {
+    fieldFillRates: [],
+    rarelyUsedFields: [],
+    dataQualityIssues: [],
+    unusedOptionalFields: [],
+    modelSummary: [],
+    overallDataQuality: 100,
+    recommendations: ['Empty field analysis skipped due to an error.'],
+  };
+}
+
+function getDefaultContentFreshness(): ContentFreshnessAnalysis {
+  return {
+    thresholds: DEFAULT_FRESHNESS_THRESHOLDS,
+    modelFreshness: [],
+    overallFreshness: {
+      score: 100,
+      totalEntries: 0,
+      freshPercentage: 0,
+      stalePercentage: 0,
+      dormantPercentage: 0,
+    },
+    staleContentAlert: [],
+    recommendations: ['Content freshness analysis skipped due to an error.'],
+  };
+}
+
+function getDefaultEnhancedPerformance(): EnhancedPerformanceAnalysis {
+  return {
+    cachingReadiness: {
+      modelsWithUniqueId: [],
+      modelsWithoutUniqueId: [],
+      cacheKeyRecommendations: [],
+      overallScore: 100,
+    },
+    enumTaxonomyRecommendations: [],
+  };
+}
 
 export async function runFullAudit(
   client: GraphQLClient,
   endpoint: string
 ): Promise<AuditResult> {
+  console.log('[Audit] Starting audit...');
+  
   // Step 1: Fetch schema via introspection
+  console.log('[Audit] Step 1: Fetching schema...');
   const schema: HygraphSchema = await fetchSchema(client);
+  console.log(`[Audit] Schema fetched: ${schema.models.length} models, ${schema.components.length} components`);
   
   // Step 2: Fetch entity counts for each model
+  console.log('[Audit] Step 2: Fetching entity counts...');
   const entryCounts = await fetchEntityCounts(client, schema.models);
+  console.log('[Audit] Entity counts fetched');
   
   // Step 3: Fetch asset statistics
+  console.log('[Audit] Step 3: Fetching asset stats...');
   const assetStats = await fetchAssetStats(client);
+  console.log('[Audit] Asset stats fetched');
   
-  // Step 4: Run all analyzers
+  // Step 4: Run all analyzers (with logging)
+  console.log('[Audit] Step 4: Running analyzers...');
+  
+  console.log('[Audit] - analyzeSchema');
   const schemaAnalysis = analyzeSchema(schema, entryCounts);
+  
+  console.log('[Audit] - analyzeComponents');
   const componentAnalysis = analyzeComponents(schema);
+  
+  console.log('[Audit] - analyzeContent');
   const contentAnalysis = analyzeContent(entryCounts, assetStats);
+  
+  console.log('[Audit] - analyzeEditorial');
   const editorialAnalysis = analyzeEditorial(schema);
+  
+  console.log('[Audit] - analyzeSEO');
   const seoAnalysis = analyzeSEO(schema, assetStats);
+  
+  console.log('[Audit] - analyzePerformance');
   const performanceAnalysis = analyzePerformance(schema, schemaAnalysis, entryCounts, assetStats);
+  
+  console.log('[Audit] - analyzeBestPractices');
   const bestPracticesAnalysis = analyzeBestPractices(schema);
+  
+  console.log('[Audit] - analyzeGovernance');
   const governanceAnalysis = analyzeGovernance(schema, contentAnalysis);
+  
+  console.log('[Audit] - analyzeArchitecture');
   const architectureAnalysis = analyzeArchitecture(schema);
+  
+  console.log('[Audit] - analyzeContentStrategy');
   const contentStrategyAnalysis = analyzeContentStrategy(schema, entryCounts);
+  
+  console.log('[Audit] - analyzeEnumArchitecture');
   const enumArchitectureAnalysis = analyzeEnumArchitecture(schema);
   
   // Step 4b: Run comprehensive assessment analyzers
+  console.log('[Audit] Step 4b: Running comprehensive assessment...');
+  
+  console.log('[Audit] - analyzeStructureOrganization');
   const structureAssessment = analyzeStructureOrganization(schema, entryCounts);
+  
+  console.log('[Audit] - analyzeContentArchitecture');
   const contentArchitectureAssessment = analyzeContentArchitecture(schema, entryCounts);
+  
+  console.log('[Audit] - analyzeReusability');
   const reusabilityAssessment = analyzeReusability(schema, entryCounts);
+  
+  console.log('[Audit] - analyzePerformanceAssessment');
   const performanceAssessmentResult = analyzePerformanceAssessment(schema, entryCounts);
+  
+  console.log('[Audit] - analyzeRelationshipsAssessment');
   const relationshipsAssessment = analyzeRelationshipsAssessment(schema, entryCounts);
+  
+  console.log('[Audit] - analyzeDuplicates');
   const duplicatesAssessment = analyzeDuplicates(schema);
   
   // Build comprehensive assessment
@@ -85,6 +187,7 @@ export async function runFullAudit(
   };
   
   // Step 5: Generate issues for each category
+  console.log('[Audit] Step 5: Generating issues...');
   const schemaIssues = generateSchemaIssues(schemaAnalysis);
   const componentIssues = generateComponentIssues(componentAnalysis);
   const contentIssues = generateContentIssues(contentAnalysis);
@@ -96,6 +199,7 @@ export async function runFullAudit(
   const architectureIssues = generateArchitectureIssues(architectureAnalysis);
   const contentStrategyIssues = generateContentStrategyIssues(contentStrategyAnalysis);
   const enumArchitectureIssues = generateEnumArchitectureIssues(enumArchitectureAnalysis);
+  console.log('[Audit] Issues generated');
   
   // Step 6: Calculate scores
   const schemaScore = calculateSchemaScore(schemaAnalysis, schemaIssues);
@@ -164,7 +268,7 @@ export async function runFullAudit(
   });
   
   // Step 10: Generate strategic report (senior content strategist perspective)
-  // Now passing all required data for comprehensive analysis
+  console.log('[Audit] Step 10: Generating strategic report...');
   const strategicReport = generateStrategicReport(
     schema,
     schemaAnalysis,
@@ -174,24 +278,70 @@ export async function runFullAudit(
     contentStrategyAnalysis,
     entryCounts
   );
+  console.log('[Audit] Strategic report generated');
   
   // Step 11: Generate structural observations (high-level architectural insights)
+  console.log('[Audit] Step 11: Generating structural observations...');
   const structuralObservations = analyzeStructuralObservations(
     schema,
     strategicReport,
     comprehensiveAssessment
   );
+  console.log('[Audit] Structural observations generated');
   
   // Step 12: Run insights analyzers (payload, adoption, SEO readiness)
+  console.log('[Audit] Step 12: Running insights analyzers...');
   const payloadEfficiency = analyzePayloadEfficiency(schema);
+  console.log('[Audit] - payloadEfficiency done');
   const contentAdoption = analyzeContentAdoption(schema, entryCounts);
+  console.log('[Audit] - contentAdoption done');
   const seoReadiness = analyzeSEOReadiness(schema, assetStats);
+  console.log('[Audit] - seoReadiness done');
   
-  // Step 13: Run content health analyzers (Rich Text, Empty Fields, Freshness, Enhanced Performance)
-  const richTextUsage = await analyzeRichTextUsage(client, schema);
-  const emptyFields = await analyzeEmptyFields(client, schema, entryCounts);
-  const contentFreshness = await analyzeContentFreshness(client, schema, entryCounts);
-  const enhancedPerformance = await analyzeEnhancedPerformance(client, schema, entryCounts);
+  // Step 13: Run content health analyzers (with fallbacks for robustness)
+  console.log('[Audit] Step 13: Running content health analyzers...');
+  let richTextUsage: RichTextUsageAnalysis;
+  let emptyFields: EmptyFieldAnalysis;
+  let contentFreshness: ContentFreshnessAnalysis;
+  let enhancedPerformance: EnhancedPerformanceAnalysis;
+  
+  console.log('[Audit] - analyzeRichTextUsage');
+  try {
+    richTextUsage = await analyzeRichTextUsage(client, schema);
+    console.log('[Audit] - richTextUsage done');
+  } catch (e) {
+    console.warn('[Audit] Rich text analysis failed, using defaults:', e);
+    richTextUsage = getDefaultRichTextUsage();
+  }
+  
+  console.log('[Audit] - analyzeEmptyFields');
+  try {
+    emptyFields = await analyzeEmptyFields(client, schema, entryCounts);
+    console.log('[Audit] - emptyFields done');
+  } catch (e) {
+    console.warn('[Audit] Empty fields analysis failed, using defaults:', e);
+    emptyFields = getDefaultEmptyFields();
+  }
+  
+  console.log('[Audit] - analyzeContentFreshness');
+  try {
+    contentFreshness = await analyzeContentFreshness(client, schema, entryCounts);
+    console.log('[Audit] - contentFreshness done');
+  } catch (e) {
+    console.warn('[Audit] Content freshness analysis failed, using defaults:', e);
+    contentFreshness = getDefaultContentFreshness();
+  }
+  
+  console.log('[Audit] - analyzeEnhancedPerformance');
+  try {
+    enhancedPerformance = await analyzeEnhancedPerformance(client, schema, entryCounts);
+    console.log('[Audit] - enhancedPerformance done');
+  } catch (e) {
+    console.warn('[Audit] Enhanced performance analysis failed, using defaults:', e);
+    enhancedPerformance = getDefaultEnhancedPerformance();
+  }
+  
+  console.log('[Audit] Building final result...');
   
   const insights: InsightsAnalysis = {
     payloadEfficiency,

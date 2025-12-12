@@ -350,46 +350,68 @@ function generatePluralApiId(name: string): string {
   return lower + 's';
 }
 
-// Get entity counts for each model
+// Batch size for parallel queries (to avoid overwhelming the API)
+const ENTITY_COUNT_BATCH_SIZE = 10;
+
+// Fetch count for a single model
+async function fetchSingleModelCount(
+  client: GraphQLClient,
+  model: HygraphModel
+): Promise<{ draft: number; published: number }> {
+  try {
+    const query = `
+      query Count${model.name} {
+        draft: ${model.pluralApiId}Connection(stage: DRAFT) {
+          aggregate {
+            count
+          }
+        }
+        published: ${model.pluralApiId}Connection(stage: PUBLISHED) {
+          aggregate {
+            count
+          }
+        }
+      }
+    `;
+    
+    const result = await client.request<{
+      draft: { aggregate: { count: number } };
+      published: { aggregate: { count: number } };
+    }>(query);
+    
+    return {
+      draft: result.draft.aggregate.count,
+      published: result.published.aggregate.count,
+    };
+  } catch {
+    // Model might not support staging or connection queries
+    return { draft: 0, published: 0 };
+  }
+}
+
+// Get entity counts for each model (batched for scalability)
 export async function fetchEntityCounts(
   client: GraphQLClient, 
   models: HygraphModel[]
 ): Promise<Record<string, { draft: number; published: number }>> {
   const counts: Record<string, { draft: number; published: number }> = {};
   
-  // Build aggregation queries for each model
-  for (const model of models) {
-    if (model.isComponent) continue;
+  // Filter to only content models (skip components and system models)
+  const contentModels = models.filter(m => !m.isComponent && !m.isSystem);
+  
+  // Process in parallel batches for performance
+  for (let i = 0; i < contentModels.length; i += ENTITY_COUNT_BATCH_SIZE) {
+    const batch = contentModels.slice(i, i + ENTITY_COUNT_BATCH_SIZE);
     
-    try {
-      const query = `
-        query Count${model.name} {
-          draft: ${model.pluralApiId}Connection(stage: DRAFT) {
-            aggregate {
-              count
-            }
-          }
-          published: ${model.pluralApiId}Connection(stage: PUBLISHED) {
-            aggregate {
-              count
-            }
-          }
-        }
-      `;
-      
-      const result = await client.request<{
-        draft: { aggregate: { count: number } };
-        published: { aggregate: { count: number } };
-      }>(query);
-      
-      counts[model.name] = {
-        draft: result.draft.aggregate.count,
-        published: result.published.aggregate.count,
-      };
-    } catch {
-      // Model might not support staging or connection queries
-      counts[model.name] = { draft: 0, published: 0 };
-    }
+    // Run batch in parallel
+    const batchResults = await Promise.all(
+      batch.map(model => fetchSingleModelCount(client, model))
+    );
+    
+    // Store results
+    batch.forEach((model, idx) => {
+      counts[model.name] = batchResults[idx];
+    });
   }
   
   return counts;

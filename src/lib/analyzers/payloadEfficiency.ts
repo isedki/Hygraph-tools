@@ -43,6 +43,10 @@ const COMPONENT_LIST_MULTIPLIER = 4;
 // Maximum recursion depth for references
 const MAX_DEPTH = 2;
 
+// SAFEGUARD: Limit iterations to prevent stack overflow
+const MAX_FIELDS_PER_MODEL = 50;
+const MAX_MODELS_TO_ANALYZE = 30;
+
 export interface PayloadFieldBreakdown {
   field: string;
   type: string;
@@ -72,6 +76,7 @@ export interface PayloadEfficiencyAnalysis {
 
 /**
  * Estimate the size of a single field
+ * SAFEGUARD: Uses strict depth limits and visited tracking to prevent stack overflow
  */
 function estimateFieldSize(
   field: HygraphField,
@@ -79,12 +84,17 @@ function estimateFieldSize(
   depth: number = 0,
   visited: Set<string> = new Set()
 ): number {
+  // SAFEGUARD: Hard depth limit
+  if (depth > MAX_DEPTH) {
+    return 100;
+  }
+  
   const baseType = field.type.replace(/[\[\]!]/g, ''); // Strip GraphQL modifiers
   
   // Check for reference/relation fields
   if (field.relatedModel) {
-    if (depth >= MAX_DEPTH || visited.has(field.relatedModel)) {
-      // At max depth or circular - return minimal estimate
+    if (visited.has(field.relatedModel)) {
+      // Circular - return minimal estimate
       return 100;
     }
     
@@ -93,7 +103,7 @@ function estimateFieldSize(
     if (relatedModel) {
       const newVisited = new Set(visited);
       newVisited.add(field.relatedModel);
-      const relatedSize = estimateModelPayload(relatedModel, schema, depth + 1, newVisited);
+      const relatedSize = estimateModelPayloadSafe(relatedModel, schema, depth + 1, newVisited);
       
       // List relations multiply
       if (field.isList) {
@@ -103,12 +113,17 @@ function estimateFieldSize(
     }
   }
   
-  // Check for component fields
+  // Check for component fields - use simple estimation to avoid deep recursion
   const isComponentType = schema.components?.some(c => c.name === baseType);
   if (isComponentType) {
+    if (visited.has(baseType)) {
+      return 500; // Circular component reference
+    }
     const component = schema.components?.find(c => c.name === baseType);
     if (component) {
-      const componentSize = estimateComponentSize(component, schema, depth);
+      const newVisited = new Set(visited);
+      newVisited.add(baseType);
+      const componentSize = estimateComponentSizeSafe(component, schema, depth + 1, newVisited);
       return field.isList ? componentSize * COMPONENT_LIST_MULTIPLIER : componentSize;
     }
   }
@@ -132,32 +147,47 @@ function estimateFieldSize(
 }
 
 /**
- * Estimate the size of a component
+ * Estimate the size of a component (with safeguards)
  */
-function estimateComponentSize(
+function estimateComponentSizeSafe(
   component: HygraphModel,
   schema: HygraphSchema,
-  depth: number
+  depth: number,
+  visited: Set<string>
 ): number {
+  // SAFEGUARD: Hard depth limit
+  if (depth > MAX_DEPTH) {
+    return 500;
+  }
+  
   let total = 0;
-  for (const field of component.fields) {
-    total += estimateFieldSize(field, schema, depth, new Set());
+  // SAFEGUARD: Limit fields analyzed per component
+  const fieldsToAnalyze = component.fields.slice(0, MAX_FIELDS_PER_MODEL);
+  for (const field of fieldsToAnalyze) {
+    total += estimateFieldSize(field, schema, depth, visited);
   }
   return total;
 }
 
 /**
- * Estimate the total payload size for a model
+ * Estimate the total payload size for a model (with safeguards)
  */
-function estimateModelPayload(
+function estimateModelPayloadSafe(
   model: HygraphModel,
   schema: HygraphSchema,
   depth: number = 0,
   visited: Set<string> = new Set()
 ): number {
-  let total = 0;
+  // SAFEGUARD: Hard depth limit
+  if (depth > MAX_DEPTH) {
+    return 500;
+  }
   
-  for (const field of model.fields) {
+  let total = 0;
+  // SAFEGUARD: Limit fields analyzed per model
+  const fieldsToAnalyze = model.fields.slice(0, MAX_FIELDS_PER_MODEL);
+  
+  for (const field of fieldsToAnalyze) {
     total += estimateFieldSize(field, schema, depth, visited);
   }
   
@@ -166,6 +196,7 @@ function estimateModelPayload(
 
 /**
  * Analyze payload efficiency for all models
+ * SAFEGUARD: Limited to prevent stack overflow on large schemas
  */
 export function analyzePayloadEfficiency(schema: HygraphSchema): PayloadEfficiencyAnalysis {
   const customModels = filterSystemModels(schema.models);
@@ -173,12 +204,16 @@ export function analyzePayloadEfficiency(schema: HygraphSchema): PayloadEfficien
   const heavyModels: { model: string; kb: number; reason: string }[] = [];
   let totalBytes = 0;
   
-  for (const model of customModels) {
+  // SAFEGUARD: Limit models analyzed
+  const modelsToAnalyze = customModels.slice(0, MAX_MODELS_TO_ANALYZE);
+  
+  for (const model of modelsToAnalyze) {
     const fieldBreakdown: PayloadFieldBreakdown[] = [];
     let modelTotalBytes = 0;
     
-    // Calculate size for each field
-    for (const field of model.fields) {
+    // Calculate size for each field (limited for safety)
+    const fieldsToCheck = model.fields.slice(0, MAX_FIELDS_PER_MODEL);
+    for (const field of fieldsToCheck) {
       const bytes = estimateFieldSize(field, schema, 0, new Set([model.name]));
       modelTotalBytes += bytes;
       

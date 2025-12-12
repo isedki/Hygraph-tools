@@ -30,11 +30,14 @@ function findComponentUsage(customModels: HygraphModel[], customComponents: Hygr
 }
 
 // Calculate component nesting depth
+// SAFEGUARD: Added max depth limit to prevent deep recursion
 function calculateComponentNesting(customComponents: HygraphModel[]): Map<string, number> {
   const depths = new Map<string, number>();
   const componentNames = new Set(customComponents.map(c => c.name));
+  const MAX_DEPTH = 10;
   
-  function getDepth(componentName: string, visited: Set<string>): number {
+  function getDepth(componentName: string, visited: Set<string>, currentDepth: number = 0): number {
+    if (currentDepth >= MAX_DEPTH) return currentDepth; // Cap depth
     if (visited.has(componentName)) return 0; // Circular reference
     if (depths.has(componentName)) return depths.get(componentName)!;
     
@@ -45,7 +48,7 @@ function calculateComponentNesting(customComponents: HygraphModel[]): Map<string
     let maxChildDepth = 0;
     for (const field of component.fields) {
       if (field.relatedModel && componentNames.has(field.relatedModel)) {
-        const childDepth = getDepth(field.relatedModel, new Set(visited));
+        const childDepth = getDepth(field.relatedModel, new Set(visited), currentDepth + 1);
         maxChildDepth = Math.max(maxChildDepth, childDepth);
       }
     }
@@ -56,7 +59,7 @@ function calculateComponentNesting(customComponents: HygraphModel[]): Map<string
   }
   
   for (const component of customComponents) {
-    getDepth(component.name, new Set());
+    getDepth(component.name, new Set(), 0);
   }
   
   return depths;

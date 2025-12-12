@@ -46,16 +46,24 @@ function identifyBidirectionalRelations(graph: Map<string, Set<string>>): Array<
 
 // Find deep relation chains that may impact query performance
 // Only flag chains of 4+ distinct models as a performance consideration
+// SAFEGUARD: Limited exploration to prevent stack overflow on complex schemas
 function findDeepRelationChains(
   graph: Map<string, Set<string>>,
-  maxDepth: number = 10
+  maxDepth: number = 6
 ): { maxDepth: number; deepPaths: string[][] } {
   const deepPaths: string[][] = [];
   let maxFoundDepth = 0;
+  let explorationCount = 0;
+  const MAX_EXPLORATIONS = 500; // Limit total recursive calls
+  const MAX_PATHS = 20; // Stop early once we have enough paths
   
   function dfs(node: string, path: string[], visited: Set<string>): void {
-    if (path.length > maxDepth || visited.has(node)) return;
+    // Early termination safeguards
+    if (explorationCount >= MAX_EXPLORATIONS) return;
+    if (deepPaths.length >= MAX_PATHS) return;
+    if (path.length >= maxDepth || visited.has(node)) return;
     
+    explorationCount++;
     visited.add(node);
     path.push(node);
     
@@ -70,7 +78,7 @@ function findDeepRelationChains(
     
     const neighbors = graph.get(node) || new Set();
     for (const neighbor of neighbors) {
-      if (!visited.has(neighbor)) {
+      if (!visited.has(neighbor) && explorationCount < MAX_EXPLORATIONS) {
         dfs(neighbor, path, new Set(visited));
       }
     }
@@ -78,7 +86,10 @@ function findDeepRelationChains(
     path.pop();
   }
   
-  for (const node of graph.keys()) {
+  // Only start DFS from a limited number of nodes
+  const nodes = Array.from(graph.keys()).slice(0, 30);
+  for (const node of nodes) {
+    if (explorationCount >= MAX_EXPLORATIONS || deepPaths.length >= MAX_PATHS) break;
     dfs(node, [], new Set());
   }
   

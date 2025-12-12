@@ -353,33 +353,43 @@ function analyzeQueryCost(
     graph.set(model.name, relations);
   }
 
-  // Find all paths using BFS
-  function findPaths(start: string, maxDepth: number = 6): string[][] {
+  // Find all paths using BFS (with safeguards)
+  // SAFEGUARD: Limit exploration to prevent memory issues on complex schemas
+  const MAX_QUEUE_SIZE = 500;
+  const MAX_PATHS_PER_START = 20;
+  const MAX_TOTAL_PATHS = 50;
+  
+  function findPaths(start: string, maxDepth: number = 5): string[][] {
     const paths: string[][] = [];
     const queue: { node: string; path: string[] }[] = [{ node: start, path: [start] }];
 
-    while (queue.length > 0) {
+    while (queue.length > 0 && paths.length < MAX_PATHS_PER_START && queue.length < MAX_QUEUE_SIZE) {
       const { node, path } = queue.shift()!;
       if (path.length > maxDepth) continue;
 
-      const neighbors = graph.get(node) || [];
+      const neighbors = (graph.get(node) || []).slice(0, 5); // Limit neighbors
       for (const neighbor of neighbors) {
         if (path.includes(neighbor)) continue; // Avoid cycles
 
         const newPath = [...path, neighbor];
         if (newPath.length >= 4) {
           paths.push(newPath);
+          if (paths.length >= MAX_PATHS_PER_START) break;
         }
-        queue.push({ node: neighbor, path: newPath });
+        if (queue.length < MAX_QUEUE_SIZE) {
+          queue.push({ node: neighbor, path: newPath });
+        }
       }
     }
 
     return paths;
   }
 
-  // Find paths from each model
+  // Find paths from each model (limited)
   const processedPaths = new Set<string>();
-  for (const model of models) {
+  const modelsToAnalyze = models.slice(0, 20);
+  for (const model of modelsToAnalyze) {
+    if (highCostPaths.length >= MAX_TOTAL_PATHS) break;
     const paths = findPaths(model.name);
     for (const path of paths) {
       const pathKey = `${path[0]}→${path[path.length - 1]}`;

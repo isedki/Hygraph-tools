@@ -27,18 +27,11 @@ function findRichTextFields(model: HygraphModel): string[] {
 }
 
 function extractAbsoluteUrls(html: string): string[] {
-  const urls: string[] = [];
-  let match;
-  
-  while ((match = ABSOLUTE_URL_PATTERN.exec(html)) !== null) {
-    // Filter out common safe domains (like asset CDNs)
-    const url = match[0];
-    if (!url.includes('media.graphassets.com') && !url.includes('graphcms.com')) {
-      urls.push(url);
-    }
-  }
-  
-  return [...new Set(urls)]; // Dedupe
+  // Use match() instead of exec() to avoid global regex lastIndex issues
+  const matches = html.match(/https?:\/\/[^\s<>"']+/g) || [];
+  return [...new Set(matches.filter(url => 
+    !url.includes('media.graphassets.com') && !url.includes('graphcms.com')
+  ))];
 }
 
 function countEmbeddedImages(html: string): number {
@@ -77,6 +70,10 @@ function detectCtaPatterns(html: string): string[] {
   return patterns;
 }
 
+// Sampling limits for scalability
+const MAX_MODELS_TO_ANALYZE = 10;
+const MAX_ENTRIES_PER_FIELD = 20;
+
 export async function analyzeRichTextUsage(
   client: GraphQLClient,
   schema: HygraphSchema
@@ -89,24 +86,26 @@ export async function analyzeRichTextUsage(
   const ctaPatterns: { model: string; field: string; pattern: string }[] = [];
   const recommendations: string[] = [];
   
-  // Find all models with Rich Text fields
-  for (const model of schema.models) {
-    if (model.isSystem || SYSTEM_TYPES.has(model.name)) continue;
-    
+  // Find all models with Rich Text fields (filter system models)
+  const contentModels = schema.models.filter(m => !m.isSystem && !SYSTEM_TYPES.has(m.name));
+  
+  for (const model of contentModels) {
     const richTextFields = findRichTextFields(model);
     if (richTextFields.length > 0) {
       modelsWithRichText.push({ model: model.name, fields: richTextFields });
     }
   }
   
-  // Analyze content for each Rich Text field
-  for (const { model: modelName, fields } of modelsWithRichText) {
+  // Analyze content for each Rich Text field (limited for scalability)
+  const modelsToAnalyze = modelsWithRichText.slice(0, MAX_MODELS_TO_ANALYZE);
+  
+  for (const { model: modelName, fields } of modelsToAnalyze) {
     const model = schema.models.find(m => m.name === modelName);
     if (!model) continue;
     
     for (const fieldName of fields) {
       try {
-        const content = await fetchRichTextContent(client, model, fieldName, 50);
+        const content = await fetchRichTextContent(client, model, fieldName, MAX_ENTRIES_PER_FIELD);
         
         let totalAbsoluteUrls: string[] = [];
         let totalEmbeddedImages = 0;

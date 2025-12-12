@@ -48,21 +48,29 @@ function calculateModelPayloadSize(
 }
 
 // Find query depth risks (paths that would require deep queries)
+// SAFEGUARD: Limited exploration to prevent stack overflow on complex schemas
 function findQueryDepthRisks(schema: HygraphSchema): {
   path: string[];
   depth: number;
   recommendation: string;
 }[] {
   const risks: { path: string[]; depth: number; recommendation: string }[] = [];
+  let explorationCount = 0;
+  const MAX_EXPLORATIONS = 300;
+  const MAX_RISKS = 20;
+  const MAX_DEPTH = 5;
   
   function findPaths(
     modelName: string, 
     path: string[], 
-    visited: Set<string>,
-    maxDepth: number = 6
+    visited: Set<string>
   ): void {
-    if (path.length >= maxDepth || visited.has(modelName)) return;
+    // Early termination safeguards
+    if (explorationCount >= MAX_EXPLORATIONS) return;
+    if (risks.length >= MAX_RISKS) return;
+    if (path.length >= MAX_DEPTH || visited.has(modelName)) return;
     
+    explorationCount++;
     visited.add(modelName);
     path.push(modelName);
     
@@ -84,13 +92,11 @@ function findQueryDepthRisks(schema: HygraphSchema): {
       });
     }
     
-    // Continue exploring
-    for (const field of model.fields) {
-      if (field.relatedModel && !visited.has(field.relatedModel)) {
-        const relatedModel = schema.models.find(m => m.name === field.relatedModel);
-        if (relatedModel) {
-          findPaths(field.relatedModel, path, new Set(visited), maxDepth);
-        }
+    // Continue exploring (limit relations explored)
+    const relations = model.fields.filter(f => f.relatedModel && !visited.has(f.relatedModel)).slice(0, 5);
+    for (const field of relations) {
+      if (explorationCount < MAX_EXPLORATIONS && risks.length < MAX_RISKS) {
+        findPaths(field.relatedModel!, path, new Set(visited));
       }
     }
     
@@ -98,7 +104,10 @@ function findQueryDepthRisks(schema: HygraphSchema): {
     visited.delete(modelName);
   }
   
-  for (const model of schema.models) {
+  // Only analyze a subset of models
+  const modelsToAnalyze = schema.models.filter(m => !m.isSystem).slice(0, 20);
+  for (const model of modelsToAnalyze) {
+    if (explorationCount >= MAX_EXPLORATIONS || risks.length >= MAX_RISKS) break;
     findPaths(model.name, [], new Set());
   }
   
@@ -117,15 +126,21 @@ function findQueryDepthRisks(schema: HygraphSchema): {
 }
 
 // Find component nesting depth
+// SAFEGUARD: Added depth limit to prevent stack overflow
 function calculateComponentNestingDepths(schema: HygraphSchema): {
   component: string;
   depth: number;
 }[] {
   const depths: { component: string; depth: number }[] = [];
   const componentNames = new Set(schema.components.map(c => c.name));
+  const MAX_DEPTH = 10;
+  const depthCache = new Map<string, number>(); // Memoization for performance
   
-  function getDepth(name: string, visited: Set<string>): number {
+  function getDepth(name: string, visited: Set<string>, currentDepth: number = 0): number {
+    if (currentDepth >= MAX_DEPTH) return currentDepth;
     if (visited.has(name)) return 0;
+    if (depthCache.has(name)) return depthCache.get(name)!;
+    
     visited.add(name);
     
     const component = schema.components.find(c => c.name === name);
@@ -134,17 +149,21 @@ function calculateComponentNestingDepths(schema: HygraphSchema): {
     let maxChildDepth = 0;
     for (const field of component.fields) {
       if (field.relatedModel && componentNames.has(field.relatedModel)) {
-        maxChildDepth = Math.max(maxChildDepth, getDepth(field.relatedModel, new Set(visited)));
+        maxChildDepth = Math.max(maxChildDepth, getDepth(field.relatedModel, new Set(visited), currentDepth + 1));
       }
     }
     
-    return maxChildDepth + 1;
+    const result = maxChildDepth + 1;
+    depthCache.set(name, result);
+    return result;
   }
   
-  for (const component of schema.components) {
+  // Limit to first 50 components
+  const componentsToAnalyze = schema.components.slice(0, 50);
+  for (const component of componentsToAnalyze) {
     depths.push({
       component: component.name,
-      depth: getDepth(component.name, new Set()),
+      depth: getDepth(component.name, new Set(), 0),
     });
   }
   

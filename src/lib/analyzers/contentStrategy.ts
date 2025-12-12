@@ -704,34 +704,45 @@ function analyzeDeepNesting(schema: HygraphSchema): ContentStrategyAnalysis['dee
     );
   }
   
-  // Find deep paths using BFS
-  function findDeepPaths(start: string, maxDepth: number = 6): string[][] {
+  // Find deep paths using BFS (with safeguards)
+  // SAFEGUARD: Limit queue size and paths to prevent memory issues
+  const MAX_QUEUE_SIZE = 300;
+  const MAX_PATHS_PER_START = 15;
+  const MAX_TOTAL_PATHS = 30;
+  
+  function findDeepPaths(start: string, maxDepth: number = 5): string[][] {
     const paths: string[][] = [];
     const queue: { node: string; path: string[] }[] = [{ node: start, path: [start] }];
     
-    while (queue.length > 0) {
+    while (queue.length > 0 && paths.length < MAX_PATHS_PER_START && queue.length < MAX_QUEUE_SIZE) {
       const { node, path } = queue.shift()!;
       if (path.length > maxDepth) continue;
       
-      const neighbors = graph.get(node) || [];
+      const neighbors = (graph.get(node) || []).slice(0, 5); // Limit neighbors
       for (const neighbor of neighbors) {
         if (path.includes(neighbor)) continue; // Avoid cycles
         
         const newPath = [...path, neighbor];
         if (newPath.length >= 4) {
           paths.push(newPath);
+          if (paths.length >= MAX_PATHS_PER_START) break;
         }
-        queue.push({ node: neighbor, path: newPath });
+        if (queue.length < MAX_QUEUE_SIZE) {
+          queue.push({ node: neighbor, path: newPath });
+        }
       }
     }
     
     return paths;
   }
   
-  // Find all deep paths
+  // Find all deep paths (limited for scalability)
   const allDeepPaths: string[][] = [];
-  for (const model of schema.models) {
-    allDeepPaths.push(...findDeepPaths(model.name));
+  const modelsToAnalyze = schema.models.slice(0, 20);
+  for (const model of modelsToAnalyze) {
+    if (allDeepPaths.length >= MAX_TOTAL_PATHS) break;
+    const paths = findDeepPaths(model.name);
+    allDeepPaths.push(...paths.slice(0, MAX_PATHS_PER_START));
   }
   
   // Sort by depth and take most problematic

@@ -10,6 +10,10 @@ import { fetchFreshnessData } from '../hygraph/introspection';
 // System types to exclude
 const SYSTEM_TYPES = new Set(['Asset', 'RichText', 'Location', 'Color', 'RGBA']);
 
+// Sampling limits for scalability
+const MAX_MODELS_TO_ANALYZE = 15;
+const MAX_ENTRIES_PER_MODEL = 100;
+
 // Default thresholds (in days)
 export const DEFAULT_FRESHNESS_THRESHOLDS: FreshnessThresholds = {
   fresh: 30,    // Updated in last 30 days
@@ -54,17 +58,20 @@ export async function analyzeContentFreshness(
   let totalStale = 0;
   let totalDormant = 0;
   
+  // Filter and limit models for scalability
+  const modelsToAnalyze = schema.models
+    .filter(m => !m.isSystem && !SYSTEM_TYPES.has(m.name))
+    .filter(m => {
+      const entryCount = entryCounts[m.name];
+      return entryCount && entryCount.draft > 0;
+    })
+    .slice(0, MAX_MODELS_TO_ANALYZE);
+  
   // Analyze each model
-  for (const model of schema.models) {
-    if (model.isSystem || SYSTEM_TYPES.has(model.name)) continue;
-    
-    // Skip models with no entries
-    const entryCount = entryCounts[model.name];
-    if (!entryCount || entryCount.draft === 0) continue;
-    
+  for (const model of modelsToAnalyze) {
     try {
-      // Fetch freshness data
-      const freshnessData = await fetchFreshnessData(client, model, 500);
+      // Fetch freshness data (limited)
+      const freshnessData = await fetchFreshnessData(client, model, MAX_ENTRIES_PER_MODEL);
       
       if (freshnessData.length === 0) continue;
       

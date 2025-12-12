@@ -282,13 +282,15 @@ function analyzeNestedModels(models: HygraphModel[]): PerformanceAssessment['nes
     ];
 
     let maxDepth = 1;
+    const MAX_QUEUE = 200;
+    const MAX_PATHS = 10;
 
-    while (queue.length > 0) {
+    while (queue.length > 0 && allPaths.length < MAX_PATHS && queue.length < MAX_QUEUE) {
       const { model, path, visited } = queue.shift()!;
 
       if (path.length > maxSearchDepth) continue;
 
-      const relations = modelRelations.get(model) || [];
+      const relations = (modelRelations.get(model) || []).slice(0, 5);
 
       for (const relation of relations) {
         if (visited.has(relation.target)) continue;
@@ -300,23 +302,27 @@ function analyzeNestedModels(models: HygraphModel[]): PerformanceAssessment['nes
         if (newPath.length >= HIGH_QUERY_COST_THRESHOLD) {
           allPaths.push(newPath);
           maxDepth = Math.max(maxDepth, newPath.length);
+          if (allPaths.length >= MAX_PATHS) break;
         }
 
-        queue.push({
-          model: relation.target,
-          path: newPath,
-          visited: newVisited,
-        });
+        if (queue.length < MAX_QUEUE) {
+          queue.push({
+            model: relation.target,
+            path: newPath,
+            visited: newVisited,
+          });
+        }
       }
     }
 
     return { paths: allPaths, maxDepth };
   }
 
-  // Analyze each model as a potential starting point
+  // Analyze each model as a potential starting point (limited)
   const processedPaths = new Set<string>();
+  const modelsToAnalyze = models.slice(0, 20);
 
-  for (const model of models) {
+  for (const model of modelsToAnalyze) {
     const { maxDepth, paths } = findDeepPaths(model.name);
 
     if (maxDepth >= HIGH_QUERY_COST_THRESHOLD && paths.length > 0) {
@@ -500,33 +506,42 @@ function analyzeDeepQueryPaths(schema: HygraphSchema): CheckpointResult {
     graph.set(model.name, relations);
   }
 
-  // Find paths using BFS
+  // Find paths using BFS (with safeguards)
+  const MAX_QUEUE_BFS = 200;
+  const MAX_PATHS_BFS = 15;
+  const MAX_TOTAL_PATHS_BFS = 30;
+  
   function findDeepPathsFrom(start: string): string[][] {
     const paths: string[][] = [];
     const queue: { node: string; path: string[] }[] = [{ node: start, path: [start] }];
 
-    while (queue.length > 0) {
+    while (queue.length > 0 && paths.length < MAX_PATHS_BFS && queue.length < MAX_QUEUE_BFS) {
       const { node, path } = queue.shift()!;
-      if (path.length > 6) continue; // Limit search depth
+      if (path.length > 5) continue; // Limit search depth
 
-      const neighbors = graph.get(node) || [];
+      const neighbors = (graph.get(node) || []).slice(0, 5);
       for (const neighbor of neighbors) {
         if (path.includes(neighbor)) continue; // Avoid cycles
 
         const newPath = [...path, neighbor];
         if (newPath.length >= HIGH_QUERY_COST_THRESHOLD) {
           paths.push(newPath);
+          if (paths.length >= MAX_PATHS_BFS) break;
         }
-        queue.push({ node: neighbor, path: newPath });
+        if (queue.length < MAX_QUEUE_BFS) {
+          queue.push({ node: neighbor, path: newPath });
+        }
       }
     }
 
     return paths;
   }
 
-  // Find deep paths from each model
+  // Find deep paths from each model (limited)
   const allPaths: string[][] = [];
-  for (const model of models) {
+  const modelsForBfs = models.slice(0, 20);
+  for (const model of modelsForBfs) {
+    if (allPaths.length >= MAX_TOTAL_PATHS_BFS) break;
     allPaths.push(...findDeepPathsFrom(model.name));
   }
 
@@ -578,6 +593,11 @@ function analyzeDeepQueryPaths(schema: HygraphSchema): CheckpointResult {
 function analyzeRecursiveChains(schema: HygraphSchema): CheckpointResult {
   const models = filterSystemModels(schema.models);
   const cycles: string[][] = [];
+  
+  // SAFEGUARD: Limit exploration to prevent stack overflow
+  let explorationCount = 0;
+  const MAX_EXPLORATIONS = 200;
+  const MAX_CYCLES = 10;
 
   // Build graph
   const graph = new Map<string, string[]>();
@@ -588,8 +608,13 @@ function analyzeRecursiveChains(schema: HygraphSchema): CheckpointResult {
     graph.set(model.name, relations);
   }
 
-  // Find cycles using DFS
+  // Find cycles using DFS (with safeguards)
   function findCycles(node: string, path: string[], visited: Set<string>): void {
+    // Early termination
+    if (explorationCount >= MAX_EXPLORATIONS) return;
+    if (cycles.length >= MAX_CYCLES) return;
+    if (path.length > 5) return; // Limit path length
+    
     if (path.length > 1 && path[0] === node) {
       // Found a cycle
       if (path.length > 2) { // Only true cycles (3+ nodes)
@@ -599,16 +624,22 @@ function analyzeRecursiveChains(schema: HygraphSchema): CheckpointResult {
     }
 
     if (visited.has(node)) return;
+    explorationCount++;
     visited.add(node);
     path.push(node);
 
-    const neighbors = graph.get(node) || [];
+    const neighbors = (graph.get(node) || []).slice(0, 5); // Limit neighbors
     for (const neighbor of neighbors) {
-      findCycles(neighbor, [...path], new Set(visited));
+      if (explorationCount < MAX_EXPLORATIONS && cycles.length < MAX_CYCLES) {
+        findCycles(neighbor, [...path], new Set(visited));
+      }
     }
   }
 
-  for (const model of models) {
+  // Only analyze a subset of models
+  const modelsToAnalyze = models.slice(0, 20);
+  for (const model of modelsToAnalyze) {
+    if (explorationCount >= MAX_EXPLORATIONS || cycles.length >= MAX_CYCLES) break;
     findCycles(model.name, [], new Set());
   }
 
