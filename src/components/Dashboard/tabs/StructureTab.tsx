@@ -42,34 +42,34 @@ export function StructureTab({ result, showAll = false }: StructureTabProps) {
   ];
 
   // Build sub-tab config with status indicators
-  const subTabs = [
+  const subTabs: { id: StructureSubTab; label: string; description: string; status: 'good' | 'warning' | 'issue'; count: number }[] = [
     {
-      id: 'models' as StructureSubTab,
+      id: 'models',
       label: 'Model Organization',
       description: 'Are models well-defined and non-redundant?',
       status: getWorstStatus(modelCheckpoints.map(c => c.status)),
       count: countIssues(modelCheckpoints.map(c => c.status)),
     },
     {
-      id: 'components' as StructureSubTab,
+      id: 'components',
       label: 'Component Patterns',
       description: 'How are components structured and reused?',
       status: getWorstStatus(componentCheckpoints.map(c => c.status)),
       count: countIssues(componentCheckpoints.map(c => c.status)),
     },
     {
-      id: 'enums' as StructureSubTab,
+      id: 'enums',
       label: 'Enum Health',
       description: 'Single-value, oversized, or duplicate enums?',
       status: getWorstStatus(enumCheckpoints.map(c => c.status)),
       count: countIssues(enumCheckpoints.map(c => c.status)),
     },
     {
-      id: 'data-quality' as StructureSubTab,
+      id: 'data-quality',
       label: 'Field Fill Rates',
       description: 'Which fields are empty or rarely used?',
       status: result.insights.emptyFields 
-        ? (result.insights.emptyFields.overallDataQuality >= 80 ? 'good' : result.insights.emptyFields.overallDataQuality >= 60 ? 'warning' : 'issue')
+        ? (result.insights.emptyFields.overallDataQuality >= 80 ? 'good' : result.insights.emptyFields.overallDataQuality >= 60 ? 'warning' : 'issue') as 'good' | 'warning' | 'issue'
         : 'good',
       count: result.insights.emptyFields?.dataQualityIssues.length || 0,
     },

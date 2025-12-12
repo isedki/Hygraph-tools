@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { AuditResult } from '@/lib/types';
 import ExportButton from './ExportButton';
+import { useIssuesFilter, IssuesFilterToggle } from './IssuesFilter';
 import { 
   SummaryTab, 
   StructureTab, 
@@ -32,6 +33,7 @@ const tabs = [
 
 export default function Dashboard({ result, onDisconnect }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>('summary');
+  const [showAll, toggleShowAll] = useIssuesFilter();
   
   return (
     <div className="min-h-screen bg-background">
@@ -54,6 +56,7 @@ export default function Dashboard({ result, onDisconnect }: DashboardProps) {
             </div>
             
             <div className="flex items-center gap-3">
+              <IssuesFilterToggle showAll={showAll} onToggle={toggleShowAll} />
               <ExportButton result={result} />
               <button
                 onClick={onDisconnect}
@@ -91,11 +94,11 @@ export default function Dashboard({ result, onDisconnect }: DashboardProps) {
       <main className="max-w-6xl mx-auto px-6 py-8">
           <div className="animate-fade-in">
           {activeTab === 'summary' && <SummaryTab result={result} />}
-          {activeTab === 'structure' && <StructureTab result={result} />}
-          {activeTab === 'architecture' && <ContentArchitectureTab result={result} />}
-          {activeTab === 'reusability' && <ReusabilityTab result={result} />}
-          {activeTab === 'performance' && <PerformanceTab result={result} />}
-          {activeTab === 'insights' && <InsightsTab result={result} />}
+          {activeTab === 'structure' && <StructureTab result={result} showAll={showAll} />}
+          {activeTab === 'architecture' && <ContentArchitectureTab result={result} showAll={showAll} />}
+          {activeTab === 'reusability' && <ReusabilityTab result={result} showAll={showAll} />}
+          {activeTab === 'performance' && <PerformanceTab result={result} showAll={showAll} />}
+          {activeTab === 'insights' && <InsightsTab result={result} showAll={showAll} />}
           {activeTab === 'roadmap' && <RoadmapTab result={result} />}
           </div>
       </main>
