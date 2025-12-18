@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crop Test</title>
+  <link href="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --accent: #8b5cf6;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    h1 { font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+    
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
+    .upload-zone input { display: none; }
+    .upload-icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-text { color: var(--muted); }
+    
+    .controls {
+      display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+    }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); }
+    .btn-secondary.active { background: var(--accent); border-color: var(--accent); }
+    
+    select {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 800px) {
+      .panels { grid-template-columns: 1fr; }
+    }
+    
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .panel-body {
+      padding: 16px;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+    }
+    .panel-body img {
+      max-width: 100%;
+      max-height: 400px;
+    }
+    .panel-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .panel-footer strong { color: var(--accent); }
+    
+    .placeholder {
+      color: var(--muted);
+      text-align: center;
+    }
+    .placeholder-icon { font-size: 48px; margin-bottom: 8px; opacity: 0.5; }
+    
+    /* Cropper styles */
+    .cropper-view-box { outline: 2px solid var(--accent); }
+    .cropper-line { background-color: var(--accent); }
+    .cropper-point { background-color: var(--accent); width: 12px; height: 12px; }
+    .cropper-modal { background: rgba(0,0,0,0.7); }
+    
+    .info-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .info-item { display: flex; flex-direction: column; gap: 4px; }
+    .info-label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+    .info-value { font-size: 14px; font-weight: 600; color: var(--accent); font-family: monospace; }
+    
+    .sample-images {
+      display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;
+    }
+    .sample-img {
+      width: 80px; height: 60px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      object-fit: cover;
+      transition: all 0.2s;
+    }
+    .sample-img:hover { border-color: var(--accent); transform: scale(1.05); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✂️ Crop Test Tool</h1>
+    
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept="image/*">
+      <div class="upload-icon">📁</div>
+      <div class="upload-text">Click to upload an image or drag & drop</div>
+      <div class="sample-images">
+        <img src="https://picsum.photos/800/600?random=1" class="sample-img" data-url="https://picsum.photos/1920/1080?random=1" title="Sample 1">
+        <img src="https://picsum.photos/800/600?random=2" class="sample-img" data-url="https://picsum.photos/1920/1080?random=2" title="Sample 2">
+        <img src="https://picsum.photos/800/600?random=3" class="sample-img" data-url="https://picsum.photos/1920/1080?random=3" title="Sample 3">
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button class="btn btn-primary" id="crop-btn">✂️ Enable Crop</button>
+      <select id="aspect-ratio">
+        <option value="free">Free</option>
+        <option value="16:9">16:9</option>
+        <option value="4:3">4:3</option>
+        <option value="1:1">1:1</option>
+        <option value="9:16">9:16</option>
+        <option value="3:4">3:4</option>
+      </select>
+      <button class="btn btn-secondary" id="reset-btn">Reset</button>
+      <button class="btn btn-secondary" id="download-btn">💾 Download Crop</button>
+    </div>
+    
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-header">Original</div>
+        <div class="panel-body" id="original-panel">
+          <div class="placeholder">
+            <div class="placeholder-icon">🖼️</div>
+            <div>Upload or select an image</div>
+          </div>
+        </div>
+        <div class="panel-footer">
+          Dimensions: <strong id="orig-dims">--</strong> | Size: <strong id="orig-size">--</strong>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">Cropped Preview</div>
+        <div class="panel-body" id="preview-panel">
+          <div class="placeholder">
+            <div class="placeholder-icon">✂️</div>
+            <div>Enable crop and select region</div>
+          </div>
+        </div>
+        <div class="panel-footer">
+          Dimensions: <strong id="crop-dims">--</strong> | Est. Size: <strong id="crop-size">--</strong>
+        </div>
+      </div>
+    </div>
+    
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label">Crop X</span>
+        <span class="info-value" id="info-x">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Crop Y</span>
+        <span class="info-value" id="info-y">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Width</span>
+        <span class="info-value" id="info-w">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Height</span>
+        <span class="info-value" id="info-h">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Status</span>
+        <span class="info-value" id="info-status">Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.js"></script>
+  <script>
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    
+    let cropper = null;
+    let currentImage = null;
+    let isCropMode = false;
+    let cropData = null;
+    
+    // File upload
+    $('#upload-zone').addEventListener('click', (e) => {
+      if (e.target.classList.contains('sample-img')) return;
+      $('#file-input').click();
+    });
+    
+    $('#file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) loadImage(URL.createObjectURL(file), file.size);
+    });
+    
+    // Sample images
+    $$('.sample-img').forEach(img => {
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        loadImage(img.dataset.url);
+      });
+    });
+    
+    // Drag & drop
+    $('#upload-zone').addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.currentTarget.style.borderColor = 'var(--accent)';
+    });
+    $('#upload-zone').addEventListener('dragleave', (e) => {
+      e.currentTarget.style.borderColor = '';
+    });
+    $('#upload-zone').addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.currentTarget.style.borderColor = '';
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        loadImage(URL.createObjectURL(file), file.size);
+      }
+    });
+    
+    function loadImage(url, fileSize = null) {
+      $('#info-status').textContent = 'Loading...';
+      
+      // Destroy existing cropper
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      isCropMode = false;
+      $('#crop-btn').textContent = '✂️ Enable Crop';
+      $('#crop-btn').classList.remove('active');
+      
+      // Create new image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        currentImage = { url, width: img.naturalWidth, height: img.naturalHeight, size: fileSize };
+        
+        // Show in original panel
+        $('#original-panel').innerHTML = '';
+        const displayImg = document.createElement('img');
+        displayImg.src = url;
+        displayImg.id = 'source-img';
+        displayImg.crossOrigin = 'anonymous';
+        $('#original-panel').appendChild(displayImg);
+        
+        // Update info
+        $('#orig-dims').textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
+        $('#orig-size').textContent = fileSize ? formatBytes(fileSize) : 'Unknown';
+        $('#info-status').textContent = 'Ready - Click "Enable Crop"';
+        
+        // Clear preview
+        $('#preview-panel').innerHTML = '<div class="placeholder"><div class="placeholder-icon">✂️</div><div>Enable crop and select region</div></div>';
+        $('#crop-dims').textContent = '--';
+        $('#crop-size').textContent = '--';
+        resetInfo();
+      };
+      img.onerror = () => {
+        $('#info-status').textContent = 'Error loading image (CORS?)';
+      };
+      img.src = url;
+    }
+    
+    // Toggle crop mode
+    $('#crop-btn').addEventListener('click', () => {
+      if (!currentImage) return;
+      
+      isCropMode = !isCropMode;
+      
+      if (isCropMode) {
+        $('#crop-btn').textContent = '✂️ Crop Active';
+        $('#crop-btn').classList.add('btn-secondary', 'active');
+        $('#crop-btn').classList.remove('btn-primary');
+        initCropper();
+      } else {
+        $('#crop-btn').textContent = '✂️ Enable Crop';
+        $('#crop-btn').classList.add('btn-primary');
+        $('#crop-btn').classList.remove('btn-secondary', 'active');
+        if (cropper) {
+          cropper.destroy();
+          cropper = null;
+        }
+      }
+    });
+    
+    // Aspect ratio
+    $('#aspect-ratio').addEventListener('change', () => {
+      if (cropper && isCropMode) {
+        const value = $('#aspect-ratio').value;
+        let ratio = NaN;
+        if (value === '16:9') ratio = 16/9;
+        else if (value === '4:3') ratio = 4/3;
+        else if (value === '1:1') ratio = 1;
+        else if (value === '9:16') ratio = 9/16;
+        else if (value === '3:4') ratio = 3/4;
+        cropper.setAspectRatio(ratio);
+      }
+    });
+    
+    // Reset
+    $('#reset-btn').addEventListener('click', () => {
+      if (cropper) cropper.reset();
+      cropData = null;
+      resetInfo();
+      $('#preview-panel').innerHTML = '<div class="placeholder"><div class="placeholder-icon">✂️</div><div>Select crop region</div></div>';
+      $('#crop-dims').textContent = '--';
+      $('#crop-size').textContent = '--';
+    });
+    
+    // Download
+    $('#download-btn').addEventListener('click', () => {
+      if (!cropper) return;
+      
+      const canvas = cropper.getCroppedCanvas({
+        maxWidth: 4096,
+        maxHeight: 4096
+      });
+      
+      if (canvas) {
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'cropped-image.jpg';
+          a.click();
+          URL.revokeObjectURL(url);
+        }, 'image/jpeg', 0.9);
+      }
+    });
+    
+    function initCropper() {
+      const img = $('#source-img');
+      if (!img) return;
+      
+      const aspectValue = $('#aspect-ratio').value;
+      let aspectRatio = NaN;
+      if (aspectValue === '16:9') aspectRatio = 16/9;
+      else if (aspectValue === '4:3') aspectRatio = 4/3;
+      else if (aspectValue === '1:1') aspectRatio = 1;
+      else if (aspectValue === '9:16') aspectRatio = 9/16;
+      else if (aspectValue === '3:4') aspectRatio = 3/4;
+      
+      cropper = new Cropper(img, {
+        aspectRatio: aspectRatio,
+        viewMode: 2,
+        autoCropArea: 0.8,
+        responsive: true,
+        guides: true,
+        center: true,
+        highlight: true,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        checkCrossOrigin: true,
+        checkOrientation: true,
+        crop(event) {
+          cropData = {
+            x: Math.round(event.detail.x),
+            y: Math.round(event.detail.y),
+            width: Math.round(event.detail.width),
+            height: Math.round(event.detail.height)
+          };
+          updateInfo();
+          debouncedPreview();
+        },
+        ready() {
+          $('#info-status').textContent = 'Cropper ready - drag to adjust';
+          updatePreview();
+        }
+      });
+    }
+    
+    let previewTimeout = null;
+    function debouncedPreview() {
+      if (previewTimeout) clearTimeout(previewTimeout);
+      previewTimeout = setTimeout(updatePreview, 100);
+    }
+    
+    function updatePreview() {
+      if (!cropper) return;
+      
+      try {
+        const canvas = cropper.getCroppedCanvas({
+          maxWidth: 800,
+          maxHeight: 800,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high'
+        });
+        
+        if (canvas) {
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              $('#preview-panel').innerHTML = `<img src="${url}" alt="Preview">`;
+              $('#info-status').textContent = 'Preview updated';
+              
+              // Update size info
+              if (cropData) {
+                $('#crop-dims').textContent = `${cropData.width} × ${cropData.height}`;
+                $('#crop-size').textContent = formatBytes(blob.size);
+              }
+            }
+          }, 'image/jpeg', 0.9);
+        }
+      } catch (e) {
+        console.error('Preview error:', e);
+        $('#info-status').textContent = 'CORS error - try uploading image instead';
+        $('#preview-panel').innerHTML = '<div class="placeholder"><div class="placeholder-icon">⚠️</div><div>CORS blocked - upload image locally</div></div>';
+      }
+    }
+    
+    function updateInfo() {
+      if (cropData) {
+        $('#info-x').textContent = cropData.x;
+        $('#info-y').textContent = cropData.y;
+        $('#info-w').textContent = cropData.width;
+        $('#info-h').textContent = cropData.height;
+      }
+    }
+    
+    function resetInfo() {
+      $('#info-x').textContent = '--';
+      $('#info-y').textContent = '--';
+      $('#info-w').textContent = '--';
+      $('#info-h').textContent = '--';
+    }
+    
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+  </script>
+</body>
+</html>
+
