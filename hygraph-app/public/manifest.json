@@ -1,11 +1,11 @@
 {
   "$schema": "https://www.hygraph.com/docs/app-framework/manifest-schema.json",
-  "name": "Schema Explorer",
-  "description": "Analyze your Hygraph schema, find component/enum usage in content, and discover where entries are referenced",
-  "version": "1.0.0",
+  "name": "Schema Tools",
+  "description": "Analyze your Hygraph schema, build GraphQL queries visually, and discover content usage",
+  "version": "1.2.0",
   "apiId": "schema-explorer",
-  "icon": "https://hygraph-schema-explorer.vercel.app/icon.svg",
-  "baseUrl": "https://hygraph-schema-explorer.vercel.app",
+  "icon": "https://hygraph-app-static.vercel.app/icon.svg",
+  "baseUrl": "https://hygraph-app-static.vercel.app",
   "permissions": {
     "CONTENT_READ": true,
     "CONTENT_WRITE": false,
@@ -19,6 +19,13 @@
       "description": "Full schema analysis with usage statistics and content search",
       "apiId": "schema-explorer-page",
       "src": "/page"
+    },
+    {
+      "type": "page",
+      "name": "Query Builder",
+      "description": "Build GraphQL queries visually - select fields, add filters, and generate TypeScript types",
+      "apiId": "query-builder-page",
+      "src": "/query-builder"
     },
     {
       "type": "formSidebar",

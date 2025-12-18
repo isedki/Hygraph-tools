@@ -1,0 +1,2972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query Builder</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-card: #f8fafc;
+      --bg-hover: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --purple: #7c3aed;
+      --purple-soft: rgba(124, 58, 237, 0.1);
+      --blue: #3b82f6;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+    
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--bg-card); position: sticky; top: 0; z-index: 100; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-icon { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #06b6d4, #3b82f6); display: flex; align-items: center; justify-content: center; }
+    .header-icon svg { width: 20px; height: 20px; color: white; }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header p { font-size: 12px; color: var(--text-muted); }
+    
+    select, input { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; }
+    select:focus, input:focus { outline: none; border-color: var(--purple); }
+    
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; font-size: 13px; transition: all 0.2s; }
+    .btn-primary { background: var(--purple); color: white; }
+    .btn-primary:hover { background: #9333ea; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--purple); }
+    
+    .main { display: grid; grid-template-columns: 250px 280px 1fr; height: calc(100vh - 115px); }
+    .panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    .panel:last-child { border-right: none; }
+    .panel-header { padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; }
+    .panel-header h3 { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .panel-content { padding: 12px; overflow-y: auto; flex: 1; }
+    
+    /* Field Tree */
+    .field-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin: 2px 0; }
+    .field-item:hover { background: var(--bg-hover); }
+    .field-item.selected { background: var(--purple-soft); }
+    .field-item input[type="checkbox"] { accent-color: var(--purple); }
+    .field-name { flex: 1; font-size: 13px; }
+    .field-type { font-size: 11px; color: var(--text-muted); }
+    .field-type.relation { color: var(--purple); }
+    .field-item.personalizable { border-left: 2px solid #f59e0b; margin-left: -2px; padding-left: 10px; }
+    .field-item.personalizable .field-name { color: #d97706; }
+    .field-item.system-field { opacity: 0.7; }
+    .field-item.system-field .field-name { color: #6b7280; }
+    .field-item.system-field .field-type { color: #9ca3af; }
+    .system-fields-separator { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px 0; padding: 0 8px; }
+    .system-fields-separator::before, .system-fields-separator::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .system-fields-separator span { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    .field-expand { width: 16px; height: 16px; color: var(--text-muted); cursor: pointer; transition: transform 0.2s; }
+    .field-expand.open { transform: rotate(90deg); }
+    .field-children { margin-left: 24px; border-left: 1px solid var(--border); padding-left: 8px; }
+    
+    /* Filters */
+    .filter-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 10px; overflow: hidden; }
+    .filter-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .filter-row:last-child { margin-bottom: 0; }
+    .filter-row select, .filter-row input { flex: 1; min-width: 0; font-size: 12px; padding: 6px 8px; box-sizing: border-box; }
+    .filter-row select optgroup { font-style: normal; font-weight: 600; color: #9ca3af; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .filter-row select optgroup option { font-weight: 400; color: #374151; text-transform: none; font-size: 12px; }
+    .filter-operator { flex: 0 0 90px !important; }
+    .filter-value { flex: 1 1 auto !important; }
+    .filter-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; font-size: 16px; flex-shrink: 0; }
+    .filter-remove:hover { color: var(--red); }
+    
+    .add-filter { display: flex; align-items: center; gap: 6px; color: var(--purple); font-size: 12px; cursor: pointer; padding: 8px; border-radius: 6px; }
+    .add-filter:hover { background: var(--purple-soft); }
+    
+    /* Options */
+    .option-group { margin-bottom: 16px; }
+    .option-group > label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+    .option-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .option-row:last-child { margin-bottom: 0; }
+    .option-row > div { flex: 1; min-width: 0; overflow: hidden; }
+    .option-row > div > label { font-size: 10px !important; color: var(--text-muted); display: block; margin-bottom: 3px; text-transform: none; font-weight: 400; }
+    .option-row > div > input, .option-row > div > select { width: 100%; box-sizing: border-box; }
+    select, input { padding: 8px 10px; font-size: 12px; border-radius: 6px; box-sizing: border-box; }
+    
+    .toggle-group { display: flex; gap: 0; }
+    .toggle-btn { padding: 8px 16px; border-radius: 0; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); cursor: pointer; font-size: 12px; font-weight: 500; margin-left: -1px; }
+    .toggle-btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+    .toggle-btn:last-child { border-radius: 0 6px 6px 0; }
+    .toggle-btn.active { background: var(--purple-soft); border-color: var(--purple); color: var(--purple); z-index: 1; position: relative; }
+    
+    /* Output */
+    .output-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; }
+    .output-tab { padding: 12px 16px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
+    .output-tab:hover { color: var(--text); }
+    .output-tab.active { color: var(--purple); border-color: var(--purple); }
+    
+    .output-content { padding: 16px; overflow-y: auto; flex: 1; }
+    .code-block { background: #1e293b; border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; color: #e2e8f0; text-align: left; margin-top: 0; }
+    
+    .output-actions { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: var(--bg-card); flex-shrink: 0; }
+    
+    /* Preview data */
+    .preview-empty { text-align: center; padding: 40px; color: var(--text-muted); }
+    .preview-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; color: #dc2626; text-align: left; }
+    .preview-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .preview-count { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .preview-copy-json { padding: 8px 16px; font-size: 12px; font-weight: 500; }
+    .preview-table-container { overflow-x: auto; background: #fff; border-top: 1px solid #e5e7eb; }
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .preview-table th { text-align: left; padding: 14px 24px; background: #fff; border-bottom: 1px solid #e5e7eb; font-weight: 400; font-size: 13px; color: #6b7280; white-space: nowrap; }
+    .preview-table td { padding: 16px 24px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #111827; font-weight: 500; }
+    .preview-table tbody tr:hover td { background: #f9fafb; }
+    .cell-id { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: #6b7280; font-weight: 400; }
+    .cell-null { color: #9ca3af; font-size: 13px; }
+    .cell-array { color: #6b7280; font-size: 13px; font-weight: 400; }
+    .cell-richtext { color: #6b7280; font-size: 13px; }
+    .cell-json { color: #6b7280; font-size: 13px; font-family: monospace; }
+    .cell-link { color: var(--purple); text-decoration: none; font-size: 13px; }
+    .cell-link:hover { text-decoration: underline; }
+    .cell-bool { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; border: 1px solid; }
+    .cell-bool.true { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+    .cell-bool.false { background: #fef3c7; color: #d97706; border-color: #fcd34d; }
+    .cell-date { color: #374151; font-size: 13px; font-weight: 400; }
+    .cell-stage { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; border: 1px solid; }
+    .cell-stage.published { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+    .cell-stage.draft { background: #fef3c7; color: #d97706; border-color: #fcd34d; }
+    .cell-user { display: inline-flex; align-items: center; justify-content: center; }
+    .cell-user-avatar { width: 28px; height: 28px; padding: 4px; background: #f3f4f6; border-radius: 50%; color: #9ca3af; }
+    .preview-loading { text-align: center; padding: 40px; color: var(--text-muted); }
+    
+    /* Mode Tabs */
+    .mode-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg); padding: 0 24px; }
+    .mode-tab { padding: 12px 20px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; }
+    .mode-tab:hover { color: var(--text); }
+    .mode-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+    
+    /* Global Search */
+    .search-content { height: calc(100vh - 115px); overflow: hidden; }
+    .search-container { display: grid; grid-template-columns: 320px 1fr; height: 100%; }
+    .search-form { padding: 20px; border-right: 1px solid var(--border); overflow-y: auto; background: var(--bg); }
+    .search-section { margin-bottom: 20px; }
+    .search-section > label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+    .search-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; margin-top: -4px; }
+    .search-row { display: flex; gap: 8px; align-items: center; }
+    .search-row select, .search-row input { font-size: 13px; padding: 8px 10px; }
+    .search-row select { min-width: 90px; }
+    .search-input { flex: 1; font-size: 14px !important; padding: 10px 12px !important; }
+    .quick-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+    .quick-filter-btn { padding: 6px 12px; font-size: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; cursor: pointer; color: var(--text); transition: all 0.2s; }
+    .quick-filter-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .quick-filter-btn.active { background: var(--purple-soft); border-color: var(--purple); color: var(--purple); }
+    
+    .search-results { padding: 20px; overflow-y: auto; background: #fafafa; }
+    .search-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); text-align: center; }
+    .search-empty svg { opacity: 0.3; margin-bottom: 16px; }
+    .search-empty p { font-size: 14px; max-width: 300px; }
+    .search-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px; color: var(--text-muted); }
+    .search-loading p { margin-top: 12px; font-size: 13px; }
+    
+    /* Search Results */
+    .search-results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .search-results-count { font-size: 14px; color: var(--text-muted); }
+    .search-results-actions { display: flex; gap: 8px; }
+    .search-results-actions .btn { padding: 6px 12px; font-size: 12px; }
+    
+    /* Query Panel */
+    .search-query-panel { background: #1e293b; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .search-query-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; cursor: pointer; }
+    .search-query-header span { font-size: 12px; color: #94a3b8; font-weight: 500; }
+    .search-query-header svg { color: #94a3b8; transition: transform 0.2s; }
+    .search-query-panel.collapsed .search-query-header svg { transform: rotate(-90deg); }
+    .search-query-panel.collapsed .search-query-code { display: none; }
+    .search-query-code { padding: 0 16px 16px; }
+    .search-query-code pre { margin: 0; font-size: 11px; line-height: 1.5; color: #e2e8f0; white-space: pre-wrap; font-family: ui-monospace, monospace; }
+    .search-model-group { background: #fff; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .search-model-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(to bottom, #f8fafc, #f1f5f9); border-bottom: 1px solid var(--border); cursor: pointer; }
+    .search-model-header:hover { background: #f1f5f9; }
+    .search-model-name { font-weight: 600; font-size: 14px; color: var(--text); }
+    .search-model-count { font-size: 12px; color: var(--text-muted); background: var(--bg); padding: 2px 8px; border-radius: 10px; }
+    .search-model-toggle { color: var(--text-muted); transition: transform 0.2s; }
+    .search-model-group.collapsed .search-model-toggle { transform: rotate(-90deg); }
+    .search-model-group.collapsed .search-model-body { display: none; }
+    .search-model-body { padding: 0; }
+    .search-model-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .search-model-table th { text-align: left; padding: 10px 16px; font-weight: 500; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    .search-model-table td { padding: 10px 16px; border-bottom: 1px solid #f3f4f6; }
+    .search-model-table tr:last-child td { border-bottom: none; }
+    .search-model-table tr:hover td { background: #f9fafb; }
+    
+    /* Connect form */
+    .connect-form { max-width: 400px; margin: 60px auto; padding: 32px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .connect-form h2 { margin-bottom: 8px; color: var(--text); }
+    .connect-form > p { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--text); font-weight: 500; }
+    .form-group input { width: 100%; background: var(--bg); color: var(--text); }
+    
+    /* Empty state */
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 40px; text-align: center; }
+    .empty-state svg { width: 64px; height: 64px; color: var(--text-muted); opacity: 0.3; margin-bottom: 16px; }
+    .empty-state h2 { font-size: 18px; margin-bottom: 8px; }
+    .empty-state p { color: var(--text-muted); font-size: 14px; }
+    
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--purple); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading p { color: var(--text-muted); }
+    
+    .copy-btn { display: block; margin-left: auto; margin-bottom: 8px; padding: 6px 16px; font-size: 12px; background: var(--purple); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+    .copy-btn:hover { background: #9333ea; }
+    .code-wrapper { margin-bottom: 8px; }
+    
+    /* Cell types */
+    .cell-id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-muted); }
+    .cell-bool { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .cell-bool.true { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
+    .cell-bool.false { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+    .cell-date { font-size: 12px; color: var(--text-muted); }
+    .cell-enum { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--purple-soft); color: var(--purple); }
+    .cell-null { color: var(--text-muted); font-style: italic; font-size: 11px; }
+    .cell-json { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    
+    /* Query Health Flag */
+    .query-health-flag { margin-left: auto; padding: 8px 12px; font-size: 16px; cursor: pointer; transition: all 0.2s; }
+    .query-health-flag.green { color: #22c55e; }
+    .query-health-flag.orange { color: #f59e0b; }
+    .query-health-flag.red { color: #ef4444; animation: pulse-red 1.5s infinite; }
+    @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    /* Assessment Panel */
+    .assessment-panel { border-top: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; max-height: 200px; overflow: hidden; transition: max-height 0.3s; }
+    .assessment-panel.collapsed { max-height: 40px; }
+    .assessment-panel.collapsed .assessment-content { display: none; }
+    .assessment-panel.collapsed .assessment-chevron { transform: rotate(-90deg); }
+    .assessment-header { display: flex; align-items: center; gap: 8px; padding: 10px 16px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .assessment-header:hover { background: var(--bg-hover); }
+    .assessment-badge { background: var(--text-muted); color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+    .assessment-badge.has-critical { background: #ef4444; }
+    .assessment-badge.has-warning { background: #f59e0b; }
+    .assessment-badge.has-tips { background: #3b82f6; }
+    .assessment-chevron { margin-left: auto; transition: transform 0.2s; }
+    .assessment-content { padding: 0 16px 12px; overflow-y: auto; max-height: 150px; }
+    .assessment-item { padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; }
+    .assessment-item:last-child { margin-bottom: 0; }
+    .assessment-item.critical { background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; }
+    .assessment-item.warning { background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; }
+    .assessment-item.tip { background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; }
+    .assessment-item .title { font-weight: 600; margin-bottom: 2px; }
+    .assessment-item.critical .title { color: #dc2626; }
+    .assessment-item.warning .title { color: #d97706; }
+    .assessment-item.tip .title { color: #2563eb; }
+    .assessment-item .desc { color: var(--text-muted); font-size: 11px; }
+    .assessment-empty { color: var(--text-muted); font-size: 12px; padding: 8px 0; }
+    .assessment-empty.good { color: #16a34a; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="loading-view" class="loading">
+      <div style="text-align: center;">
+        <div class="spinner"></div>
+        <p style="color: var(--text-muted); margin-top: 16px; font-size: 13px;">Loading...</p>
+      </div>
+    </div>
+    
+    <div id="connect-view" class="connect-form" style="display: none;">
+      <h2>Connect to Hygraph</h2>
+      <p>Enter your Hygraph Content API endpoint and a Permanent Auth Token to start building queries.</p>
+      <div class="form-group">
+        <label>API Endpoint</label>
+        <input type="text" id="endpoint-input" placeholder="Paste your Hygraph API endpoint...">
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+          Paste your <strong>CDN</strong> or <strong>Content API</strong> endpoint
+        </p>
+      </div>
+      <div class="form-group">
+        <label>Permanent Auth Token</label>
+        <input type="password" id="token-input" placeholder="eyJ...">
+      </div>
+      <button class="btn btn-primary" style="width: 100%;" id="connect-btn">Connect</button>
+      <p id="connect-error" style="color: #f87171; font-size: 12px; margin-top: 12px;"></p>
+    </div>
+    
+    <div id="main-view" style="display: none;">
+      <header class="header">
+        <div class="header-left">
+          <div class="header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Query Builder</h1>
+            <p>Build GraphQL queries visually</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <select id="model-select" style="min-width: 200px;">
+            <option value="">Select a model...</option>
+          </select>
+          <button class="btn btn-secondary" id="disconnect-btn" style="font-size: 12px; padding: 8px 12px;">Change Token</button>
+        </div>
+      </header>
+      
+      <!-- Mode Tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="builder">Build Query</button>
+        <button class="mode-tab" data-mode="search">Global Search</button>
+      </div>
+      
+      <!-- Global Search Content -->
+      <div id="search-content" class="search-content" style="display: none;">
+        <div class="search-container">
+          <!-- Search Form -->
+          <div class="search-form">
+            <div class="search-section">
+              <label>Text / ID Search</label>
+              <input type="text" id="global-search-input" placeholder="Search text or entry ID..." class="search-input" style="width: 100%;">
+            </div>
+            
+            <div class="search-section">
+              <label>Time Range</label>
+              <div class="quick-filters">
+                <button class="quick-filter-btn" data-filter="last7">Last 7 days</button>
+                <button class="quick-filter-btn" data-filter="last30">Last 30 days</button>
+                <button class="quick-filter-btn" data-filter="all">All time</button>
+              </div>
+            </div>
+            
+            <div class="search-section">
+              <label>Date Filter</label>
+              <div class="search-row" style="flex-wrap: wrap;">
+                <select id="date-field-select" style="flex: 1; min-width: 80px;">
+                  <option value="">No date filter</option>
+                  <option value="createdAt">Created</option>
+                  <option value="updatedAt">Updated</option>
+                </select>
+                <select id="date-operator-select" style="flex: 1; min-width: 70px;">
+                  <option value="_gte">After</option>
+                  <option value="_lte">Before</option>
+                </select>
+                <input type="date" id="date-value-input" style="flex: 1; min-width: 120px;">
+              </div>
+            </div>
+            
+            <div class="search-section">
+              <label>Enum Filter</label>
+              <div class="search-row" style="flex-wrap: wrap;">
+                <select id="enum-select" style="flex: 1; min-width: 100px;">
+                  <option value="">No enum filter</option>
+                </select>
+                <select id="enum-value-select" style="flex: 1; min-width: 100px;">
+                  <option value="">Select value...</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="search-section">
+              <label>Component Usage</label>
+              <select id="component-select" style="width: 100%;">
+                <option value="">No component filter</option>
+              </select>
+              <p class="search-hint" id="component-hint" style="margin-top: 4px;"></p>
+            </div>
+            
+            <div class="search-section">
+              <label>References</label>
+              <input type="text" id="reference-id-input" placeholder="Find entries linking to ID..." style="width: 100%;">
+            </div>
+            
+            <!-- Single Search Button -->
+            <button class="btn btn-primary" id="unified-search-btn" style="width: 100%; padding: 12px; font-size: 14px; margin-top: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
+              Search
+            </button>
+            
+            <button class="btn btn-secondary" id="clear-search-btn" style="width: 100%; padding: 8px; font-size: 12px; margin-top: 8px;">
+              Clear All Filters
+            </button>
+          </div>
+          
+          <!-- Results Area -->
+          <div class="search-results" id="search-results">
+            <div class="search-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
+              <p>Configure filters and click Search to find content across all models</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="main-content" class="main" style="display: none;">
+        <!-- Left Panel - Fields -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Select Fields</h3>
+          </div>
+          <div class="panel-content" id="fields-panel">
+            <!-- Fields will be rendered here -->
+          </div>
+        </div>
+        
+        <!-- Middle Panel - Filters & Options -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Filters & Options</h3>
+          </div>
+          <div class="panel-content">
+            <!-- Stage -->
+            <div class="option-group">
+              <label>Stage</label>
+              <div class="toggle-group">
+                <button class="toggle-btn active" data-stage="PUBLISHED">Published</button>
+                <button class="toggle-btn" data-stage="DRAFT">Draft</button>
+              </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="option-group">
+              <label>Filters</label>
+              <div id="filters-container"></div>
+              <div class="add-filter" id="add-filter-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Add Filter
+              </div>
+            </div>
+            
+            <!-- Order By -->
+            <div class="option-group">
+              <label>Order By</label>
+              <div class="option-row">
+                <select id="orderby-field">
+                  <option value="">None</option>
+                </select>
+                <select id="orderby-dir">
+                  <option value="DESC">DESC</option>
+                  <option value="ASC">ASC</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="option-group">
+              <label>Pagination</label>
+              <div class="option-row">
+                <div>
+                  <label>First (limit)</label>
+                  <input type="number" id="first-input" value="10" min="0">
+                </div>
+                <div>
+                  <label>Skip (offset)</label>
+                  <input type="number" id="skip-input" value="0" min="0">
+                </div>
+              </div>
+              <div class="option-row">
+                <div>
+                  <label>Last (backwards)</label>
+                  <input type="number" id="last-input" value="0" min="0" placeholder="0">
+                </div>
+                <div></div>
+              </div>
+              <div class="option-row">
+                <div>
+                  <label>After (cursor)</label>
+                  <input type="text" id="after-input" placeholder="cursor ID">
+                </div>
+                <div>
+                  <label>Before (cursor)</label>
+                  <input type="text" id="before-input" placeholder="cursor ID">
+                </div>
+              </div>
+            </div>
+            
+            <!-- Locales -->
+            <div class="option-group">
+              <label>Locales</label>
+              <select id="locales-select" multiple style="width: 100%; height: 70px; font-size: 13px; padding: 6px;">
+                <!-- Populated dynamically -->
+              </select>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Ctrl/Cmd+click for multiple</div>
+            </div>
+            
+            <!-- Variants/Segments -->
+            <div class="option-group">
+              <label>Variants (Personalization)</label>
+              <div style="margin-bottom: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                  <input type="checkbox" id="include-variants-checkbox" style="accent-color: var(--purple); width: 16px; height: 16px;">
+                  Include variants field
+                </label>
+              </div>
+              <input type="text" id="variants-segment-input" placeholder="Segment name (optional filter)" style="width: 100%;">
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+                Filter variants by segment name. Leave empty for all.
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Panel - Output -->
+        <div class="panel" style="display: flex; flex-direction: column;">
+          <div class="output-tabs">
+            <div class="output-tab active" data-tab="query">Query</div>
+            <div class="output-tab" data-tab="variables">Variables</div>
+            <div class="output-tab" data-tab="types">TypeScript</div>
+            <div class="output-tab" data-tab="preview">Preview</div>
+            <div class="query-health-flag green" id="query-health-flag" title="Query Health - Click for details">●</div>
+          </div>
+          <div class="output-content" style="flex: 1; overflow-y: auto;">
+            <div id="tab-query" class="code-wrapper">
+              <button class="copy-btn" data-copy="query">Copy</button>
+              <pre class="code-block" id="query-output"></pre>
+            </div>
+            <div id="tab-variables" style="display: none;" class="code-wrapper">
+              <button class="copy-btn" data-copy="variables">Copy</button>
+              <pre class="code-block" id="variables-output"></pre>
+            </div>
+            <div id="tab-types" style="display: none;" class="code-wrapper">
+              <button class="copy-btn" data-copy="types">Copy</button>
+              <pre class="code-block" id="types-output"></pre>
+            </div>
+            <div id="tab-preview" style="display: none;">
+              <div id="preview-content" class="preview-empty">Click "Run Query" to see results</div>
+            </div>
+          </div>
+          <div class="output-actions">
+            <button class="btn btn-primary" id="run-btn" style="flex: 1;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              Run Query
+            </button>
+          </div>
+          <!-- Query Assessment Panel -->
+          <div class="assessment-panel" id="assessment-panel">
+            <div class="assessment-header" id="toggle-assessment">
+              <span>Query Assessment</span>
+              <span class="assessment-badge" id="assessment-badge">0</span>
+              <svg class="assessment-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="assessment-content" id="assessment-content">
+              <!-- Assessment items rendered here -->
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="empty-state" class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+        </svg>
+        <h2>Select a Model</h2>
+        <p>Choose a content model from the dropdown above to start building your GraphQL query.</p>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
+import "https://unpkg.com/@hygraph/app-sdk";
+
+const sdk = window["@hygraph/app-sdk"];
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+// Storage
+const PAT_KEY = 'hygraph_tools_pat';
+const ENDPOINT_KEY = 'hygraph_tools_endpoint';
+const getToken = () => { try { return localStorage.getItem(PAT_KEY); } catch { return null; } };
+const getEndpoint = () => { try { return localStorage.getItem(ENDPOINT_KEY); } catch { return null; } };
+const saveCredentials = (ep, tk) => { try { localStorage.setItem(PAT_KEY, tk); localStorage.setItem(ENDPOINT_KEY, ep); } catch {} };
+const clearCredentials = () => { try { localStorage.removeItem(PAT_KEY); localStorage.removeItem(ENDPOINT_KEY); } catch {} };
+
+// State
+let endpoint = null, originalEndpoint = null, token = null;
+let schema = { models: [], components: [], enums: [] };
+let selectedModel = null;
+let selectedFields = {};
+let filters = [];
+let options = { stage: 'PUBLISHED', orderBy: '', orderDir: 'DESC', first: 10, skip: 0, last: 0, after: '', before: '', locales: [], variantsSegment: '', includeVariants: false };
+let availableLocales = [];
+let activeTab = 'query';
+let previewData = null;
+let previewError = null;
+
+// System type filters
+const SYSTEM_TYPES = new Set(['Asset','User','ScheduledOperation','ScheduledRelease','String','Int','Float','Boolean','ID','DateTime','Date','Json','Long','Hex','Node']);
+const isSystemType = (name) => {
+  if (name.startsWith('_') || name.startsWith('__')) return true;
+  if (SYSTEM_TYPES.has(name)) return true;
+  if (name.endsWith('Connection') || name.endsWith('Edge') || name.endsWith('Aggregate')) return true;
+  if (name.endsWith('WhereInput') || name.endsWith('OrderByInput') || name.endsWith('CreateInput')) return true;
+  return false;
+};
+
+// Views
+const showView = (view) => {
+  $('#loading-view').style.display = view === 'loading' ? 'flex' : 'none';
+  $('#connect-view').style.display = view === 'connect' ? 'block' : 'none';
+  $('#main-view').style.display = view === 'main' ? 'block' : 'none';
+};
+
+// Fetch schema - uses same query as working page.html
+async function fetchSchema() {
+  // Use the EXACT same query format as page.html which works
+  const q = `query{__schema{types{name kind fields(includeDeprecated:false){name type{name kind ofType{name kind ofType{name kind ofType{name kind}}}}}enumValues{name}}queryType{name}}}`;
+  
+  console.log('Trying introspection on:', endpoint);
+  const res = await fetch(endpoint, { 
+    method: 'POST', 
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, 
+    body: JSON.stringify({ query: q }) 
+  });
+  const r = await res.json();
+  if (r.errors) {
+    console.log('Introspection error:', r.errors[0].message);
+    throw new Error(r.errors[0].message);
+  }
+  if (!r.data?.__schema) {
+    throw new Error('No schema data returned');
+  }
+  console.log('Introspection succeeded');
+  return r.data.__schema;
+}
+
+// Parse schema - matches page.html approach
+function parseSchema(intro) {
+  // Get query type fields from the types array (like page.html does)
+  const queryTypeName = intro.queryType?.name || 'Query';
+  const queryType = intro.types.find(t => t.name === queryTypeName);
+  const queryTypeFields = queryType?.fields || [];
+  
+  const queryFields = new Set(queryTypeFields.map(f => f.name.toLowerCase()));
+  const pluralMap = new Map();
+  
+  // Helper to unwrap type and get the base type name
+  const unwrapType = (type) => {
+    let cur = type;
+    while (cur) {
+      if (cur.name) return cur.name;
+      cur = cur.ofType;
+    }
+    return null;
+  };
+  
+  // Build plural API ID map - map model name to query field name
+  for (const f of queryTypeFields) {
+    if (!f.type) continue;
+    const typeName = unwrapType(f.type);
+    // Check if it's a list type (plural query) - look for LIST anywhere in the chain
+    let cur = f.type, isList = false;
+    while (cur) {
+      if (cur.kind === 'LIST') { isList = true; break; }
+      cur = cur.ofType;
+    }
+    if (typeName && isList) {
+      pluralMap.set(typeName, f.name);
+    }
+  }
+  
+  // Extract available locales from Locale enum
+  const localeEnum = intro.types.find(t => t.name === 'Locale' && t.kind === 'ENUM');
+  if (localeEnum && localeEnum.enumValues) {
+    availableLocales = localeEnum.enumValues.map(v => v.name);
+    renderLocalesDropdown();
+  }
+  
+  schema = { models: [], components: [], enums: [], variantTypes: new Set() };
+  
+  for (const t of intro.types) {
+    if (isSystemType(t.name)) continue;
+    
+    if (t.kind === 'ENUM' && t.enumValues && !t.name.startsWith('_')) {
+      schema.enums.push({ name: t.name, values: t.enumValues.map(v => v.name) });
+    }
+    
+    if (t.kind === 'OBJECT' && t.fields) {
+      // System fields to exclude from display
+      const excludeFields = ['__typename', 'documentInStages', 'history', 'scheduledIn', 'stage'];
+      // System fields that are useful to include (but not stage - we show it from query options)
+      const systemFields = ['createdAt', 'updatedAt', 'publishedAt', 'createdBy', 'updatedBy', 'publishedBy'];
+      
+      const fields = t.fields.filter(f => !excludeFields.includes(f.name))
+        .map(f => {
+          let tn = '', isList = false, cur = f.type;
+          while (cur) {
+            if (cur.kind === 'NON_NULL') cur = cur.ofType;
+            else if (cur.kind === 'LIST') { isList = true; cur = cur.ofType; }
+            else { tn = cur.name || ''; break; }
+          }
+          const isSystem = systemFields.includes(f.name);
+          return { name: f.name, type: tn, isList, isRelation: !['String','Int','Float','Boolean','ID','DateTime','Date','Json','Stage'].includes(tn), isSystem };
+        });
+      
+      if (fields.length === 0) continue;
+      
+      // Track Variant types (components ending with 'Variant')
+      if (t.name.endsWith('Variant')) {
+        schema.variantTypes.add(t.name);
+      }
+      
+      const plural = pluralMap.get(t.name) || (t.name.charAt(0).toLowerCase() + t.name.slice(1) + 's');
+      const hasQuery = queryFields.has(t.name.toLowerCase()) || queryFields.has(plural.toLowerCase());
+      
+      if (hasQuery) {
+        schema.models.push({ name: t.name, pluralApiId: plural, fields });
+      } else {
+        schema.components.push({ name: t.name, fields });
+      }
+    }
+  }
+  
+  // Mark personalizable fields (fields whose type ends with 'Variant')
+  for (const model of schema.models) {
+    for (const field of model.fields) {
+      field.isPersonalizable = schema.variantTypes.has(field.type);
+    }
+  }
+  
+  console.log('Parsed schema:', schema.models.length, 'models,', schema.components.length, 'components,', schema.enums.length, 'enums,', schema.variantTypes.size, 'variant types');
+}
+
+// Render model select
+function renderModelSelect() {
+  const select = $('#model-select');
+  select.innerHTML = '<option value="">Select a model...</option>' + 
+    schema.models.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+}
+
+// Render locales dropdown
+function renderLocalesDropdown() {
+  const select = $('#locales-select');
+  if (availableLocales.length === 0) {
+    select.innerHTML = '<option value="">No locales found</option>';
+    return;
+  }
+  select.innerHTML = availableLocales.map(l => `<option value="${l}">${l}</option>`).join('');
+}
+
+// Render fields
+function renderFields() {
+  const panel = $('#fields-panel');
+  if (!selectedModel) {
+    panel.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Select a model first</p>';
+    return;
+  }
+  
+  const renderField = (field, path = []) => {
+    const fullPath = [...path, field.name].join('.');
+    const isSelected = getNestedValue(selectedFields, [...path, field.name]);
+    const relatedModel = field.isRelation ? (schema.models.find(m => m.name === field.type) || schema.components.find(c => c.name === field.type)) : null;
+    
+    let html = `<div class="field-item ${isSelected ? 'selected' : ''} ${field.isPersonalizable ? 'personalizable' : ''} ${field.isSystem ? 'system-field' : ''}" data-path="${fullPath}" data-personalizable="${field.isPersonalizable || false}">`;
+    
+    if (relatedModel) {
+      html += `<svg class="field-expand ${isSelected ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>`;
+    } else {
+      html += '<div style="width: 16px;"></div>';
+    }
+    
+    html += `<input type="checkbox" ${isSelected ? 'checked' : ''}>`;
+    html += `<span class="field-name">${field.name}${field.isPersonalizable ? ' <span title="Personalizable field" style="cursor:help;">🎯</span>' : ''}</span>`;
+    html += `<span class="field-type ${field.isRelation ? 'relation' : ''}">${field.isList ? '[' + field.type + ']' : field.type}</span>`;
+    html += '</div>';
+    
+    if (relatedModel && isSelected) {
+      html += '<div class="field-children">';
+      for (const f of relatedModel.fields.slice(0, 15)) {
+        html += renderField(f, [...path, field.name]);
+      }
+      html += '</div>';
+    }
+    
+    return html;
+  };
+  
+  // Sort fields: regular fields first, then system fields
+  const regularFields = selectedModel.fields.filter(f => !f.isSystem && f.name !== 'id');
+  const systemFields = selectedModel.fields.filter(f => f.isSystem);
+  const idField = selectedModel.fields.find(f => f.name === 'id');
+  
+  let html = '';
+  
+  // ID field first
+  if (idField) html += renderField(idField);
+  
+  // Regular fields
+  html += regularFields.map(f => renderField(f)).join('');
+  
+  // System fields with separator
+  if (systemFields.length > 0) {
+    html += '<div class="system-fields-separator"><span>System Fields</span></div>';
+    html += systemFields.map(f => renderField(f)).join('');
+  }
+  
+  panel.innerHTML = html;
+  
+  // Bind events
+  $$('.field-item').forEach(el => {
+    el.onclick = (e) => {
+      if (e.target.classList.contains('field-expand')) return;
+      const path = el.dataset.path.split('.');
+      const fieldName = path[path.length - 1];
+      
+      // Find field info to pass for relation handling
+      let fieldInfo = selectedModel.fields.find(f => f.name === fieldName);
+      if (!fieldInfo && path.length > 1) {
+        // It's a nested field, find parent model
+        const parentName = path[path.length - 2];
+        const parentField = selectedModel.fields.find(f => f.name === parentName);
+        if (parentField) {
+          const parentModel = schema.models.find(m => m.name === parentField.type) || 
+                             schema.components.find(c => c.name === parentField.type);
+          if (parentModel) {
+            fieldInfo = parentModel.fields.find(f => f.name === fieldName);
+          }
+        }
+      }
+      
+      toggleField(path, fieldInfo);
+    };
+  });
+}
+
+// Get/Set nested value
+function getNestedValue(obj, path) {
+  let cur = obj;
+  for (const key of path) {
+    if (!cur || typeof cur !== 'object') return false;
+    cur = cur[key];
+  }
+  return !!cur;
+}
+
+function setNestedValue(obj, path, value) {
+  let cur = obj;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!cur[path[i]] || typeof cur[path[i]] !== 'object') {
+      cur[path[i]] = {};
+    }
+    cur = cur[path[i]];
+  }
+  cur[path[path.length - 1]] = value;
+}
+
+function toggleField(path, fieldInfo = null) {
+  const current = getNestedValue(selectedFields, path);
+  
+  // If selecting a relation field, add default subfields
+  if (!current && fieldInfo && fieldInfo.isRelation) {
+    const defaultSubs = getDefaultSubfields(fieldInfo.type);
+    setNestedValue(selectedFields, path, defaultSubs);
+  } else {
+    setNestedValue(selectedFields, path, !current);
+  }
+  
+  // Auto-run preview on field toggle
+  autoRunPreview();
+  
+  renderFields();
+  updateOutput();
+}
+
+// Render orderby options
+function renderOrderByOptions() {
+  const select = $('#orderby-field');
+  if (!selectedModel) {
+    select.innerHTML = '<option value="">None</option>';
+    return;
+  }
+  
+  const sortableFields = selectedModel.fields.filter(f => 
+    ['String', 'Int', 'Float', 'DateTime', 'Date', 'Boolean'].includes(f.type)
+  );
+  
+  select.innerHTML = '<option value="">None</option>' + 
+    sortableFields.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+}
+
+// Filters
+function addFilter() {
+  if (!selectedModel) return;
+  const filterableFields = selectedModel.fields.filter(f => !f.isRelation);
+  if (filterableFields.length === 0) return;
+  
+  filters.push({
+    id: Date.now(),
+    field: filterableFields[0].name,
+    operator: '',
+    value: ''
+  });
+  renderFilters();
+  updateOutput();
+}
+
+function removeFilter(id) {
+  filters = filters.filter(f => f.id !== id);
+  renderFilters();
+  updateOutput();
+}
+
+function updateFilter(id, key, value) {
+  const filter = filters.find(f => f.id === id);
+  if (filter) {
+    filter[key] = value;
+    if (key === 'field') {
+      filter.operator = '';
+      filter.value = '';
+      renderFilters();
+    }
+    updateOutput();
+  }
+}
+
+function getOperators(fieldType, isEnum = false) {
+  // Check if it's an enum type
+  if (isEnum || schema.enums.some(e => e.name === fieldType)) {
+    return [
+      { value: '', label: 'equals' },
+      { value: '_not', label: 'not equals' },
+      { value: '_in', label: 'in list' },
+      { value: '_not_in', label: 'not in list' },
+    ];
+  }
+  
+  switch (fieldType) {
+    case 'String':
+    case 'ID':
+      return [
+        { value: '', label: 'equals' },
+        { value: '_not', label: 'not equals' },
+        { value: '_contains', label: 'contains' },
+        { value: '_not_contains', label: 'not contains' },
+        { value: '_starts_with', label: 'starts with' },
+        { value: '_not_starts_with', label: 'not starts with' },
+        { value: '_ends_with', label: 'ends with' },
+        { value: '_not_ends_with', label: 'not ends with' },
+        { value: '_in', label: 'in list (comma-sep)' },
+        { value: '_not_in', label: 'not in list' },
+      ];
+    case 'Int':
+    case 'Float':
+      return [
+        { value: '', label: 'equals' },
+        { value: '_not', label: 'not equals' },
+        { value: '_gt', label: 'greater than (>)' },
+        { value: '_gte', label: 'greater or equal (>=)' },
+        { value: '_lt', label: 'less than (<)' },
+        { value: '_lte', label: 'less or equal (<=)' },
+        { value: '_in', label: 'in list (comma-sep)' },
+        { value: '_not_in', label: 'not in list' },
+      ];
+    case 'Boolean':
+      return [
+        { value: '', label: 'equals' },
+        { value: '_not', label: 'not equals' },
+      ];
+    case 'DateTime':
+    case 'Date':
+      return [
+        { value: '', label: 'equals' },
+        { value: '_not', label: 'not equals' },
+        { value: '_gt', label: 'after' },
+        { value: '_gte', label: 'on or after' },
+        { value: '_lt', label: 'before' },
+        { value: '_lte', label: 'on or before' },
+        { value: '_in', label: 'in list (comma-sep)' },
+        { value: '_not_in', label: 'not in list' },
+      ];
+    default:
+      return [
+        { value: '', label: 'equals' },
+        { value: '_not', label: 'not equals' },
+        { value: '_in', label: 'in list' },
+      ];
+  }
+}
+
+// Get default subfields for relation types (Asset, RichText, etc.)
+function getDefaultSubfields(typeName) {
+  if (typeName === 'Asset') {
+    return { id: true, url: true, fileName: true, width: true, height: true };
+  }
+  if (typeName === 'RichText') {
+    return { raw: true };
+  }
+  // For other relations, just get id
+  return { id: true };
+}
+
+function renderFilters() {
+  const container = $('#filters-container');
+  if (!selectedModel) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  // Split into regular and system fields for grouping
+  const regularFields = selectedModel.fields.filter(f => !f.isRelation && !f.isSystem);
+  const systemFilterFields = selectedModel.fields.filter(f => !f.isRelation && f.isSystem);
+  
+  container.innerHTML = filters.map(filter => {
+    const field = selectedModel.fields.find(f => f.name === filter.field);
+    const isEnum = field && schema.enums.some(e => e.name === field.type);
+    const enumType = isEnum ? schema.enums.find(e => e.name === field.type) : null;
+    const operators = field ? getOperators(field.type, isEnum) : [];
+    
+    // Determine input type based on field type
+    let valueInput;
+    if (field?.type === 'Boolean') {
+      valueInput = `<select class="filter-value">
+        <option value="">Select...</option>
+        <option value="true" ${filter.value === 'true' ? 'selected' : ''}>true</option>
+        <option value="false" ${filter.value === 'false' ? 'selected' : ''}>false</option>
+      </select>`;
+    } else if (isEnum && (filter.operator === '' || filter.operator === '_not')) {
+      // Show dropdown for single enum value selection
+      valueInput = `<select class="filter-value">
+        <option value="">Select...</option>
+        ${enumType.values.map(v => `<option value="${v}" ${filter.value === v ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>`;
+    } else if (field?.type === 'DateTime' || field?.type === 'Date') {
+      valueInput = `<input type="date" class="filter-value" value="${filter.value}">`;
+    } else if (field?.type === 'Int' || field?.type === 'Float') {
+      const placeholder = filter.operator.includes('_in') ? 'e.g., 1, 2, 3' : 'value';
+      valueInput = `<input type="${filter.operator.includes('_in') ? 'text' : 'number'}" class="filter-value" value="${filter.value}" placeholder="${placeholder}">`;
+    } else {
+      const placeholder = filter.operator.includes('_in') ? 'comma-separated values' : 'value';
+      valueInput = `<input type="text" class="filter-value" value="${filter.value}" placeholder="${placeholder}">`;
+    }
+    
+    // Build field options with optgroups
+    let fieldOptions = regularFields.map(f => `<option value="${f.name}" ${f.name === filter.field ? 'selected' : ''}>${f.name}</option>`).join('');
+    if (systemFilterFields.length > 0) {
+      fieldOptions += `<optgroup label="System">`;
+      fieldOptions += systemFilterFields.map(f => `<option value="${f.name}" ${f.name === filter.field ? 'selected' : ''}>${f.name}</option>`).join('');
+      fieldOptions += `</optgroup>`;
+    }
+    
+    return `
+      <div class="filter-card" data-id="${filter.id}">
+        <div class="filter-row">
+          <select class="filter-field">
+            ${fieldOptions}
+          </select>
+          <button class="filter-remove">×</button>
+        </div>
+        <div class="filter-row">
+          <select class="filter-operator">
+            ${operators.map(op => `<option value="${op.value}" ${op.value === filter.operator ? 'selected' : ''}>${op.label}</option>`).join('')}
+          </select>
+          ${valueInput}
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // Bind events
+  $$('.filter-card').forEach(card => {
+    const id = parseInt(card.dataset.id);
+    card.querySelector('.filter-field').onchange = (e) => updateFilter(id, 'field', e.target.value);
+    card.querySelector('.filter-operator').onchange = (e) => updateFilter(id, 'operator', e.target.value);
+    card.querySelector('.filter-value').onchange = (e) => updateFilter(id, 'value', e.target.value);
+    card.querySelector('.filter-value').oninput = (e) => updateFilter(id, 'value', e.target.value);
+    card.querySelector('.filter-remove').onclick = () => removeFilter(id);
+    
+    // Run preview on Enter key for filter inputs
+    const valueInput = card.querySelector('.filter-value');
+    if (valueInput && valueInput.tagName === 'INPUT') {
+      valueInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          autoRunPreview();
+        }
+      };
+    }
+  });
+}
+
+// Generate query
+function generateQuery() {
+  if (!selectedModel) return '';
+  
+  const hasFilters = filters.some(f => f.value);
+  const hasPagination = options.first > 0 || options.last > 0 || options.after || options.before;
+  const hasLocales = options.locales && options.locales.length > 0;
+  
+  // Build variable declarations - always include stage, optionally locales
+  const vars = [];
+  vars.push('$stage: Stage!');
+  if (hasLocales) vars.push('$locales: [Locale!]!');
+  if (hasFilters) vars.push(`$where: ${selectedModel.name}WhereInput`);
+  if (options.first > 0) vars.push('$first: Int');
+  if (options.last > 0) vars.push('$last: Int');
+  if (options.skip > 0) vars.push('$skip: Int');
+  if (options.after) vars.push('$after: String');
+  if (options.before) vars.push('$before: String');
+  const varsDecl = `(${vars.join(', ')})`;
+  
+  const args = [];
+  if (hasFilters) args.push('where: $where');
+  if (options.orderBy) args.push(`orderBy: ${options.orderBy}_${options.orderDir}`);
+  
+  // Pagination - first/skip OR last with before
+  if (options.first > 0) args.push('first: $first');
+  if (options.last > 0) args.push('last: $last');
+  if (options.skip > 0 && options.first > 0) args.push('skip: $skip');
+  if (options.after) args.push('after: $after');
+  if (options.before) args.push('before: $before');
+  
+  // Stage and Locales as variables
+  args.push('stage: $stage');
+  if (hasLocales) {
+    args.push('locales: $locales');
+  }
+  
+  const argsStr = args.length > 0 ? `(${args.join(', ')})` : '';
+  
+  const buildSelection = (fields, indent = 2) => {
+    const pad = '  '.repeat(indent);
+    const lines = [];
+    
+    for (const [key, val] of Object.entries(fields)) {
+      if (!val) continue;
+      if (typeof val === 'object') {
+        lines.push(`${pad}${key} {`);
+        lines.push(buildSelection(val, indent + 1));
+        lines.push(`${pad}}`);
+      } else {
+        lines.push(`${pad}${key}`);
+      }
+    }
+    
+    return lines.join('\n');
+  };
+  
+  let selection = buildSelection(selectedFields) || '    id';
+  
+  // Add variants field for personalizable fields if requested
+  if (options.includeVariants) {
+    const personalizableFields = selectedModel.fields.filter(f => f.isPersonalizable && selectedFields[f.name]);
+    if (personalizableFields.length > 0) {
+      const variantsFilter = options.variantsSegment.trim() 
+        ? `(where: {segments_some: {name: "${options.variantsSegment.trim()}"}})`
+        : '';
+      
+      // Build field selections for each personalizable field
+      const variantFieldSelections = personalizableFields.map(f => {
+        const variantType = schema.components.find(c => c.name === f.type);
+        if (variantType && variantType.fields) {
+          const subFields = variantType.fields.slice(0, 5).map(sf => {
+            if (sf.type === 'RichText' || sf.name.toLowerCase().includes('richtext')) {
+              return `${sf.name} { html }`;
+            }
+            return sf.name;
+          }).join('\n        ');
+          return `      ${f.name} {\n        ${subFields}\n      }`;
+        }
+        return `      ${f.name}`;
+      }).join('\n');
+      
+      selection += `\n    variants${variantsFilter} {
+      id
+      segments {
+        id
+        name
+      }
+${variantFieldSelections}
+    }`;
+    }
+  }
+  
+  return `query Get${selectedModel.name}s${varsDecl} {
+  ${selectedModel.pluralApiId}${argsStr} {
+${selection}
+  }
+}`;
+}
+
+// Generate variables
+function generateVariables() {
+  const vars = {};
+  
+  // Stage is always required
+  vars.stage = options.stage;
+  
+  // Locales if selected
+  if (options.locales && options.locales.length > 0) {
+    vars.locales = options.locales;
+  }
+  
+  if (filters.some(f => f.value)) {
+    const where = {};
+    for (const f of filters) {
+      if (!f.value) continue;
+      const field = selectedModel?.fields.find(fd => fd.name === f.field);
+      const key = f.field + f.operator;
+      
+      // Handle _in and _not_in operators (need array values)
+      if (f.operator === '_in' || f.operator === '_not_in') {
+        const values = f.value.split(',').map(v => v.trim()).filter(v => v);
+        if (field?.type === 'Int' || field?.type === 'Float') {
+          where[key] = values.map(v => Number(v));
+        } else {
+          where[key] = values;
+        }
+      } else if (field?.type === 'Int' || field?.type === 'Float') {
+        where[key] = Number(f.value);
+      } else if (field?.type === 'Boolean') {
+        where[key] = f.value === 'true';
+      } else if (field?.type === 'DateTime' || field?.type === 'Date') {
+        // Convert date to ISO8601 format for Hygraph
+        // If it's just a date (YYYY-MM-DD), add time component
+        if (/^\d{4}-\d{2}-\d{2}$/.test(f.value)) {
+          // For _lt/_lte (before), use end of day; for _gt/_gte (after), use start of day
+          if (f.operator === '_lt' || f.operator === '_lte') {
+            where[key] = f.value + 'T23:59:59.999Z';
+          } else {
+            where[key] = f.value + 'T00:00:00.000Z';
+          }
+        } else {
+          where[key] = f.value;
+        }
+      } else {
+        where[key] = f.value;
+      }
+    }
+    vars.where = where;
+  }
+  
+  // Pagination
+  if (options.first > 0) vars.first = options.first;
+  if (options.last > 0) vars.last = options.last;
+  if (options.skip > 0 && options.first > 0) vars.skip = options.skip;
+  if (options.after) vars.after = options.after;
+  if (options.before) vars.before = options.before;
+  
+  return vars;
+}
+
+// Generate TypeScript types
+function generateTypes() {
+  if (!selectedModel) return '';
+  
+  const buildInterface = (name, fields, indent = 0) => {
+    const pad = '  '.repeat(indent);
+    const lines = [`${pad}interface ${name} {`];
+    
+    for (const [key, val] of Object.entries(fields)) {
+      if (!val) continue;
+      
+      const field = selectedModel.fields.find(f => f.name === key) ||
+                    schema.components.flatMap(c => c.fields).find(f => f.name === key);
+      
+      let tsType = 'unknown';
+      if (field) {
+        switch (field.type) {
+          case 'String':
+          case 'ID':
+            tsType = 'string';
+            break;
+          case 'Int':
+          case 'Float':
+            tsType = 'number';
+            break;
+          case 'Boolean':
+            tsType = 'boolean';
+            break;
+          case 'DateTime':
+          case 'Date':
+            tsType = 'string';
+            break;
+          case 'Json':
+            tsType = 'Record<string, unknown>';
+            break;
+          default:
+            tsType = typeof val === 'object' ? field.type : field.type;
+        }
+        if (field.isList) tsType = `${tsType}[]`;
+      }
+      
+      lines.push(`${pad}  ${key}: ${tsType};`);
+    }
+    
+    lines.push(`${pad}}`);
+    return lines.join('\n');
+  };
+  
+  const mainType = buildInterface(selectedModel.name, selectedFields);
+  
+  return `${mainType}
+
+type Get${selectedModel.name}sResponse = {
+  ${selectedModel.pluralApiId}: ${selectedModel.name}[];
+}`;
+}
+
+// ============================================
+// QUERY ASSESSMENT
+// ============================================
+
+function assessQuery() {
+  const issues = [];
+  if (!selectedModel) return issues;
+  
+  // Count selected fields and relations
+  const countFields = (obj, depth = 0) => {
+    let total = 0, relations = 0, maxDepth = depth;
+    for (const [key, val] of Object.entries(obj)) {
+      if (val === true) total++;
+      else if (typeof val === 'object' && val !== null) {
+        relations++;
+        const sub = countFields(val, depth + 1);
+        total += sub.total;
+        relations += sub.relations;
+        maxDepth = Math.max(maxDepth, sub.maxDepth);
+      }
+    }
+    return { total, relations, maxDepth };
+  };
+  const fieldStats = countFields(selectedFields);
+  
+  // CRITICAL: No pagination
+  if (options.first <= 0 && options.last <= 0) {
+    issues.push({ level: 'critical', title: 'No pagination limit', desc: 'Add "first" or "last" to prevent unbounded results that may timeout' });
+  }
+  
+  // CRITICAL: Very large first value
+  if (options.first > 500) {
+    issues.push({ level: 'critical', title: `Very large limit (${options.first})`, desc: 'Fetching 500+ records may cause timeouts. Consider pagination.' });
+  }
+  
+  // CRITICAL: Deep nesting (4+ levels)
+  if (fieldStats.maxDepth >= 4) {
+    issues.push({ level: 'critical', title: `Deep nesting (${fieldStats.maxDepth} levels)`, desc: 'Exponential query complexity. Split into separate queries.' });
+  }
+  
+  // WARNING: Heavy filters
+  for (const f of filters) {
+    if (f.operator === '_contains' || f.operator === '_not_contains') {
+      issues.push({ level: 'warning', title: `Heavy filter: ${f.field} ${f.operator}`, desc: 'Full text scan with no index. Consider filtering by ID or unique field.' });
+    }
+    if (f.operator === '_starts_with' || f.operator === '_ends_with') {
+      issues.push({ level: 'warning', title: `Partial index filter: ${f.field} ${f.operator}`, desc: 'Partial string matching is slower than exact match.' });
+    }
+    if (f.operator === '_some' || f.operator === '_every' || f.operator === '_none') {
+      issues.push({ level: 'warning', title: `Relation filter: ${f.field} ${f.operator}`, desc: 'Requires scanning related records. Can be expensive on large datasets.' });
+    }
+  }
+  
+  // WARNING: Large first value
+  if (options.first > 100 && options.first <= 500) {
+    issues.push({ level: 'warning', title: `Large limit (${options.first})`, desc: 'Consider using smaller page sizes with cursor pagination.' });
+  }
+  
+  // WARNING: Deep skip pagination
+  if (options.skip > 100) {
+    issues.push({ level: 'warning', title: `Deep offset pagination (skip: ${options.skip})`, desc: 'Use cursor-based pagination (after/before) for better performance.' });
+  }
+  
+  // WARNING: Multiple locales
+  if (options.locales && options.locales.length >= 2) {
+    issues.push({ level: 'warning', title: `Multiple locales (${options.locales.length})`, desc: 'Response size multiplied by locale count. Fetch one locale at a time if possible.' });
+  }
+  if (options.locales && options.locales.length >= 3) {
+    issues.push({ level: 'warning', title: `Fetching ${options.locales.length}+ locales`, desc: 'Consider using locale fallback chain instead of fetching all locales.' });
+  }
+  
+  // WARNING: Overfetching fields
+  if (fieldStats.total > 15) {
+    issues.push({ level: 'warning', title: `Many fields selected (${fieldStats.total})`, desc: 'Only fetch fields you need to reduce payload size.' });
+  }
+  
+  // WARNING: Many relation fields
+  if (fieldStats.relations > 5) {
+    issues.push({ level: 'warning', title: `Many relations (${fieldStats.relations})`, desc: 'Each relation increases query complexity. Consider separate queries.' });
+  }
+  
+  // WARNING: Nesting depth 3
+  if (fieldStats.maxDepth === 3) {
+    issues.push({ level: 'warning', title: `Nesting depth: ${fieldStats.maxDepth} levels`, desc: 'Consider flattening or using separate queries for nested data.' });
+  }
+  
+  // WARNING: No filters on large datasets
+  if (filters.length === 0 && options.first >= 50) {
+    issues.push({ level: 'warning', title: 'No filters applied', desc: 'Consider adding filters to reduce the result set.' });
+  }
+  
+  // Check for RichText raw and Json fields
+  const checkSpecialFields = (obj, path = []) => {
+    for (const [key, val] of Object.entries(obj)) {
+      const field = selectedModel.fields.find(f => f.name === key);
+      if (field) {
+        if (field.type === 'RichText' && val && typeof val === 'object' && val.raw) {
+          issues.push({ level: 'warning', title: `RichText "raw" selected: ${key}`, desc: 'Raw is the largest format. Use "html" or "text" instead.' });
+        }
+        if (field.type === 'Json') {
+          issues.push({ level: 'warning', title: `Json field selected: ${key}`, desc: 'Json fields can contain large unstructured payloads.' });
+        }
+      }
+      if (typeof val === 'object' && val !== null) {
+        checkSpecialFields(val, [...path, key]);
+      }
+    }
+  };
+  checkSpecialFields(selectedFields);
+  
+  // TIPS
+  if (options.first > 25 && !options.after && !options.before) {
+    issues.push({ level: 'tip', title: 'Consider cursor pagination', desc: 'Use "after"/"before" cursors for scalable pagination on large datasets.' });
+  }
+  
+  if (fieldStats.relations > 2 && fieldStats.maxDepth < 2) {
+    issues.push({ level: 'tip', title: 'Limit relation field selection', desc: 'Only select needed fields from relations to reduce payload.' });
+  }
+  
+  if (filters.length > 0 && !filters.some(f => f.field === 'id')) {
+    issues.push({ level: 'tip', title: 'Filter by ID when possible', desc: 'ID lookups are the fastest. Use them when you know the specific record.' });
+  }
+  
+  return issues;
+}
+
+function renderAssessment(issues) {
+  const panel = $('#assessment-panel');
+  const content = $('#assessment-content');
+  const badge = $('#assessment-badge');
+  const flag = $('#query-health-flag');
+  
+  // Determine overall status
+  const hasCritical = issues.some(i => i.level === 'critical');
+  const hasWarning = issues.some(i => i.level === 'warning');
+  const hasTips = issues.some(i => i.level === 'tip');
+  
+  // Update flag
+  flag.className = 'query-health-flag';
+  if (hasCritical) {
+    flag.classList.add('red');
+    flag.title = 'Critical issues found - click for details';
+  } else if (hasWarning) {
+    flag.classList.add('orange');
+    flag.title = 'Warnings found - click for details';
+  } else {
+    flag.classList.add('green');
+    flag.title = 'Query looks good!';
+  }
+  
+  // Update badge
+  const issueCount = issues.filter(i => i.level !== 'tip').length;
+  badge.textContent = issueCount;
+  badge.className = 'assessment-badge';
+  if (hasCritical) badge.classList.add('has-critical');
+  else if (hasWarning) badge.classList.add('has-warning');
+  else if (hasTips) badge.classList.add('has-tips');
+  
+  // Render content
+  if (issues.length === 0) {
+    content.innerHTML = '<div class="assessment-empty good">✓ Query looks optimized!</div>';
+  } else {
+    // Sort: critical first, then warning, then tips
+    const sorted = [...issues].sort((a, b) => {
+      const order = { critical: 0, warning: 1, tip: 2 };
+      return order[a.level] - order[b.level];
+    });
+    
+    content.innerHTML = sorted.map(issue => `
+      <div class="assessment-item ${issue.level}">
+        <div class="title">${issue.level === 'critical' ? '⛔' : issue.level === 'warning' ? '⚠️' : '💡'} ${issue.title}</div>
+        <div class="desc">${issue.desc}</div>
+      </div>
+    `).join('');
+  }
+}
+
+// Update output
+function updateOutput() {
+  $('#query-output').textContent = generateQuery();
+  $('#variables-output').textContent = JSON.stringify(generateVariables(), null, 2);
+  $('#types-output').textContent = generateTypes();
+  
+  // Run assessment
+  renderAssessment(assessQuery());
+}
+
+// Run query
+async function runQuery() {
+  const btn = $('#run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px; display: inline-block; vertical-align: middle; margin-right: 8px;"></div> Running...';
+  
+  previewError = null;
+  
+  try {
+    const query = generateQuery();
+    const vars = generateVariables();
+    
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query, variables: vars })
+    });
+    
+    const result = await res.json();
+    
+    if (result.errors) {
+      previewError = result.errors[0].message;
+    } else {
+      previewData = result.data;
+    }
+  } catch (e) {
+    previewError = e.message;
+  }
+  
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Query';
+  
+  // Switch to preview tab and render
+  switchTab('preview');
+  renderPreview();
+}
+
+function renderPreview() {
+  const container = $('#preview-content');
+  
+  if (previewError) {
+    container.innerHTML = `<div class="preview-error">${previewError}</div>`;
+  } else if (previewData) {
+    // Extract the array from the response (first key in data object)
+    const dataKey = Object.keys(previewData)[0];
+    const rows = previewData[dataKey];
+    
+    if (!Array.isArray(rows) || rows.length === 0) {
+      container.innerHTML = `
+        <div class="preview-toolbar">
+          <span class="preview-count">No results found</span>
+          <button class="btn btn-secondary preview-copy-json" onclick="copyPreviewJson()">Copy JSON</button>
+        </div>
+        <div class="preview-empty">Query returned no results</div>
+      `;
+      return;
+    }
+    
+    // Get columns from first row, add Stage column after first column
+    const dataColumns = Object.keys(rows[0]).filter(k => k !== '__typename');
+    const firstCol = dataColumns[0];
+    const restCols = dataColumns.slice(1);
+    const columns = [firstCol, 'stage', ...restCols]; // Insert stage after id
+    
+    // Current stage from query options
+    const currentStage = options.stage || 'PUBLISHED';
+    
+    // Build table
+    let html = `
+      <div class="preview-toolbar">
+        <span class="preview-count">${rows.length} result${rows.length !== 1 ? 's' : ''}</span>
+        <button class="btn btn-secondary preview-copy-json" onclick="copyPreviewJson()">Copy JSON</button>
+      </div>
+      <div class="preview-table-container">
+        <table class="preview-table">
+          <thead>
+            <tr>${columns.map(c => `<th>${c === 'stage' ? 'Stage' : c}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+    `;
+    
+    for (const row of rows) {
+      html += '<tr>';
+      for (const col of columns) {
+        if (col === 'stage') {
+          // Show stage from query options
+          html += `<td>${formatPreviewCell(currentStage, 'stage')}</td>`;
+        } else {
+          html += `<td>${formatPreviewCell(row[col], col)}</td>`;
+        }
+      }
+      html += '</tr>';
+    }
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } else {
+    container.innerHTML = '<div class="preview-empty">Click "Run Query" to see results</div>';
+  }
+}
+
+// Format cell value for preview table
+function formatPreviewCell(value, colName) {
+  if (value === null || value === undefined) {
+    return '<span class="cell-null">—</span>';
+  }
+  
+  // Boolean - show as pill like Hygraph
+  if (typeof value === 'boolean') {
+    const label = value ? 'True' : 'False';
+    return `<span class="cell-bool ${value}">${label}</span>`;
+  }
+  
+  // Stage field - show as colored badge
+  if (colName.toLowerCase() === 'stage' || colName.toLowerCase() === 'stages') {
+    const stage = String(value).toLowerCase();
+    const label = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+    if (stage === 'published') {
+      return `<span class="cell-stage published">${label}</span>`;
+    } else if (stage === 'draft') {
+      return `<span class="cell-stage draft">${label}</span>`;
+    }
+    return `<span class="cell-stage">${label}</span>`;
+  }
+  
+  if (typeof value === 'object') {
+    // Handle nested objects (relations, RichText, etc.)
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '<span class="cell-array">[0 items]</span>';
+      // Check if it's an array of stage strings
+      if (value.every(v => typeof v === 'string' && ['PUBLISHED', 'DRAFT'].includes(v.toUpperCase()))) {
+        return value.map(v => {
+          const stage = v.toLowerCase();
+          const label = v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
+          return `<span class="cell-stage ${stage}">${label}</span>`;
+        }).join(' ');
+      }
+      return `<span class="cell-array">[${value.length} items]</span>`;
+    }
+    
+    // User object (createdBy, updatedBy) - show avatar icon like Hygraph
+    if (colName === 'createdBy' || colName === 'updatedBy' || colName === 'publishedBy') {
+      const name = value.name || value.email || 'User';
+      return `<span class="cell-user" title="${name}">
+        <svg class="cell-user-avatar" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
+        </svg>
+      </span>`;
+    }
+    
+    // Try to show a meaningful value
+    if (value.id) return `<span class="cell-id">${value.id}</span>`;
+    if (value.html) return `<span class="cell-richtext">[RichText]</span>`;
+    if (value.url) return `<a href="${value.url}" target="_blank" class="cell-link">View</a>`;
+    return `<span class="cell-json">{...}</span>`;
+  }
+  
+  // ID field - show full ID in muted style
+  if (colName === 'id' || colName.endsWith('Id')) {
+    return `<span class="cell-id">${value}</span>`;
+  }
+  
+  // Date/DateTime - format like Hygraph: "8 Dec 2025, 13:28"
+  if (colName.includes('At') || colName.includes('Date') || colName === 'createdAt' || colName === 'updatedAt' || colName === 'publishedAt') {
+    try {
+      const d = new Date(value);
+      if (!isNaN(d)) {
+        const day = d.getDate();
+        const month = d.toLocaleString('en', { month: 'short' });
+        const year = d.getFullYear();
+        const time = d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+        return `<span class="cell-date">${day} ${month} ${year}, ${time}</span>`;
+      }
+    } catch {}
+  }
+  
+  // Truncate long strings
+  if (typeof value === 'string' && value.length > 50) {
+    return `<span title="${value.replace(/"/g, '&quot;')}">${value.slice(0, 50)}...</span>`;
+  }
+  
+  return value;
+}
+
+// Copy preview JSON to clipboard - exposed globally for onclick
+window.copyPreviewJson = function() {
+  if (!previewData) return;
+  const json = JSON.stringify(previewData, null, 2);
+  const success = copyTextFallback(json);
+  
+  const btn = $('.preview-copy-json');
+  if (btn) {
+    btn.textContent = success ? 'Copied!' : 'Failed';
+    setTimeout(() => { btn.textContent = 'Copy JSON'; }, 2000);
+  }
+};
+
+// Auto-run preview on field/option changes (not on filter text input)
+function autoRunPreview() {
+  if (!selectedModel) return;
+  
+  // Show loading state
+  const container = $('#preview-content');
+  container.innerHTML = '<div class="preview-loading"><div class="spinner"></div><p>Loading preview...</p></div>';
+  
+  // Run the query
+  runQuery();
+}
+
+// Tab switching
+function switchTab(tab) {
+  activeTab = tab;
+  $$('.output-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  ['query', 'variables', 'types', 'preview'].forEach(t => {
+    const el = $(`#tab-${t}`);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+// Copy to clipboard (with iframe fallback)
+function copyTextFallback(text) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    return true;
+  } catch (e) {
+    console.error('Fallback copy failed:', e);
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+async function copyToClipboard(type) {
+  let text = '';
+  switch (type) {
+    case 'query': text = generateQuery(); break;
+    case 'variables': text = JSON.stringify(generateVariables(), null, 2); break;
+    case 'types': text = generateTypes(); break;
+  }
+  
+  let success = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    success = true;
+  } catch (e) {
+    // Fallback for iframes where clipboard API is blocked
+    success = copyTextFallback(text);
+  }
+  
+  const btn = $(`.copy-btn[data-copy="${type}"]`);
+  btn.textContent = success ? 'Copied!' : 'Failed';
+  setTimeout(() => btn.textContent = 'Copy', 2000);
+}
+
+// Initialize
+async function init(ep, tk) {
+  originalEndpoint = ep; // Store original (might be CDN)
+  endpoint = ep;
+  token = tk;
+  
+  try {
+    const intro = await fetchSchema();
+    parseSchema(intro);
+    renderModelSelect();
+    showView('main');
+  } catch (e) {
+    console.error('Init error:', e);
+    showView('connect');
+    $('#connect-error').innerHTML = 'Failed to connect: ' + e.message;
+  }
+}
+
+// Event listeners
+$('#model-select').onchange = (e) => {
+  selectedModel = schema.models.find(m => m.name === e.target.value) || null;
+  
+  // Clear preview when model changes
+  previewData = null;
+  previewError = null;
+  renderPreview();
+  
+  if (selectedModel) {
+    // Default selections - only content fields, not system fields
+    selectedFields = { id: true };
+    
+    for (const f of selectedModel.fields) {
+      // Include title/name/slug
+      if (['title', 'name', 'slug'].includes(f.name)) {
+        selectedFields[f.name] = true;
+      }
+    }
+    
+    filters = [];
+    options.orderBy = selectedModel.fields.some(f => f.name === 'updatedAt') ? 'updatedAt' : 
+                      selectedModel.fields.some(f => f.name === 'createdAt') ? 'createdAt' : '';
+    
+    $('#main-content').style.display = 'grid';
+    $('#empty-state').style.display = 'none';
+    
+    renderFields();
+    renderOrderByOptions();
+    renderFilters();
+    updateOutput();
+  } else {
+    $('#main-content').style.display = 'none';
+    $('#empty-state').style.display = 'flex';
+  }
+};
+
+$('#add-filter-btn').onclick = addFilter;
+$('#run-btn').onclick = runQuery;
+
+// Assessment panel toggle
+$('#toggle-assessment').onclick = () => {
+  $('#assessment-panel').classList.toggle('collapsed');
+};
+
+// Health flag click - opens assessment panel
+$('#query-health-flag').onclick = () => {
+  const panel = $('#assessment-panel');
+  panel.classList.remove('collapsed');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+// Stage toggle - auto-preview
+$$('.toggle-btn[data-stage]').forEach(btn => {
+  btn.onclick = () => {
+    $$('.toggle-btn[data-stage]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    options.stage = btn.dataset.stage;
+    updateOutput();
+    autoRunPreview();
+  };
+});
+
+// OrderBy - auto-preview
+$('#orderby-field').onchange = (e) => { options.orderBy = e.target.value; updateOutput(); autoRunPreview(); };
+$('#orderby-dir').onchange = (e) => { options.orderDir = e.target.value; updateOutput(); autoRunPreview(); };
+
+// Pagination - auto-preview (debounced for number inputs)
+let paginationDebounce = null;
+const updatePaginationAndPreview = () => {
+  clearTimeout(paginationDebounce);
+  paginationDebounce = setTimeout(() => autoRunPreview(), 500);
+};
+
+$('#first-input').oninput = (e) => { options.first = parseInt(e.target.value) || 0; updateOutput(); updatePaginationAndPreview(); };
+$('#skip-input').oninput = (e) => { options.skip = parseInt(e.target.value) || 0; updateOutput(); updatePaginationAndPreview(); };
+$('#last-input').oninput = (e) => { options.last = parseInt(e.target.value) || 0; updateOutput(); updatePaginationAndPreview(); };
+$('#after-input').oninput = (e) => { options.after = e.target.value.trim(); updateOutput(); };
+$('#before-input').oninput = (e) => { options.before = e.target.value.trim(); updateOutput(); };
+
+// Locales - auto-preview
+$('#locales-select').onchange = (e) => { 
+  options.locales = Array.from(e.target.selectedOptions).map(o => o.value);
+  updateOutput();
+  autoRunPreview();
+};
+
+// Variants - auto-preview on checkbox, manual on text input
+$('#variants-segment-input').oninput = (e) => { options.variantsSegment = e.target.value; updateOutput(); };
+$('#include-variants-checkbox').onchange = (e) => { options.includeVariants = e.target.checked; updateOutput(); autoRunPreview(); };
+
+$$('.output-tab').forEach(tab => {
+  tab.onclick = () => switchTab(tab.dataset.tab);
+});
+
+$$('.copy-btn').forEach(btn => {
+  btn.onclick = () => copyToClipboard(btn.dataset.copy);
+});
+
+// ============================================
+// GLOBAL SEARCH FUNCTIONS
+// ============================================
+
+let currentMode = 'builder'; // 'builder' or 'search'
+let globalEnums = new Map(); // enumName -> { values, usedIn }
+let lastSearchQuery = ''; // Store last executed search query
+let lastSearchResults = []; // Store last search results for export
+
+// Switch between modes
+function switchMode(mode) {
+  currentMode = mode;
+  $$('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  
+  if (mode === 'builder') {
+    $('#search-content').style.display = 'none';
+    if (selectedModel) {
+      $('#main-content').style.display = 'grid';
+      $('#empty-state').style.display = 'none';
+    } else {
+      $('#main-content').style.display = 'none';
+      $('#empty-state').style.display = 'flex';
+    }
+  } else {
+    $('#main-content').style.display = 'none';
+    $('#empty-state').style.display = 'none';
+    $('#search-content').style.display = 'block';
+    populateEnumDropdown();
+    populateComponentDropdown();
+  }
+}
+
+// Mode tab click handlers
+$$('.mode-tab').forEach(tab => {
+  tab.onclick = () => switchMode(tab.dataset.mode);
+});
+
+// Populate enum dropdown with ALL enums from schema
+function populateEnumDropdown() {
+  globalEnums.clear();
+  
+  // System enums from Hygraph (not user-defined)
+  const systemEnumNames = new Set([
+    'AssetUploadStatus', 'DocumentFileTypes', 'EntityTypeName', 'ImageFit', 
+    'Locale', 'Stage', 'SystemDateTimeFieldVariation', 'UserKind',
+    'ScheduledOperationStatus', 'ScheduledReleaseStatus', 'BatchPayloadType',
+    '_FilterKind', '_MutationInputFieldKind', '_MutationKind', '_OrderDirection',
+    '_RelationInputCardinality', '_RelationInputKind', '_RelationKind', '_SystemDateTimeFieldVariation'
+  ]);
+  
+  // First, add ALL enums from schema (even if not used)
+  for (const enumDef of schema.enums) {
+    const isSystem = systemEnumNames.has(enumDef.name) || enumDef.name.startsWith('_');
+    globalEnums.set(enumDef.name, { values: enumDef.values, usedIn: [], isSystem });
+  }
+  
+  // Then track where each enum is used (in models)
+  for (const model of schema.models) {
+    for (const field of model.fields) {
+      if (globalEnums.has(field.type)) {
+        globalEnums.get(field.type).usedIn.push({ model: model.name, field: field.name, pluralId: model.pluralApiId });
+      }
+    }
+  }
+  
+  // Also check components for enum usage
+  for (const comp of schema.components) {
+    for (const field of comp.fields) {
+      if (globalEnums.has(field.type)) {
+        // Find which models use this component
+        for (const model of schema.models) {
+          const compField = model.fields.find(f => f.type === comp.name);
+          if (compField) {
+            globalEnums.get(field.type).usedIn.push({ 
+              model: model.name, 
+              field: `${compField.name}`,
+              nestedField: field.name,
+              component: comp.name,
+              pluralId: model.pluralApiId 
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  const select = $('#enum-select');
+  const allEnums = Array.from(globalEnums.entries());
+  const userEnums = allEnums.filter(([, data]) => !data.isSystem).sort((a, b) => a[0].localeCompare(b[0]));
+  const sysEnums = allEnums.filter(([, data]) => data.isSystem).sort((a, b) => a[0].localeCompare(b[0]));
+  
+  let html = '<option value="">No enum filter</option>';
+  
+  // User-defined enums first
+  if (userEnums.length > 0) {
+    html += '<optgroup label="Your Enums">';
+    html += userEnums.map(([name, data]) => {
+      const usageCount = data.usedIn.length;
+      return `<option value="${name}">${name}${usageCount > 0 ? ` (${usageCount})` : ''}</option>`;
+    }).join('');
+    html += '</optgroup>';
+  }
+  
+  // System enums (collapsed/dimmed)
+  if (sysEnums.length > 0) {
+    html += '<optgroup label="System Enums">';
+    html += sysEnums.map(([name, data]) => {
+      const usageCount = data.usedIn.length;
+      return `<option value="${name}" style="color: #9ca3af;">${name}${usageCount > 0 ? ` (${usageCount})` : ''}</option>`;
+    }).join('');
+    html += '</optgroup>';
+  }
+  
+  select.innerHTML = html;
+}
+
+// Update enum value dropdown when enum is selected
+$('#enum-select').onchange = (e) => {
+  const enumName = e.target.value;
+  const valueSelect = $('#enum-value-select');
+  
+  if (!enumName || !globalEnums.has(enumName)) {
+    valueSelect.innerHTML = '<option value="">Select value...</option>';
+    return;
+  }
+  
+  const enumData = globalEnums.get(enumName);
+  valueSelect.innerHTML = '<option value="">Select value...</option>' + 
+    enumData.values.map(v => `<option value="${v}">${v}</option>`).join('');
+};
+
+// Component usage tracking
+let componentUsage = new Map(); // componentName -> [{ model, field, pluralId }]
+
+// Populate component dropdown
+function populateComponentDropdown() {
+  componentUsage.clear();
+  
+  // Find which models use each component
+  for (const comp of schema.components) {
+    componentUsage.set(comp.name, []);
+  }
+  
+  for (const model of schema.models) {
+    for (const field of model.fields) {
+      if (componentUsage.has(field.type)) {
+        componentUsage.get(field.type).push({
+          model: model.name,
+          field: field.name,
+          pluralId: model.pluralApiId,
+          isList: field.isList
+        });
+      }
+    }
+  }
+  
+  const select = $('#component-select');
+  const components = Array.from(componentUsage.entries())
+    .filter(([, usages]) => usages.length > 0) // Only show used components
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  
+  select.innerHTML = '<option value="">No component filter</option>' + 
+    components.map(([name, usages]) => 
+      `<option value="${name}">${name} (${usages.length} model${usages.length !== 1 ? 's' : ''})</option>`
+    ).join('');
+}
+
+// Show which models use the component when selected
+$('#component-select').onchange = (e) => {
+  const compName = e.target.value;
+  const hint = $('#component-hint');
+  
+  if (!compName || !componentUsage.has(compName)) {
+    hint.textContent = '';
+    return;
+  }
+  
+  const usages = componentUsage.get(compName);
+  const modelNames = [...new Set(usages.map(u => u.model))];
+  hint.textContent = `Used in: ${modelNames.join(', ')}`;
+};
+
+// Global text search - searches across all models
+async function globalTextSearch(term) {
+  const results = [];
+  const trimmedTerm = term.trim();
+  if (!trimmedTerm) return results;
+  
+  // Check if it looks like a Hygraph ID (starts with 'c' and is ~25 chars)
+  const isIdSearch = /^c[a-z0-9]{20,30}$/i.test(trimmedTerm);
+  
+  const queryParts = [];
+  
+  for (const model of schema.models) {
+    // Find searchable text fields
+    const textFields = model.fields.filter(f => 
+      f.type === 'String' && !f.isRelation && 
+      ['title', 'name', 'slug', 'description', 'urlSlug'].includes(f.name)
+    );
+    
+    // Get first display field for results
+    const displayField = textFields[0]?.name || model.fields.find(f => f.type === 'String' && !f.isRelation)?.name;
+    
+    let whereClause;
+    if (isIdSearch) {
+      // Search by ID
+      whereClause = `id: "${trimmedTerm}"`;
+    } else if (textFields.length > 0) {
+      // Search by text in multiple fields
+      const orConditions = textFields.map(f => `{ ${f.name}_contains: "${trimmedTerm}" }`).join(', ');
+      whereClause = `OR: [${orConditions}]`;
+    } else {
+      continue; // Skip models with no searchable fields
+    }
+    
+    queryParts.push({
+      model: model.name,
+      pluralId: model.pluralApiId,
+      displayField,
+      query: `${model.pluralApiId}: ${model.pluralApiId}(where: { ${whereClause} }, first: 10, stage: DRAFT) {
+        id
+        ${displayField ? displayField : ''}
+        updatedAt
+      }`
+    });
+  }
+  
+  if (queryParts.length === 0) return results;
+  
+  // Execute combined query
+  const combinedQuery = `query GlobalSearch {\n  ${queryParts.map(q => q.query).join('\n  ')}\n}`;
+  lastSearchQuery = combinedQuery; // Store for display
+  
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query: combinedQuery })
+    });
+    
+    const data = await res.json();
+    
+    if (data.errors) {
+      console.error('Search errors:', data.errors);
+    }
+    
+    if (data.data) {
+      for (const q of queryParts) {
+        const entries = data.data[q.pluralId];
+        if (entries && entries.length > 0) {
+          results.push({
+            model: q.model,
+            pluralId: q.pluralId,
+            displayField: q.displayField,
+            entries
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Global search error:', e);
+  }
+  
+  return results;
+}
+
+// Global date search
+async function globalDateSearch(field, operator, dateValue) {
+  const results = [];
+  if (!dateValue) return results;
+  
+  // Convert date to ISO format
+  const isoDate = operator === '_lte' ? dateValue + 'T23:59:59.999Z' : dateValue + 'T00:00:00.000Z';
+  
+  const queryParts = [];
+  
+  for (const model of schema.models) {
+    // Check if model has the date field
+    const hasField = model.fields.some(f => f.name === field);
+    if (!hasField) continue;
+    
+    const displayField = model.fields.find(f => ['title', 'name', 'slug'].includes(f.name))?.name || 
+                         model.fields.find(f => f.type === 'String' && !f.isRelation)?.name;
+    
+    queryParts.push({
+      model: model.name,
+      pluralId: model.pluralApiId,
+      displayField,
+      query: `${model.pluralApiId}: ${model.pluralApiId}(where: { ${field}${operator}: "${isoDate}" }, first: 10, orderBy: ${field}_DESC, stage: DRAFT) {
+        id
+        ${displayField ? displayField : ''}
+        ${field}
+        updatedAt
+      }`
+    });
+  }
+  
+  if (queryParts.length === 0) return results;
+  
+  const combinedQuery = `query GlobalDateSearch {\n  ${queryParts.map(q => q.query).join('\n  ')}\n}`;
+  lastSearchQuery = combinedQuery; // Store for display
+  
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query: combinedQuery })
+    });
+    
+    const data = await res.json();
+    
+    if (data.data) {
+      for (const q of queryParts) {
+        const entries = data.data[q.pluralId];
+        if (entries && entries.length > 0) {
+          results.push({
+            model: q.model,
+            pluralId: q.pluralId,
+            displayField: q.displayField,
+            entries
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Date search error:', e);
+  }
+  
+  return results;
+}
+
+// Global enum search
+async function globalEnumSearch(enumName, enumValue) {
+  const results = [];
+  if (!enumName || !enumValue || !globalEnums.has(enumName)) return results;
+  
+  const enumData = globalEnums.get(enumName);
+  const queryParts = [];
+  
+  for (const usage of enumData.usedIn) {
+    const model = schema.models.find(m => m.name === usage.model);
+    if (!model) continue;
+    
+    const displayField = model.fields.find(f => ['title', 'name', 'slug'].includes(f.name))?.name || 
+                         model.fields.find(f => f.type === 'String' && !f.isRelation)?.name;
+    
+    queryParts.push({
+      model: model.name,
+      pluralId: model.pluralApiId,
+      displayField,
+      field: usage.field,
+      query: `${model.pluralApiId}: ${model.pluralApiId}(where: { ${usage.field}: ${enumValue} }, first: 10, stage: DRAFT) {
+        id
+        ${displayField ? displayField : ''}
+        ${usage.field}
+        updatedAt
+      }`
+    });
+  }
+  
+  if (queryParts.length === 0) return results;
+  
+  const combinedQuery = `query GlobalEnumSearch {\n  ${queryParts.map(q => q.query).join('\n  ')}\n}`;
+  lastSearchQuery = combinedQuery; // Store for display
+  
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query: combinedQuery })
+    });
+    
+    const data = await res.json();
+    
+    if (data.data) {
+      for (const q of queryParts) {
+        const entries = data.data[q.pluralId];
+        if (entries && entries.length > 0) {
+          results.push({
+            model: q.model,
+            pluralId: q.pluralId,
+            displayField: q.displayField,
+            entries
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Enum search error:', e);
+  }
+  
+  return results;
+}
+
+// Render search results
+function renderSearchResults(results, searchType = 'text') {
+  const container = $('#search-results');
+  lastSearchResults = results; // Store for export
+  
+  if (!results || results.length === 0) {
+    container.innerHTML = `
+      <div class="search-results-header">
+        <span class="search-results-count">0 results</span>
+        <div class="search-results-actions">
+          <button class="btn btn-secondary" onclick="toggleSearchQuery()" title="Show GraphQL Query">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+            Query
+          </button>
+        </div>
+      </div>
+      
+      <!-- Query Panel -->
+      <div class="search-query-panel collapsed" id="search-query-panel">
+        <div class="search-query-header" onclick="$('#search-query-panel').classList.toggle('collapsed')">
+          <span>Generated Query</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="search-query-code">
+          <pre>${lastSearchQuery.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        </div>
+      </div>
+      
+      <div class="search-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <p>No results found matching your filters</p>
+      </div>
+    `;
+    return;
+  }
+  
+  const totalCount = results.reduce((sum, r) => sum + r.entries.length, 0);
+  
+  let html = `
+    <div class="search-results-header">
+      <span class="search-results-count">${totalCount} result${totalCount !== 1 ? 's' : ''} across ${results.length} model${results.length !== 1 ? 's' : ''}</span>
+      <div class="search-results-actions">
+        <button class="btn btn-secondary" onclick="toggleSearchQuery()" title="Show GraphQL Query">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+          Query
+        </button>
+        <button class="btn btn-secondary" onclick="exportSearchResults('json')">
+          JSON
+        </button>
+        <button class="btn btn-secondary" onclick="exportSearchResults('csv')">
+          CSV
+        </button>
+      </div>
+    </div>
+    
+    <!-- Query Panel (hidden by default) -->
+    <div class="search-query-panel collapsed" id="search-query-panel">
+      <div class="search-query-header" onclick="$('#search-query-panel').classList.toggle('collapsed')">
+        <span>Generated Query</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="search-query-code">
+        <pre>${lastSearchQuery.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+      </div>
+    </div>
+  `;
+  
+  for (const group of results) {
+    html += `
+      <div class="search-model-group collapsed">
+        <div class="search-model-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span class="search-model-name">${group.model}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="search-model-count">${group.entries.length}</span>
+            <svg class="search-model-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+        <div class="search-model-body">
+          <table class="search-model-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                ${group.displayField ? `<th>${group.displayField}</th>` : ''}
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    for (const entry of group.entries) {
+      const displayValue = group.displayField && entry[group.displayField] ? entry[group.displayField] : '—';
+      const truncatedDisplay = typeof displayValue === 'string' && displayValue.length > 40 
+        ? displayValue.slice(0, 40) + '...' 
+        : displayValue;
+      
+      const updatedDate = entry.updatedAt ? new Date(entry.updatedAt) : null;
+      const formattedDate = updatedDate 
+        ? `${updatedDate.getDate()} ${updatedDate.toLocaleString('en', { month: 'short' })} ${updatedDate.getFullYear()}`
+        : '—';
+      
+      html += `
+        <tr>
+          <td><span class="cell-id">${entry.id}</span></td>
+          ${group.displayField ? `<td>${truncatedDisplay}</td>` : ''}
+          <td><span class="cell-date">${formattedDate}</span></td>
+        </tr>
+      `;
+    }
+    
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+}
+
+// Show loading state
+function showSearchLoading() {
+  $('#search-results').innerHTML = `
+    <div class="search-loading">
+      <div class="spinner"></div>
+      <p>Searching across all models...</p>
+    </div>
+  `;
+}
+
+// Toggle query panel visibility
+window.toggleSearchQuery = function() {
+  const panel = $('#search-query-panel');
+  if (panel) panel.classList.toggle('collapsed');
+};
+
+// Quick filter toggles (don't run search, just toggle state)
+$$('.quick-filter-btn').forEach(btn => {
+  btn.onclick = () => {
+    const filter = btn.dataset.filter;
+    // For time range, only one can be active
+    if (['last7', 'last30', 'all'].includes(filter)) {
+      $$('.quick-filter-btn[data-filter="last7"], .quick-filter-btn[data-filter="last30"], .quick-filter-btn[data-filter="all"]')
+        .forEach(b => b.classList.remove('active'));
+    }
+    btn.classList.toggle('active');
+  };
+});
+
+// Unified search - combines all active filters
+async function runUnifiedSearch() {
+  const textTerm = $('#global-search-input').value.trim();
+  const referenceId = $('#reference-id-input').value.trim();
+  const dateField = $('#date-field-select').value;
+  const dateOperator = $('#date-operator-select').value;
+  const dateValue = $('#date-value-input').value;
+  const enumName = $('#enum-select').value;
+  const enumValue = $('#enum-value-select').value;
+  const componentName = $('#component-select').value;
+  
+  // Get active quick filters
+  const last7Active = $('.quick-filter-btn[data-filter="last7"]')?.classList.contains('active');
+  const last30Active = $('.quick-filter-btn[data-filter="last30"]')?.classList.contains('active');
+  
+  // Build combined query for all models
+  const results = [];
+  const queryParts = [];
+  const now = new Date();
+  
+  // Collect ALL date constraints (can have multiple)
+  const dateConstraints = [];
+  
+  // Quick filter adds updatedAt constraint
+  if (last7Active) {
+    const d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    dateConstraints.push({ field: 'updatedAt', operator: '_gte', value: d.toISOString().split('T')[0] + 'T00:00:00.000Z' });
+  } else if (last30Active) {
+    const d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    dateConstraints.push({ field: 'updatedAt', operator: '_gte', value: d.toISOString().split('T')[0] + 'T00:00:00.000Z' });
+  }
+  
+  // Manual date filter (can be in addition to quick filter)
+  if (dateField && dateValue) {
+    const isoDate = dateOperator === '_lte' ? dateValue + 'T23:59:59.999Z' : dateValue + 'T00:00:00.000Z';
+    dateConstraints.push({ field: dateField, operator: dateOperator, value: isoDate });
+  }
+  
+  // Special handling for Locale enum - it's a top-level argument, not a where filter
+  const isLocaleFilter = enumName === 'Locale';
+  const localesArg = isLocaleFilter && enumValue ? `locales: [${enumValue}], ` : '';
+  
+  // If reference search, use that specifically
+  if (referenceId) {
+    showSearchLoading();
+    const refResults = await globalReferenceSearch(referenceId);
+    renderSearchResults(refResults, 'reference');
+    return;
+  }
+  
+  // Check if it's an ID search
+  const isIdSearch = /^c[a-z0-9]{20,30}$/i.test(textTerm);
+  
+  // Check if we have any filters at all
+  const hasFilters = textTerm || dateConstraints.length > 0 || (enumName && enumValue && !isLocaleFilter) || isLocaleFilter || componentName;
+  
+  if (!hasFilters) {
+    $('#search-results').innerHTML = `<div class="search-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <p>Please select at least one filter to search</p>
+    </div>`;
+    return;
+  }
+  
+  // Get models that use the selected component
+  const componentModels = componentName && componentUsage.has(componentName) 
+    ? new Set(componentUsage.get(componentName).map(u => u.model))
+    : null;
+  
+  for (const model of schema.models) {
+    // If component filter is active, only include models that use this component
+    if (componentModels && !componentModels.has(model.name)) continue;
+    
+    // Get component field info for this model
+    let componentFieldInfo = null;
+    if (componentName && componentUsage.has(componentName)) {
+      componentFieldInfo = componentUsage.get(componentName).find(u => u.model === model.name);
+    }
+    
+    const whereConditions = [];
+    
+    // Text/ID search condition
+    if (textTerm) {
+      if (isIdSearch) {
+        whereConditions.push(`id: "${textTerm}"`);
+      } else {
+        const textFields = model.fields.filter(f => 
+          f.type === 'String' && !f.isRelation && 
+          ['title', 'name', 'slug', 'description', 'urlSlug'].includes(f.name)
+        );
+        if (textFields.length > 0) {
+          const orConditions = textFields.map(f => `{ ${f.name}_contains: "${textTerm}" }`).join(', ');
+          whereConditions.push(`OR: [${orConditions}]`);
+        }
+      }
+    }
+    
+    // ALL date constraints
+    for (const dc of dateConstraints) {
+      if (model.fields.some(f => f.name === dc.field)) {
+        whereConditions.push(`${dc.field}${dc.operator}: "${dc.value}"`);
+      }
+    }
+    
+    // Enum filter (skip Locale which is handled as top-level arg)
+    let enumUsage = null;
+    if (enumName && enumValue && !isLocaleFilter && globalEnums.has(enumName)) {
+      const enumData = globalEnums.get(enumName);
+      enumUsage = enumData.usedIn.find(u => u.model === model.name);
+      if (enumUsage) {
+        whereConditions.push(`${enumUsage.field}: ${enumValue}`);
+      }
+    }
+    
+    // If enum filter is active, ONLY include models that have that enum field
+    if (enumName && enumValue && !isLocaleFilter && !enumUsage) continue;
+    
+    // Component filter - add where condition to filter out entries with empty component
+    if (componentFieldInfo) {
+      if (componentFieldInfo.isList) {
+        // For list components: at least one must exist
+        whereConditions.push(`${componentFieldInfo.field}_some: {}`);
+      } else {
+        // For single components: check it's not empty (using empty object = exists)
+        whereConditions.push(`${componentFieldInfo.field}: {}`);
+      }
+    }
+    
+    // For non-ID searches, skip models with no matching conditions
+    // But allow if component filter is active (we've already filtered to relevant models)
+    if (!isIdSearch && whereConditions.length === 0 && !isLocaleFilter && !componentName) continue;
+    
+    // Get display field
+    const displayField = model.fields.find(f => ['title', 'name', 'slug'].includes(f.name))?.name || 
+                         model.fields.find(f => f.type === 'String' && !f.isRelation)?.name;
+    
+    const whereClause = whereConditions.length > 0 ? `where: { ${whereConditions.join(', ')} }, ` : '';
+    
+    // If component filter, include the component field to check if it's populated
+    const componentFieldSelect = componentFieldInfo 
+      ? `${componentFieldInfo.field} { __typename }` 
+      : '';
+    
+    queryParts.push({
+      model: model.name,
+      pluralId: model.pluralApiId,
+      displayField,
+      componentField: componentFieldInfo?.field,
+      componentIsList: componentFieldInfo?.isList,
+      query: `${model.pluralApiId}: ${model.pluralApiId}(${whereClause}${localesArg}first: 10, stage: DRAFT) {
+        id
+        ${displayField ? displayField : ''}
+        ${componentFieldSelect}
+        updatedAt
+      }`
+    });
+  }
+  
+  if (queryParts.length === 0) {
+    renderSearchResults([], 'unified');
+    return;
+  }
+  
+  showSearchLoading();
+  
+  const combinedQuery = `query GlobalUnifiedSearch {\n  ${queryParts.map(q => q.query).join('\n  ')}\n}`;
+  lastSearchQuery = combinedQuery;
+  
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query: combinedQuery })
+    });
+    
+    const data = await res.json();
+    
+    if (data.data) {
+      for (const q of queryParts) {
+        let entries = data.data[q.pluralId];
+        if (entries && entries.length > 0) {
+          // If component filter is active, filter out entries with empty/null component
+          if (q.componentField) {
+            entries = entries.filter(entry => {
+              const compValue = entry[q.componentField];
+              if (q.componentIsList) {
+                return Array.isArray(compValue) && compValue.length > 0;
+              } else {
+                return compValue !== null && compValue !== undefined;
+              }
+            });
+          }
+          
+          if (entries.length > 0) {
+            results.push({
+              model: q.model,
+              pluralId: q.pluralId,
+              displayField: q.displayField,
+              entries
+            });
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Unified search error:', e);
+  }
+  
+  renderSearchResults(results, 'unified');
+}
+
+// Unified search button
+$('#unified-search-btn').onclick = runUnifiedSearch;
+
+// Enter key in search inputs
+$('#global-search-input').onkeydown = (e) => { if (e.key === 'Enter') runUnifiedSearch(); };
+$('#reference-id-input').onkeydown = (e) => { if (e.key === 'Enter') runUnifiedSearch(); };
+
+// Clear all filters
+$('#clear-search-btn').onclick = () => {
+  $('#global-search-input').value = '';
+  $('#reference-id-input').value = '';
+  $('#date-field-select').value = '';
+  $('#date-value-input').value = '';
+  $('#enum-select').value = '';
+  $('#enum-value-select').innerHTML = '<option value="">Select value...</option>';
+  $('#component-select').value = '';
+  $('#component-hint').textContent = '';
+  $$('.quick-filter-btn').forEach(b => b.classList.remove('active'));
+};
+
+// Global reference search - find entries that link to a specific ID
+// Query each model separately to avoid one failure breaking all
+async function globalReferenceSearch(targetId) {
+  const results = [];
+  if (!targetId || !targetId.trim()) return results;
+  
+  const trimmedId = targetId.trim();
+  const allQueries = [];
+  lastSearchQuery = '';
+  
+  for (const model of schema.models) {
+    // Find relation fields (exclude system and union types which need special handling)
+    const relationFields = model.fields.filter(f => 
+      f.isRelation && !f.isSystem && !f.isUnion
+    );
+    if (relationFields.length === 0) continue;
+    
+    const displayField = model.fields.find(f => ['title', 'name', 'slug'].includes(f.name))?.name || 
+                         model.fields.find(f => f.type === 'String' && !f.isRelation)?.name;
+    
+    // Query each relation field separately within the model
+    for (const relField of relationFields) {
+      const whereClause = relField.isList 
+        ? `{ ${relField.name}_some: { id: "${trimmedId}" } }`
+        : `{ ${relField.name}: { id: "${trimmedId}" } }`;
+      
+      const query = `query RefSearch_${model.name}_${relField.name} {
+  ${model.pluralApiId}(where: ${whereClause}, first: 10, stage: DRAFT) {
+    id
+    ${displayField ? displayField : ''}
+    updatedAt
+  }
+}`;
+      
+      allQueries.push({
+        model: model.name,
+        field: relField.name,
+        pluralId: model.pluralApiId,
+        displayField,
+        query
+      });
+    }
+  }
+  
+  if (allQueries.length === 0) return results;
+  
+  // Track queries for display
+  lastSearchQuery = `# Reference search for: ${trimmedId}\n# Querying ${allQueries.length} relation fields...\n`;
+  
+  // Execute queries in parallel batches (5 at a time)
+  const batchSize = 5;
+  const modelResults = new Map(); // model -> entries
+  
+  for (let i = 0; i < allQueries.length; i += batchSize) {
+    const batch = allQueries.slice(i, i + batchSize);
+    
+    const promises = batch.map(async (q) => {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ query: q.query })
+        });
+        
+        const data = await res.json();
+        
+        if (data.data && data.data[q.pluralId] && data.data[q.pluralId].length > 0) {
+          return { ...q, entries: data.data[q.pluralId] };
+        }
+      } catch (e) {
+        console.log(`Reference search skipped for ${q.model}.${q.field}:`, e.message);
+      }
+      return null;
+    });
+    
+    const batchResults = await Promise.all(promises);
+    
+    for (const r of batchResults) {
+      if (r && r.entries) {
+        // Merge entries by model (avoid duplicates)
+        if (!modelResults.has(r.model)) {
+          modelResults.set(r.model, { 
+            model: r.model, 
+            pluralId: r.pluralId, 
+            displayField: r.displayField,
+            entries: [],
+            seenIds: new Set()
+          });
+        }
+        const mr = modelResults.get(r.model);
+        for (const entry of r.entries) {
+          if (!mr.seenIds.has(entry.id)) {
+            mr.seenIds.add(entry.id);
+            mr.entries.push(entry);
+          }
+        }
+      }
+    }
+  }
+  
+  // Convert map to results array
+  for (const [, mr] of modelResults) {
+    if (mr.entries.length > 0) {
+      results.push({
+        model: mr.model,
+        pluralId: mr.pluralId,
+        displayField: mr.displayField,
+        entries: mr.entries
+      });
+    }
+  }
+  
+  lastSearchQuery += `\n# Found ${results.reduce((sum, r) => sum + r.entries.length, 0)} entries across ${results.length} models`;
+  
+  return results;
+}
+
+
+// Export search results
+window.exportSearchResults = function(format) {
+  if (!lastSearchResults || lastSearchResults.length === 0) return;
+  
+  let content, filename, type;
+  
+  if (format === 'json') {
+    // Flatten results for JSON export
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      query: lastSearchQuery,
+      results: lastSearchResults.map(group => ({
+        model: group.model,
+        count: group.entries.length,
+        entries: group.entries
+      }))
+    };
+    content = JSON.stringify(exportData, null, 2);
+    filename = `hygraph-search-${Date.now()}.json`;
+    type = 'application/json';
+  } else {
+    // CSV export - flatten all entries
+    const rows = [['Model', 'ID', 'Title/Name', 'Updated At']];
+    
+    for (const group of lastSearchResults) {
+      for (const entry of group.entries) {
+        const displayValue = group.displayField && entry[group.displayField] ? entry[group.displayField] : '';
+        const cleanValue = String(displayValue).replace(/"/g, '""');
+        rows.push([
+          group.model,
+          entry.id,
+          `"${cleanValue}"`,
+          entry.updatedAt || ''
+        ]);
+      }
+    }
+    
+    content = rows.map(r => r.join(',')).join('\n');
+    filename = `hygraph-search-${Date.now()}.csv`;
+    type = 'text/csv';
+  }
+  
+  // Download file
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// ============================================
+// END GLOBAL SEARCH FUNCTIONS
+// ============================================
+
+// Convert CDN endpoint to Content API endpoint
+function convertCdnToContentApi(cdnUrl) {
+  // Pattern: https://eu-west-2-ssc.cdn.hygraph.com/content/PROJECT_ID/master
+  // Pattern: https://eu-central-1-shared-euc1-02.cdn.hygraph.com/content/PROJECT_ID/master
+  // Convert to: https://api-eu-west-2.hygraph.com/v2/PROJECT_ID/master
+  
+  const cdnMatch = cdnUrl.match(/https:\/\/([a-z]+-[a-z]+-\d+)(?:-[^.]+)?\.cdn\.hygraph\.com\/content\/([^\/]+)\/(\w+)/);
+  if (cdnMatch) {
+    const region = cdnMatch[1]; // e.g., "eu-west-2" or "eu-central-1"
+    const projectId = cdnMatch[2];
+    const stage = cdnMatch[3]; // e.g., "master"
+    console.log('Parsed region:', region, 'projectId:', projectId, 'stage:', stage);
+    return `https://api-${region}.hygraph.com/v2/${projectId}/${stage}`;
+  }
+  return null;
+}
+
+$('#connect-btn').onclick = async () => {
+  let ep = $('#endpoint-input').value.trim();
+  const tk = $('#token-input').value.trim();
+  
+  if (!ep || !tk) {
+    $('#connect-error').textContent = 'Please enter both endpoint and token';
+    return;
+  }
+  
+  $('#connect-btn').disabled = true;
+  $('#connect-btn').textContent = 'Connecting...';
+  $('#connect-error').innerHTML = '';
+  
+  try {
+    // Pass the endpoint as-is (CDN or Content API)
+    await init(ep, tk);
+    saveCredentials(ep, tk);
+  } catch (e) {
+    let errorMsg = 'Failed: ' + e.message;
+    $('#connect-error').innerHTML = errorMsg;
+  }
+  
+  $('#connect-btn').disabled = false;
+  $('#connect-btn').textContent = 'Connect';
+};
+
+$('#disconnect-btn').onclick = () => {
+  clearCredentials();
+  showView('connect');
+};
+
+// SDK initialization
+// Simple test query to verify credentials
+async function testConnection(ep, tk) {
+  const res = await fetch(ep, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk },
+    body: JSON.stringify({ query: '{ __typename }' })
+  });
+  const data = await res.json();
+  if (data.errors) throw new Error(data.errors[0].message);
+  return true;
+}
+
+// Init with SDK
+console.log('Query Builder: Starting...');
+sdk.init({ debug: true, onProps: () => {} })
+  .then(async ({ status, props }) => {
+    console.log('Query Builder: SDK initialized', status, props);
+    
+    // Try multiple paths for endpoint and token
+    const sdkEndpoint = props?.context?.environment?.endpoint || props?.endpoint;
+    const sdkAuthToken = props?.context?.environment?.authToken || props?.token;
+    const savedPat = getToken();
+    const savedEndpoint = getEndpoint();
+    
+    console.log('SDK Endpoint:', sdkEndpoint);
+    console.log('SDK Auth Token available:', !!sdkAuthToken);
+    console.log('Saved PAT available:', !!savedPat);
+    console.log('Saved Endpoint:', savedEndpoint);
+    
+    // Prefer SDK auth token, then saved PAT
+    const authToken = sdkAuthToken || savedPat;
+    const finalEndpoint = sdkEndpoint || savedEndpoint;
+    
+    // Try with available credentials
+    if (authToken && finalEndpoint) {
+      endpoint = finalEndpoint;
+      token = authToken;
+      try {
+        await testConnection(finalEndpoint, authToken);
+        console.log('Connection test passed');
+        // If SDK token worked, save it for future use
+        if (sdkAuthToken) {
+          saveCredentials(finalEndpoint, sdkAuthToken);
+          console.log('Stored SDK auth token');
+        }
+        await init(finalEndpoint, authToken);
+        return;
+      } catch (e) {
+        console.log('Connection test failed:', e.message);
+      }
+    }
+    
+    // Show connect form
+    showView('connect');
+    // Pre-fill endpoint if available
+    if (sdkEndpoint) {
+      $('#endpoint-input').value = sdkEndpoint;
+    } else if (savedEndpoint) {
+      $('#endpoint-input').value = savedEndpoint;
+    }
+  })
+  .catch(e => {
+    console.log('SDK failed, standalone mode:', e);
+    const savedPat = getToken();
+    const savedEndpoint = getEndpoint();
+    
+    // Try auto-connect with saved credentials
+    if (savedEndpoint && savedPat) {
+      endpoint = savedEndpoint;
+      token = savedPat;
+      testConnection(savedEndpoint, savedPat).then(() => {
+        init(savedEndpoint, savedPat);
+      }).catch(() => {
+        showView('connect');
+        $('#endpoint-input').value = savedEndpoint;
+      });
+    } else {
+      showView('connect');
+    }
+  });
+</script>
+</body>
+</html>

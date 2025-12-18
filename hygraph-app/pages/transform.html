@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Transform Helper</title>
+  <!-- Cropper.js CSS -->
+  <link href="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
   <style>
     :root {
       --bg: #f8fafc;
@@ -45,25 +47,70 @@
     .asset-card { border: 2px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
     .asset-card:hover { border-color: var(--accent); }
     .asset-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
-    .asset-card img { width: 100%; height: 80px; object-fit: cover; display: block; }
+    .asset-card img { width: 100%; height: 80px; object-fit: cover; display: block; image-orientation: from-image; }
     .asset-info { padding: 6px 8px; font-size: 10px; color: var(--text-muted); background: var(--bg); }
     .asset-info strong { display: block; color: var(--text); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
     .pagination button { padding: 6px 12px; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; font-size: 12px; }
     .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
     
-    /* Compare View */
+    /* Compare Section */
     .compare-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .compare-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .compare-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .compare-header-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .compare-header-left > span { font-weight: 600; }
+    
+    /* Toggle Buttons */
+    .toggle-btn { padding: 6px 12px; font-size: 11px; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; color: var(--text-muted); font-weight: 500; transition: all 0.2s; }
+    .toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .toggle-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    
+    .aspect-select { padding: 6px 10px; font-size: 11px; border: 1px solid var(--border); border-radius: 6px; background: white; cursor: pointer; }
+    
     .savings-badge { background: var(--success-light); color: var(--success); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    
+    /* Side by Side Grid */
     .compare-grid { display: grid; grid-template-columns: 1fr 1fr; }
-    .compare-panel { padding: 16px; border-right: 1px solid var(--border); }
-    .compare-panel:last-child { border-right: none; }
-    .compare-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; }
-    .compare-img-wrap { background: #f0f0f0; border-radius: 8px; padding: 8px; text-align: center; min-height: 150px; display: flex; align-items: center; justify-content: center; }
-    .compare-img { max-width: 100%; max-height: 200px; border-radius: 4px; }
-    .compare-stats { margin-top: 8px; display: flex; gap: 12px; justify-content: center; font-size: 11px; color: var(--text-muted); }
+    .compare-panel { padding: 16px; }
+    .compare-panel:first-child { border-right: 1px solid var(--border); }
+    .compare-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* Original Image with Focal Point / Cropper */
+    .image-editor-wrap { position: relative; background: #1a1a2e; border-radius: 8px; overflow: hidden; min-height: 200px; }
+    .image-editor-wrap img { max-width: 100%; max-height: 280px; display: block; margin: 0 auto; image-orientation: from-image; }
+    
+    /* Focal Point Mode */
+    .focal-mode .image-editor-wrap { cursor: crosshair; }
+    .focal-marker { position: absolute; width: 32px; height: 32px; border: 3px solid var(--accent); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 0 2px white, 0 2px 8px rgba(0,0,0,0.4); z-index: 10; }
+    .focal-marker::before, .focal-marker::after { content: ''; position: absolute; background: var(--accent); }
+    .focal-marker::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .focal-marker::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+    
+    /* Crop Mode - Cropper.js styles */
+    .crop-mode .focal-marker { display: none; }
+    .cropper-container { max-height: 280px !important; }
+    .cropper-view-box { outline: 2px solid var(--accent); outline-color: var(--accent); }
+    .cropper-line { background-color: var(--accent); }
+    .cropper-point { background-color: var(--accent); width: 10px; height: 10px; }
+    
+    /* Transformed Image */
+    .trans-image-wrap { background: #1a1a2e; border-radius: 8px; overflow: hidden; min-height: 200px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+    .trans-image-wrap img { max-width: 100%; max-height: 280px; display: block; transition: opacity 0.2s; image-orientation: from-image; }
+    .trans-image-wrap:hover::after { content: 'Click for full size'; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 6px 12px; border-radius: 4px; font-size: 11px; }
+    
+    /* Stats */
+    .compare-stats { margin-top: 10px; font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
     .compare-stats strong { color: var(--text); }
+    
+    /* Info Bar */
+    .info-bar { padding: 10px 16px; background: var(--bg); border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .info-bar strong { color: var(--accent); font-family: monospace; }
+    .info-bar-hint { margin-left: auto; font-style: italic; }
+    
+    /* Simple Lightbox - Just the image */
+    .lightbox { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.2s; cursor: pointer; }
+    .lightbox.active { opacity: 1; visibility: visible; }
+    .lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; image-orientation: from-image; }
     
     /* Responsive Variants */
     .variants-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-top: 20px; }
@@ -74,7 +121,7 @@
     .variant-size.active { background: var(--accent); color: white; border-color: var(--accent); }
     .variants-preview { display: flex; gap: 12px; padding: 16px; overflow-x: auto; }
     .variant-card { text-align: center; flex-shrink: 0; }
-    .variant-card img { max-width: 100px; max-height: 60px; border-radius: 4px; border: 1px solid var(--border); }
+    .variant-card img { max-width: 100px; max-height: 60px; border-radius: 4px; border: 1px solid var(--border); image-orientation: from-image; }
     .variant-width { font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 4px; }
     .variant-est { font-size: 10px; color: var(--text-muted); }
     
@@ -89,7 +136,7 @@
     /* Right Panel - Controls */
     .right-panel { background: var(--bg-card); border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; }
     .preview-section { text-align: center; margin-bottom: 20px; }
-    .preview-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--border); }
+    .preview-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--border); image-orientation: from-image; }
     .preview-stats { margin-top: 10px; font-size: 12px; color: var(--text-muted); display: flex; justify-content: center; gap: 16px; }
     
     .control-section { margin-bottom: 20px; }
@@ -124,7 +171,6 @@
     .btn-primary { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
     
     .hidden { display: none !important; }
-    
     .info-text { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
   </style>
 </head>
@@ -139,6 +185,11 @@
     </div>
     <button class="btn-primary" id="connect-btn">Load Assets</button>
     <div id="error-msg" style="margin-top:10px;color:#ef4444;font-size:12px;"></div>
+  </div>
+  
+  <!-- Simple Lightbox - Just the image -->
+  <div id="lightbox" class="lightbox">
+    <img id="lightbox-img" src="" alt="Full size">
   </div>
   
   <!-- Main View -->
@@ -169,28 +220,69 @@
         </div>
       </div>
       
-      <!-- Compare View -->
+      <!-- Compare View - Side by Side -->
       <div id="compare-view" class="compare-section">
         <div class="compare-header">
-          <span style="font-weight:600;">Side-by-Side Comparison</span>
+          <div class="compare-header-left">
+            <span>Compare</span>
+            <button class="toggle-btn" id="crop-btn">✂️ Crop</button>
+            <select class="aspect-select hidden" id="aspect-ratio">
+              <option value="free">Free</option>
+              <option value="16:9">16:9</option>
+              <option value="4:3">4:3</option>
+              <option value="1:1">1:1</option>
+              <option value="9:16">9:16</option>
+              <option value="3:4">3:4</option>
+            </select>
+            <button class="toggle-btn" id="reset-btn">Reset</button>
+          </div>
           <span class="savings-badge" id="savings-badge" style="display:none;">--% smaller</span>
         </div>
+        
         <div id="compare-placeholder" class="placeholder">
           <div class="placeholder-icon">📸</div>
           <div>Select an image to compare</div>
         </div>
+        
         <div id="compare-content" class="hidden">
           <div class="compare-grid">
-            <div class="compare-panel">
-              <div class="compare-label"><span>Original</span><span id="orig-format">--</span></div>
-              <div class="compare-img-wrap"><img id="orig-img" class="compare-img" src=""></div>
-              <div class="compare-stats"><span><strong id="orig-dims">--</strong></span><span><strong id="orig-size">--</strong></span></div>
+            <!-- Original with Crop / Focal Point -->
+            <div class="compare-panel" id="original-panel">
+              <div class="compare-label">
+                <span>Original</span>
+                <span id="orig-format">--</span>
             </div>
-            <div class="compare-panel">
-              <div class="compare-label"><span>Transformed</span><span id="trans-format">--</span></div>
-              <div class="compare-img-wrap"><img id="trans-img" class="compare-img" src=""></div>
-              <div class="compare-stats"><span><strong id="trans-dims">--</strong></span><span><strong id="trans-size">~--</strong></span></div>
+              <div class="image-editor-wrap" id="editor-wrap">
+                <img id="orig-img" src="" alt="Original">
+                <div class="focal-marker hidden" id="focal-marker"></div>
+              </div>
+              <div class="compare-stats">
+                <span><strong id="orig-dims">--</strong></span>
+                <span><strong id="orig-size">--</strong></span>
+              </div>
             </div>
+            
+            <!-- Transformed -->
+            <div class="compare-panel">
+              <div class="compare-label">
+                <span>Transformed</span>
+                <span id="trans-format">--</span>
+            </div>
+              <div class="trans-image-wrap" id="trans-wrap">
+                <img id="trans-img" src="" alt="Transformed">
+              </div>
+              <div class="compare-stats">
+                <span><strong id="trans-dims">--</strong></span>
+                <span><strong id="trans-size">--</strong></span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Info Bar -->
+          <div class="info-bar" id="info-bar">
+            <span>Crop: <strong id="crop-display">Not set</strong></span>
+            <span>Focal: <strong id="focal-display">0.50, 0.50</strong></span>
+            <span class="info-bar-hint" id="info-hint">Click image to set focal point</span>
           </div>
         </div>
       </div>
@@ -331,6 +423,9 @@
     </div>
   </div>
 
+  <!-- Cropper.js -->
+  <script src="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.js"></script>
+
   <script type="module">
     import "https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js";
     import "https://unpkg.com/@hygraph/app-sdk";
@@ -350,6 +445,11 @@
     let currentPage = 1;
     let currentView = 'compare';
     let currentOutput = 'srcset';
+    let focalPoint = { x: 0.5, y: 0.5 };
+    let cropData = null;
+    let cropper = null;
+    let isCropMode = false;
+    let lastTransformedUrl = '';
     const ASSETS_PER_PAGE = 12;
     
     async function gql(query, variables = {}) {
@@ -406,7 +506,17 @@
     }
     
     function selectAsset(asset) {
+      // Destroy existing cropper if any
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      
       selectedAsset = asset;
+      focalPoint = { x: 0.5, y: 0.5 };
+      cropData = null;
+      isCropMode = false;
+      
       $$('.asset-card').forEach(t => t.classList.remove('selected'));
       $(`.asset-card[data-id="${asset.id}"]`)?.classList.add('selected');
       
@@ -419,10 +529,19 @@
       // Show compare content
       $('#compare-placeholder').classList.add('hidden');
       $('#compare-content').classList.remove('hidden');
+      // Set crossOrigin for canvas export to work
+      $('#orig-img').crossOrigin = 'anonymous';
       $('#orig-img').src = asset.url;
       $('#orig-dims').textContent = `${asset.width || '?'} × ${asset.height || '?'}`;
       $('#orig-size').textContent = formatBytes(asset.size);
       $('#orig-format').textContent = asset.mimeType?.split('/')[1]?.toUpperCase() || '?';
+      
+      // Reset UI state
+      $('#crop-btn').classList.remove('active');
+      $('#aspect-ratio').classList.add('hidden');
+      $('#original-panel').classList.remove('crop-mode');
+      $('#original-panel').classList.add('focal-mode');
+      updateInfoBar();
       
       // Show variants content
       $('#variants-placeholder').classList.add('hidden');
@@ -432,38 +551,223 @@
       updateVariants();
     }
     
-    // Hygraph image transformations via GraphQL API (works with all CDNs)
-    // Uses url(transformation: {...}) parameter
-    function buildTransformationParams(options = {}) {
-      const w = options.width ?? $('#width').value;
-      const h = options.height ?? $('#height').value;
-      const fit = options.fit ?? $('#fit').value;
-      const quality = options.quality ?? $('#quality').value;
-      const format = options.format ?? $('#format').value;
+    // Toggle crop mode
+    function toggleCropMode() {
+      isCropMode = !isCropMode;
       
-      const parts = [];
-      
-      // Image transformations (resize)
-      const imageParts = [];
-      if (w) imageParts.push(`width: ${w}`);
-      if (h) imageParts.push(`height: ${h}`);
-      if (fit && fit !== 'clip') imageParts.push(`fit: ${fit}`);
-      if (imageParts.length > 0) {
-        parts.push(`image: { resize: { ${imageParts.join(', ')} } }`);
+      if (isCropMode) {
+        $('#crop-btn').classList.add('active');
+        $('#aspect-ratio').classList.remove('hidden');
+        $('#original-panel').classList.add('crop-mode');
+        $('#original-panel').classList.remove('focal-mode');
+        $('#info-hint').textContent = 'Drag to select crop region';
+        
+        // Initialize cropper
+        initCropper();
+      } else {
+        $('#crop-btn').classList.remove('active');
+        $('#aspect-ratio').classList.add('hidden');
+        $('#original-panel').classList.remove('crop-mode');
+        $('#original-panel').classList.add('focal-mode');
+        $('#info-hint').textContent = 'Click image to set focal point';
+        
+        // Destroy cropper
+        if (cropper) {
+          cropper.destroy();
+          cropper = null;
+        }
       }
       
-      // Document transformation (output format and quality)
-      const docParts = [];
-      if (format && format !== 'auto') {
-        docParts.push(`output: { format: ${format} }`);
-      }
-      if (parts.length > 0 || docParts.length > 0) {
-        // Quality is applied at top level, not in document
+      updateInfoBar();
+    }
+    
+    // Initialize Cropper.js
+    function initCropper() {
+      if (!selectedAsset) return;
+      
+      if (cropper) {
+        cropper.destroy();
       }
       
-      return parts.length > 0 || docParts.length > 0 
-        ? `transformation: { ${[...parts, ...docParts].join(', ')} }`
-        : '';
+      const img = $('#orig-img');
+      const aspectValue = $('#aspect-ratio').value;
+      let aspectRatio = NaN; // Free
+      
+      if (aspectValue === '16:9') aspectRatio = 16/9;
+      else if (aspectValue === '4:3') aspectRatio = 4/3;
+      else if (aspectValue === '1:1') aspectRatio = 1;
+      else if (aspectValue === '9:16') aspectRatio = 9/16;
+      else if (aspectValue === '3:4') aspectRatio = 3/4;
+      
+      cropper = new Cropper(img, {
+        aspectRatio: aspectRatio,
+        viewMode: 2,  // Restrict crop box to not exceed the canvas (image)
+        checkCrossOrigin: true,
+        checkOrientation: true,
+        autoCropArea: 0.8,
+        responsive: true,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: true,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+        minCropBoxWidth: 10,
+        minCropBoxHeight: 10,
+        crop(event) {
+          // Get image natural dimensions
+          const imgW = selectedAsset?.width || img.naturalWidth || 4032;
+          const imgH = selectedAsset?.height || img.naturalHeight || 3024;
+          
+          // Get crop data and clamp to bounds
+          let x = Math.max(0, Math.round(event.detail.x));
+          let y = Math.max(0, Math.round(event.detail.y));
+          let w = Math.round(event.detail.width);
+          let h = Math.round(event.detail.height);
+          
+          // Clamp to image bounds
+          if (x + w > imgW) w = imgW - x;
+          if (y + h > imgH) h = imgH - y;
+          if (x < 0) { w += x; x = 0; }
+          if (y < 0) { h += y; y = 0; }
+          
+          // Only set cropData if valid
+          if (w > 10 && h > 10) {
+            cropData = { x, y, width: w, height: h };
+          }
+          updateInfoBar();
+          
+          // Update crop preview immediately using canvas
+          debouncedCropPreview();
+        },
+        ready() {
+          // Show initial crop preview
+          updateCropPreview();
+        }
+      });
+      
+      // Debounce crop preview updates
+      let cropPreviewTimeout = null;
+      function debouncedCropPreview() {
+        if (cropPreviewTimeout) clearTimeout(cropPreviewTimeout);
+        cropPreviewTimeout = setTimeout(updateCropPreview, 100);
+      }
+    }
+    
+    // Update info bar
+    function updateInfoBar() {
+      if (cropData && isCropMode && cropData.width > 0 && cropData.height > 0) {
+        // Clamp to image bounds for display
+        const imgW = selectedAsset?.width || 4032;
+        const imgH = selectedAsset?.height || 3024;
+        let cropX = Math.max(0, Math.round(cropData.x));
+        let cropY = Math.max(0, Math.round(cropData.y));
+        let cropW = Math.round(cropData.width);
+        let cropH = Math.round(cropData.height);
+        if (cropX + cropW > imgW) cropW = imgW - cropX;
+        if (cropY + cropH > imgH) cropH = imgH - cropY;
+        
+        $('#crop-display').textContent = `${cropW}×${cropH} from (${cropX}, ${cropY})`;
+      } else {
+        $('#crop-display').textContent = 'Not set';
+      }
+      
+      $('#focal-display').textContent = `${focalPoint.x.toFixed(2)}, ${focalPoint.y.toFixed(2)}`;
+    }
+    
+    // Focal Point handling - click on original image
+    function setupFocalPoint() {
+      const wrap = $('#editor-wrap');
+      const img = $('#orig-img');
+      
+      wrap.addEventListener('click', (e) => {
+        if (!selectedAsset || isCropMode) return;
+        
+        const rect = img.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+        
+        focalPoint = { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+        updateFocalMarker();
+        updateInfoBar();
+        debouncedUpdateTransform();
+      });
+    }
+    
+    function updateFocalMarker() {
+      const marker = $('#focal-marker');
+      
+      if ((focalPoint.x !== 0.5 || focalPoint.y !== 0.5) && !isCropMode) {
+        marker.classList.remove('hidden');
+        marker.style.left = (focalPoint.x * 100) + '%';
+        marker.style.top = (focalPoint.y * 100) + '%';
+      } else {
+        marker.classList.add('hidden');
+      }
+    }
+    
+    // Debounce for transform updates
+    let transformTimeout = null;
+    function debouncedUpdateTransform() {
+      if (transformTimeout) clearTimeout(transformTimeout);
+      transformTimeout = setTimeout(updateTransform, 300);
+    }
+    
+    // Update cropped preview using Cropper.js canvas
+    function updateCropPreview() {
+      if (!cropper || !isCropMode) return;
+      
+      try {
+        // Get the cropped canvas
+        const canvas = cropper.getCroppedCanvas({
+          maxWidth: 1200,
+          maxHeight: 1200,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high'
+        });
+        
+        if (canvas) {
+          // Convert canvas to blob URL for better performance
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const blobUrl = URL.createObjectURL(blob);
+              $('#trans-img').src = blobUrl;
+              $('#trans-img').style.opacity = '1';
+              lastTransformedUrl = blobUrl;
+            }
+          }, 'image/jpeg', 0.9);
+          
+          // Update dimensions display
+          if (cropData && cropData.width > 0 && cropData.height > 0) {
+            const cropW = Math.round(cropData.width);
+            const cropH = Math.round(cropData.height);
+            $('#trans-dims').textContent = `${cropW} × ${cropH}`;
+            
+            // Estimate file size
+            const origSize = selectedAsset.size || 500000;
+            const pixelRatio = (cropW * cropH) / (selectedAsset.width * selectedAsset.height);
+            const estSize = Math.max(1000, origSize * pixelRatio * 0.6);
+            $('#trans-size').textContent = '~' + formatBytes(estSize);
+            $('#trans-format').textContent = 'JPEG';
+            
+            // Calculate savings
+            const savings = Math.round(((origSize - estSize) / origSize) * 100);
+            if (savings > 5) {
+              $('#savings-badge').style.display = 'inline-block';
+              $('#savings-badge').textContent = `${savings}% smaller`;
+            }
+            
+            // Update URL display (note: Hygraph crop may not work due to EXIF rotation)
+            $('#transform-url').textContent = `Crop preview (local) - ${cropW}×${cropH}`;
+          }
+        }
+      } catch (e) {
+        console.error('Crop preview error:', e);
+        // Fallback: if canvas export fails due to CORS, show message
+        $('#trans-img').src = '';
+        $('#transform-url').textContent = 'CORS blocked - cannot preview (try downloading image first)';
+      }
     }
     
     // Fetch transformed URL from GraphQL API
@@ -477,15 +781,12 @@
       const format = options.format ?? $('#format').value;
       const blur = options.blur ?? $('#blur').value;
       const sharpen = options.sharpen ?? $('#sharpen').value;
-      
-      // If no transforms, return original URL
-      if (!w && !h && parseInt(quality) >= 100 && format === 'auto' && parseInt(blur) === 0 && parseInt(sharpen) === 0) {
-        return selectedAsset.url;
-      }
+      const useCrop = options.useCrop !== false && cropData && isCropMode;
       
       // Build image transformation parts
       const imageParts = [];
       
+      // Note: Crop is handled locally via Cropper.js canvas (Hygraph crop has EXIF issues)
       // Resize
       if (w || h) {
         const resizeParts = [];
@@ -540,12 +841,6 @@
       }
     }
     
-    // Synchronous URL builder for display (estimate only, actual URL from API)
-    function buildTransformUrl(options = {}) {
-      if (!selectedAsset) return '';
-      return selectedAsset.url; // Will be replaced by actual transformed URL
-    }
-    
     function buildGraphQLQuery() {
       if (!selectedAsset) return '';
       
@@ -556,11 +851,35 @@
       const format = $('#format').value;
       const blur = $('#blur').value;
       const sharpen = $('#sharpen').value;
+      const hasFocal = focalPoint.x !== 0.5 || focalPoint.y !== 0.5;
+      const hasCrop = cropData && isCropMode && cropData.width > 0 && cropData.height > 0;
       
       // Build image transformation parts
       const imageParts = [];
       
-      // Resize
+      // Crop first (extract region from original)
+      if (hasCrop && cropData) {
+        // Use actual image dimensions
+        const imgW = selectedAsset.width;
+        const imgH = selectedAsset.height;
+        
+        // Double-check and clamp
+        let cropX = Math.max(0, Math.min(cropData.x, imgW - 1));
+        let cropY = Math.max(0, Math.min(cropData.y, imgH - 1));
+        let cropW = Math.min(cropData.width, imgW - cropX);
+        let cropH = Math.min(cropData.height, imgH - cropY);
+        
+        cropX = Math.round(cropX);
+        cropY = Math.round(cropY);
+        cropW = Math.round(cropW);
+        cropH = Math.round(cropH);
+        
+        if (cropW > 10 && cropH > 10 && cropX + cropW <= imgW && cropY + cropH <= imgH) {
+          imageParts.push(`crop: { x: ${cropX}, y: ${cropY}, width: ${cropW}, height: ${cropH} }`);
+        }
+      }
+      
+      // Resize (after crop)
       if (w || h) {
         const resizeParts = [];
         if (w) resizeParts.push(`width: ${w}`);
@@ -569,28 +888,26 @@
         imageParts.push(`resize: { ${resizeParts.join(', ')} }`);
       }
       
-      // Quality (1-100)
+      // Quality
       if (quality && parseInt(quality) < 100) {
         imageParts.push(`quality: { value: ${quality} }`);
       }
       
-      // Blur (0-20)
+      // Blur
       if (blur && parseInt(blur) > 0) {
         imageParts.push(`blur: { amount: ${blur} }`);
       }
       
-      // Sharpen (0-20)
+      // Sharpen
       if (sharpen && parseInt(sharpen) > 0) {
         imageParts.push(`sharpen: { amount: ${sharpen} }`);
       }
       
-      // Build document output parts (format)
-      // GraphQL valid formats: jpg, png, svg, webp, gif
+      // Build document output parts
       const docParts = [];
       if (format && format !== 'auto') {
         docParts.push(`format: ${format}`);
       } else if (format === 'auto') {
-        // Auto not available in GraphQL - default to webp for best compression
         docParts.push(`format: webp`);
       }
       
@@ -601,14 +918,31 @@
       
       const transformation = transformParts.length ? `transformation: { ${transformParts.join(', ')} }` : '';
       
-      return `asset(where: { id: "${selectedAsset.id}" }) {\n  url(${transformation})\n}`;
+      let query = `asset(where: { id: "${selectedAsset.id}" }) {\n  url(${transformation})\n}`;
+      
+      // Add comments
+      if (hasCrop && cropData) {
+        query = `# Crop region: ${Math.round(cropData.width)}×${Math.round(cropData.height)} from (${Math.round(cropData.x)}, ${Math.round(cropData.y)})\n` + query;
+      }
+      if (hasFocal) {
+        query = `# Focal point: ${focalPoint.x.toFixed(2)}, ${focalPoint.y.toFixed(2)}\n` + query;
+      }
+      
+      return query;
     }
     
     let updatePending = false;
     
     async function updateTransform() {
       if (!selectedAsset) return;
-      if (updatePending) return; // Debounce
+      if (updatePending) return;
+      
+      // If in crop mode, use local canvas preview instead of API
+      if (isCropMode && cropper) {
+        updateCropPreview();
+        $('#graphql-query').textContent = buildGraphQLQuery();
+        return;
+      }
       
       updatePending = true;
       const transImg = $('#trans-img');
@@ -618,18 +952,17 @@
       $('#transform-url').textContent = 'Loading...';
       
       try {
-        // Fetch actual transformed URL from GraphQL API
         const url = await fetchTransformedUrl();
-        console.log('Transformed URL:', url);
+        lastTransformedUrl = url;
         
         transImg.onerror = () => {
-          console.error('Failed to load transformed image:', url);
           transImg.src = selectedAsset.url;
         };
         transImg.onload = () => {
           transImg.style.opacity = '1';
         };
         transImg.src = url;
+        
         $('#transform-url').textContent = url;
         $('#graphql-query').textContent = buildGraphQLQuery();
       } catch (e) {
@@ -641,9 +974,22 @@
       
       updatePending = false;
       
-      // Calculate estimates
-      const w = parseInt($('#width').value) || selectedAsset.width;
-      const h = parseInt($('#height').value) || selectedAsset.height;
+      // Calculate estimates - use crop dimensions if cropping (clamped to image bounds)
+      const hasCrop = cropData && isCropMode && cropData.width > 0 && cropData.height > 0;
+      let w, h;
+      if (hasCrop) {
+        const imgW = selectedAsset.width || 4032;
+        const imgH = selectedAsset.height || 3024;
+        let cropX = Math.max(0, Math.round(cropData.x));
+        let cropY = Math.max(0, Math.round(cropData.y));
+        w = Math.round(cropData.width);
+        h = Math.round(cropData.height);
+        if (cropX + w > imgW) w = imgW - cropX;
+        if (cropY + h > imgH) h = imgH - cropY;
+      } else {
+        w = parseInt($('#width').value) || selectedAsset.width;
+        h = parseInt($('#height').value) || selectedAsset.height;
+      }
       const quality = parseInt($('#quality').value);
       const format = $('#format').value;
       
@@ -673,7 +1019,6 @@
       
       const sizes = Array.from($$('.variant-size.active')).map(el => parseInt(el.dataset.size)).sort((a,b) => a - b);
       
-      // Show loading state
       $('#variants-preview').innerHTML = sizes.map(size => {
         const estSize = Math.max(1000, (selectedAsset.size || 500000) * (size / (selectedAsset.width || 1920)) * 0.6 * 0.8);
         return `
@@ -685,8 +1030,7 @@
         `;
       }).join('');
       
-      // Fetch all variant URLs in parallel via GraphQL
-      const variantUrls = await Promise.all(sizes.map(size => fetchTransformedUrl({ width: size, quality: 80, format: 'webp' })));
+      const variantUrls = await Promise.all(sizes.map(size => fetchTransformedUrl({ width: size, quality: 80, format: 'webp', useCrop: false })));
       
       $('#variants-preview').innerHTML = sizes.map((size, i) => {
         const estSize = Math.max(1000, (selectedAsset.size || 500000) * (size / (selectedAsset.width || 1920)) * 0.6 * 0.8);
@@ -699,7 +1043,6 @@
         `;
       }).join('');
       
-      // Store URLs for output generation
       selectedAsset._variantUrls = {};
       sizes.forEach((size, i) => {
         selectedAsset._variantUrls[size] = variantUrls[i];
@@ -716,7 +1059,6 @@
       let output = '';
       
       if (currentOutput === 'srcset') {
-        // Show GraphQL query for generating srcset URLs
         output = `// GraphQL query to get responsive URLs:\n{\n  asset(where: { id: "${selectedAsset.id}" }) {\n`;
         output += sizes.map(s => `    url${s}w: url(transformation: { image: { resize: { width: ${s} } } })`).join('\n');
         output += `\n  }\n}\n\n// Result srcset:\n`;
@@ -748,6 +1090,16 @@
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
     
+    // Simple Lightbox - just the image
+    function showLightbox(imgSrc) {
+      $('#lightbox-img').src = imgSrc;
+      $('#lightbox').classList.add('active');
+    }
+    
+    function hideLightbox() {
+      $('#lightbox').classList.remove('active');
+    }
+    
     // Event Listeners
     $$('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -757,6 +1109,30 @@
         $('#compare-view').classList.toggle('hidden', currentView !== 'compare');
         $('#responsive-view').classList.toggle('hidden', currentView !== 'responsive');
       });
+    });
+    
+    // Crop button toggle
+    $('#crop-btn').addEventListener('click', toggleCropMode);
+    
+    // Aspect ratio change
+    $('#aspect-ratio').addEventListener('change', () => {
+      if (selectedAsset && isCropMode) {
+        initCropper();
+      }
+    });
+    
+    // Reset button
+    $('#reset-btn').addEventListener('click', () => {
+      focalPoint = { x: 0.5, y: 0.5 };
+      cropData = null;
+      
+      if (cropper) {
+        cropper.reset();
+      }
+      
+      updateFocalMarker();
+      updateInfoBar();
+      updateTransform();
     });
     
     $$('.variant-size').forEach(btn => {
@@ -785,15 +1161,15 @@
       });
     });
     
-    // All controls
+    // Controls
     ['#width', '#height', '#blur', '#sharpen'].forEach(s => {
-      $(s)?.addEventListener('input', updateTransform);
+      $(s)?.addEventListener('input', debouncedUpdateTransform);
     });
     ['#fit', '#format'].forEach(s => {
       $(s)?.addEventListener('change', updateTransform);
     });
     
-    $('#quality').addEventListener('input', () => { $('#quality-val').textContent = $('#quality').value + '%'; updateTransform(); });
+    $('#quality').addEventListener('input', () => { $('#quality-val').textContent = $('#quality').value + '%'; debouncedUpdateTransform(); });
     $('#blur').addEventListener('input', () => { $('#blur-val').textContent = $('#blur').value; });
     $('#sharpen').addEventListener('input', () => { $('#sharpen-val').textContent = $('#sharpen').value; });
     
@@ -812,9 +1188,16 @@
       if (currentPage < totalPages) { currentPage++; renderAssets(); }
     });
     
-    // Copy buttons - with fallback for iframe/security restrictions
+    // Lightbox - click transformed image
+    $('#trans-wrap').addEventListener('click', () => {
+      if (selectedAsset && lastTransformedUrl) showLightbox(lastTransformedUrl);
+    });
+    
+    // Close lightbox on click
+    $('#lightbox').addEventListener('click', hideLightbox);
+    
+    // Copy helpers
     function copyToClipboard(text) {
-      // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
         return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
       }
@@ -827,19 +1210,12 @@
         textarea.value = text;
         textarea.style.position = 'fixed';
         textarea.style.left = '-9999px';
-        textarea.style.top = '0';
         document.body.appendChild(textarea);
-        textarea.focus();
         textarea.select();
         try {
-          const success = document.execCommand('copy');
+          document.execCommand('copy') ? resolve() : reject();
+        } catch (e) { reject(e); }
           document.body.removeChild(textarea);
-          if (success) resolve();
-          else reject(new Error('Copy failed'));
-        } catch (e) {
-          document.body.removeChild(textarea);
-          reject(e);
-        }
       });
     }
     
@@ -851,9 +1227,8 @@
         btn.classList.add('copied');
         setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
       } catch (e) {
-        console.error('Copy failed:', e);
         btn.textContent = 'Failed!';
-        setTimeout(() => { btn.textContent = btn.textContent.includes('URL') ? 'Copy URL' : btn.textContent.includes('Query') ? 'Copy Query' : 'Copy'; }, 2000);
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
       }
     }
     
@@ -874,7 +1249,10 @@
       } catch (e) { $('#error-msg').textContent = 'Error: ' + e.message; }
     });
     
-    // Init
+    // Initialize focal point click handler
+    setupFocalPoint();
+    
+    // Init SDK
     sdk.init({ debug: true }).then(async ({ props }) => {
       endpoint = props?.context?.environment?.endpoint || localStorage.getItem(ENDPOINT_KEY);
       const sdkToken = props?.context?.environment?.authToken;

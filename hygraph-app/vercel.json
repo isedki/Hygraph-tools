@@ -10,6 +10,8 @@
     { "source": "/page.html", "destination": "/pages/page.html" },
     { "source": "/sidebar", "destination": "/pages/sidebar.html" },
     { "source": "/sidebar.html", "destination": "/pages/sidebar.html" },
+    { "source": "/query-builder", "destination": "/pages/query-builder.html" },
+    { "source": "/query-builder.html", "destination": "/pages/query-builder.html" },
     { "source": "/calendar", "destination": "/pages/calendar.html" },
     { "source": "/calendar.html", "destination": "/pages/calendar.html" },
     { "source": "/health", "destination": "/pages/health.html" },
