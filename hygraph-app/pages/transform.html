@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image Transform Helper</title>
+  <title>Media Studio</title>
   <!-- Cropper.js CSS -->
   <link href="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
   <style>
@@ -17,6 +17,8 @@
       --accent-light: #f5f3ff;
       --success: #10b981;
       --success-light: #ecfdf5;
+      --warning: #f59e0b;
+      --warning-light: #fffbeb;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -26,7 +28,23 @@
       line-height: 1.5;
     }
     
-    .layout { display: grid; grid-template-columns: 1fr 340px; min-height: 100vh; }
+    .layout { display: grid; grid-template-columns: 200px 1fr 340px; min-height: 100vh; }
+    
+    /* Folder Sidebar */
+    .folder-sidebar { background: var(--bg-card); border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto; }
+    .folder-header { padding: 0 16px 12px; font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+    .folder-header button { background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+    .folder-header button:hover { background: var(--bg); }
+    .folder-tree { list-style: none; }
+    .folder-item { display: flex; align-items: center; padding: 8px 16px; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: all 0.15s; border-left: 3px solid transparent; }
+    .folder-item:hover { background: var(--bg); color: var(--text); }
+    .folder-item.active { background: var(--accent-light); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+    .folder-item .folder-icon { margin-right: 8px; font-size: 14px; }
+    .folder-item .folder-count { margin-left: auto; font-size: 11px; background: var(--bg); padding: 2px 6px; border-radius: 10px; }
+    .folder-item.active .folder-count { background: white; }
+    .folder-item.nested { padding-left: 32px; font-size: 12px; }
+    .folder-item.nested-2 { padding-left: 48px; }
+    .folder-divider { height: 1px; background: var(--border); margin: 8px 16px; }
     
     /* Left Panel */
     .left-panel { padding: 24px; overflow-y: auto; }
@@ -40,16 +58,51 @@
     
     /* Asset Grid */
     .asset-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .section-header-left { display: flex; align-items: center; gap: 12px; }
     .section-title { font-weight: 600; font-size: 14px; }
-    .search-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; width: 200px; }
-    .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-height: 200px; overflow-y: auto; }
-    .asset-card { border: 2px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+    .filter-group { display: flex; align-items: center; gap: 8px; }
+    .filter-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; background: white; cursor: pointer; }
+    .search-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; width: 160px; }
+    .upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+    .upload-btn:hover { opacity: 0.9; }
+    
+    /* Upload Dropzone */
+    .upload-dropzone { border: 2px dashed var(--border); border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 12px; transition: all 0.2s; cursor: pointer; display: none; }
+    .upload-dropzone.visible { display: block; }
+    .upload-dropzone:hover, .upload-dropzone.dragover { border-color: var(--accent); background: var(--accent-light); }
+    .upload-dropzone.uploading { border-color: var(--success); background: var(--success-light); pointer-events: none; }
+    .upload-dropzone-icon { font-size: 28px; margin-bottom: 6px; }
+    .upload-dropzone-text { font-size: 13px; color: var(--text-muted); }
+    .upload-dropzone-text strong { color: var(--accent); cursor: pointer; }
+    .upload-folder-select { margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .upload-folder-select select { padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 11px; }
+    .upload-progress { margin-top: 10px; display: none; }
+    .upload-progress.active { display: block; }
+    .upload-progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .upload-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; width: 0%; }
+    .upload-progress-text { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-align: center; }
+    
+    /* New Folder Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: all 0.2s; }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal { background: white; border-radius: 12px; padding: 24px; width: 320px; max-width: 90%; }
+    .modal h3 { font-size: 16px; margin-bottom: 16px; }
+    .modal input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+    .modal-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-actions button { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .modal-actions .btn-cancel { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+    .modal-actions .btn-primary { background: var(--accent); border: none; color: white; }
+    
+    .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; max-height: 280px; overflow-y: auto; }
+    .asset-card { border: 2px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; }
     .asset-card:hover { border-color: var(--accent); }
     .asset-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
-    .asset-card img { width: 100%; height: 80px; object-fit: cover; display: block; image-orientation: from-image; }
+    .asset-card img { width: 100%; height: 100px; object-fit: cover; display: block; image-orientation: from-image; }
     .asset-info { padding: 6px 8px; font-size: 10px; color: var(--text-muted); background: var(--bg); }
     .asset-info strong { display: block; color: var(--text); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .asset-folder-badge { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
     .pagination button { padding: 6px 12px; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; font-size: 12px; }
     .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -107,10 +160,37 @@
     .info-bar strong { color: var(--accent); font-family: monospace; }
     .info-bar-hint { margin-left: auto; font-style: italic; }
     
-    /* Simple Lightbox - Just the image */
-    .lightbox { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.2s; cursor: pointer; }
+    /* Lightbox - Real size with scroll */
+    .lightbox { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 1000; overflow: auto; opacity: 0; visibility: hidden; transition: opacity 0.2s; cursor: zoom-out; padding: 20px; }
     .lightbox.active { opacity: 1; visibility: visible; }
-    .lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; image-orientation: from-image; }
+    .lightbox-inner { min-height: 100%; display: flex; align-items: center; justify-content: center; }
+    .lightbox img { image-orientation: from-image; }
+    .lightbox-hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; pointer-events: none; }
+    
+    /* Upload Preview Modal */
+    #upload-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    #upload-modal.hidden { display: none; }
+    .modal-content { background: var(--bg-card); border-radius: 12px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .modal-content h3 { margin-bottom: 16px; font-size: 16px; font-weight: 600; }
+    .modal-preview-img { width: 100%; max-height: 200px; object-fit: contain; background: var(--bg); border-radius: 8px; margin-bottom: 16px; }
+    .modal-details { margin-bottom: 12px; }
+    .modal-detail-row { font-size: 13px; color: var(--text-muted); padding: 4px 0; display: flex; justify-content: space-between; }
+    .modal-detail-row strong { color: var(--text); }
+    #modal-warnings { margin-bottom: 12px; }
+    .modal-warning { padding: 10px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .modal-warning.warning-yellow { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .modal-warning.warning-orange { background: #ffedd5; color: #c2410c; border: 1px solid #fb923c; }
+    .modal-field { margin-bottom: 12px; }
+    .modal-field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
+    .modal-field input, .modal-field select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--bg); }
+    .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-btn { flex: 1; padding: 10px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .modal-btn-cancel { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+    .modal-btn-cancel:hover { background: var(--border); }
+    .modal-btn-upload { background: var(--accent); color: white; }
+    .modal-btn-upload:hover { opacity: 0.9; }
+    .modal-btn-upload:disabled { opacity: 0.5; cursor: not-allowed; }
     
     /* Responsive Variants */
     .variants-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-top: 20px; }
@@ -135,16 +215,9 @@
     
     /* Right Panel - Controls */
     .right-panel { background: var(--bg-card); border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; }
-    .preview-section { text-align: center; margin-bottom: 20px; }
-    .preview-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--border); image-orientation: from-image; }
-    .preview-stats { margin-top: 10px; font-size: 12px; color: var(--text-muted); display: flex; justify-content: center; gap: 16px; }
     
     .control-section { margin-bottom: 20px; }
     .control-section h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px; }
-    
-    .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-    .preset-btn { padding: 6px 12px; font-size: 12px; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
-    .preset-btn:hover { border-color: var(--accent); }
     
     .form-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
     .form-group { flex: 1; }
@@ -177,46 +250,85 @@
 <body>
   <!-- Setup View -->
   <div id="setup-view" class="setup-view">
-    <h2>🖼️ Image Transform Helper</h2>
-    <p>Compare, optimize, and generate responsive image variants.</p>
-    <div class="form-group" id="token-group" style="display:none;">
-      <label>Permanent Auth Token</label>
-      <input type="password" id="token-input" placeholder="eyJ...">
-    </div>
-    <button class="btn-primary" id="connect-btn">Load Assets</button>
+    <h2>🎬 Media Studio</h2>
+    <p>Connecting to Hygraph...</p>
     <div id="error-msg" style="margin-top:10px;color:#ef4444;font-size:12px;"></div>
   </div>
   
-  <!-- Simple Lightbox - Just the image -->
+  <!-- Lightbox - Real size with scroll -->
   <div id="lightbox" class="lightbox">
-    <img id="lightbox-img" src="" alt="Full size">
+    <div class="lightbox-inner">
+      <img id="lightbox-img" src="" alt="Full size (100%)">
+    </div>
+    <div class="lightbox-hint">100% size · Click or ESC to close · Scroll to pan</div>
   </div>
+  
   
   <!-- Main View -->
   <div id="main-view" class="layout" style="display:none;">
+    <!-- Folder Sidebar -->
+    <div class="folder-sidebar">
+      <div class="folder-header">
+        <span>Folders</span>
+      </div>
+      <ul class="folder-tree" id="folder-tree">
+        <li class="folder-item active" data-folder="">
+          <span class="folder-icon">📁</span>
+          <span>All</span>
+          <span class="folder-count" id="all-count">0</span>
+        </li>
+        <li class="folder-divider"></li>
+        <!-- Dynamic folders will be inserted here -->
+      </ul>
+    </div>
+    
     <!-- Left Panel -->
     <div class="left-panel">
       <div class="header">
-        <h1>🖼️ Image Transform Helper</h1>
+        <h1>🎬 Media Studio <span style="font-size:10px;color:var(--text-muted);font-weight:400;">v2.0</span></h1>
         <span class="badge" id="asset-count">0 images</span>
       </div>
       
-      <div class="tabs">
-        <button class="tab active" data-view="compare">Compare</button>
-        <button class="tab" data-view="responsive">Responsive Variants</button>
-      </div>
       
       <!-- Asset Selection -->
       <div class="asset-section">
         <div class="section-header">
+          <div class="section-header-left">
           <span class="section-title">Select an Image</span>
-          <input type="text" class="search-input" id="search-input" placeholder="Search by filename...">
+            <select class="filter-select" id="type-filter">
+              <option value="">All types</option>
+              <option value="jpeg">JPEG</option>
+              <option value="png">PNG</option>
+              <option value="webp">WebP</option>
+              <option value="avif">AVIF</option>
+              <option value="gif">GIF</option>
+            </select>
         </div>
+          <div class="filter-group">
+            <input type="text" class="search-input" id="search-input" placeholder="Search...">
+            <button class="upload-btn" id="toggle-upload-btn">📤 Upload</button>
+          </div>
+        </div>
+        
+        <!-- Upload Dropzone -->
+        <div class="upload-dropzone" id="upload-dropzone">
+          <div class="upload-dropzone-icon">📤</div>
+          <div class="upload-dropzone-text">Drop images here or <strong>click to browse</strong></div>
+          <div class="upload-folder-select">
+            Upload to: <select id="upload-folder-select"><option value="">(none)</option></select>
+          </div>
+          <div class="upload-progress" id="upload-progress">
+            <div class="upload-progress-bar"><div class="upload-progress-fill" id="upload-progress-fill"></div></div>
+            <div class="upload-progress-text" id="upload-progress-text">Uploading...</div>
+          </div>
+          <input type="file" id="file-input" accept="image/*" style="display:none;">
+        </div>
+        
         <div class="asset-grid" id="asset-grid"></div>
         <div class="pagination">
-          <button id="prev-btn" disabled>← Previous</button>
-          <span id="page-info">Page 1 of 1</span>
-          <button id="next-btn" disabled>Next →</button>
+          <button id="prev-btn" disabled>↺ Reset</button>
+          <span id="page-info">Loading...</span>
+          <button id="next-btn" disabled>Load More →</button>
         </div>
       </div>
       
@@ -235,6 +347,7 @@
               <option value="3:4">3:4</option>
             </select>
             <button class="toggle-btn" id="reset-btn">Reset</button>
+            <button class="toggle-btn hidden" id="download-crop-btn">💾 Download</button>
           </div>
           <span class="savings-badge" id="savings-badge" style="display:none;">--% smaller</span>
         </div>
@@ -255,28 +368,29 @@
               <div class="image-editor-wrap" id="editor-wrap">
                 <img id="orig-img" src="" alt="Original">
                 <div class="focal-marker hidden" id="focal-marker"></div>
-              </div>
+            </div>
               <div class="compare-stats">
                 <span><strong id="orig-dims">--</strong></span>
                 <span><strong id="orig-size">--</strong></span>
-              </div>
-            </div>
-            
+        </div>
+      </div>
+      
             <!-- Transformed -->
             <div class="compare-panel">
               <div class="compare-label">
                 <span>Transformed</span>
                 <span id="trans-format">--</span>
-            </div>
+        </div>
               <div class="trans-image-wrap" id="trans-wrap">
                 <img id="trans-img" src="" alt="Transformed">
-              </div>
+        </div>
               <div class="compare-stats">
                 <span><strong id="trans-dims">--</strong></span>
                 <span><strong id="trans-size">--</strong></span>
-              </div>
+                <span id="scale-indicator" style="color:var(--accent);font-style:italic;">--</span>
+        </div>
             </div>
-          </div>
+            </div>
           
           <!-- Info Bar -->
           <div class="info-bar" id="info-bar">
@@ -287,87 +401,34 @@
         </div>
       </div>
       
-      <!-- Responsive Variants View -->
-      <div id="responsive-view" class="variants-section hidden">
-        <div class="variants-header">
-          <h3>Responsive Image Variants</h3>
-        </div>
-        <div class="variant-sizes">
-          <button class="variant-size active" data-size="320">320w</button>
-          <button class="variant-size active" data-size="640">640w</button>
-          <button class="variant-size active" data-size="768">768w</button>
-          <button class="variant-size active" data-size="1024">1024w</button>
-          <button class="variant-size active" data-size="1280">1280w</button>
-          <button class="variant-size" data-size="1536">1536w</button>
-          <button class="variant-size" data-size="1920">1920w</button>
-        </div>
-        <div id="variants-placeholder" class="placeholder">
-          <div class="placeholder-icon">📐</div>
-          <div>Select an image to generate variants</div>
-        </div>
-        <div id="variants-content" class="hidden">
-          <div class="variants-preview" id="variants-preview"></div>
-          <div class="output-section">
-            <div class="output-tabs">
-              <button class="output-tab active" data-output="srcset">srcset</button>
-              <button class="output-tab" data-output="picture">&lt;picture&gt;</button>
-              <button class="output-tab" data-output="css">CSS</button>
-            </div>
-            <div class="output-box">
-              <button class="copy-btn" id="copy-variant-btn">Copy</button>
-              <div class="output-code" id="variant-output">--</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
     
     <!-- Right Panel - Controls -->
     <div class="right-panel">
-      <div class="preview-section">
-        <img id="preview-img" class="preview-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-size='14'%3ENo image%3C/text%3E%3C/svg%3E">
-        <div class="preview-stats">
-          <span id="preview-dims">-- × --</span>
-          <span id="preview-size">--</span>
-          <span id="preview-format">--</span>
+      <div class="control-section" id="configs-section">
+        <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleConfigsSection()">
+          <span>Asset Configs</span>
+          <span id="configs-toggle" style="font-size:10px;color:var(--text-muted);">▼</span>
+        </h3>
+        <div id="configs-content">
+          <div class="form-row">
+            <select id="saved-configs" class="form-group" style="flex:2;">
+              <option value="">-- Select config --</option>
+            </select>
+            <button class="toggle-btn" id="delete-config-btn" title="Delete">🗑️</button>
         </div>
-      </div>
-      
-      <div class="control-section">
-        <h3>Quick Presets</h3>
-        <div class="presets">
-          <button class="preset-btn" data-preset="thumbnail">Thumbnail</button>
-          <button class="preset-btn" data-preset="medium">Medium</button>
-          <button class="preset-btn" data-preset="large">Large</button>
-          <button class="preset-btn" data-preset="fullhd">Full HD</button>
-          <button class="preset-btn" data-preset="square">Square</button>
-        </div>
-      </div>
-      
-      <div class="control-section">
-        <h3>Resize</h3>
         <div class="form-row">
-          <div class="form-group">
-            <label>Width</label>
-            <input type="number" id="width" placeholder="auto">
+            <input type="text" id="config-name" placeholder="Config name..." style="flex:2; padding:8px; border:1px solid var(--border); border-radius:6px; font-size:12px;">
+            <button class="toggle-btn" id="save-config-btn">💾 Save</button>
           </div>
-          <span style="padding-top:20px;">×</span>
-          <div class="form-group">
-            <label>Height</label>
-            <input type="number" id="height" placeholder="auto">
-          </div>
-          <span style="padding-top:20px;">px</span>
-        </div>
-        <div class="form-group">
-          <label>Fit Mode</label>
-          <select id="fit">
-            <option value="clip">Clip (keep aspect ratio)</option>
-            <option value="crop">Crop (fill exact size)</option>
-            <option value="scale">Scale (stretch to fit)</option>
-            <option value="max">Max (no upscaling)</option>
-          </select>
+          <div id="config-status" class="info-text" style="text-align:center;"></div>
         </div>
       </div>
+      
+      <!-- Hidden inputs for backward compatibility with saved configs -->
+      <input type="hidden" id="width" value="">
+      <input type="hidden" id="height" value="">
+      <input type="hidden" id="fit" value="clip">
       
       <div class="control-section">
         <h3>Quality & Format</h3>
@@ -420,6 +481,20 @@
         <div class="url-box" id="graphql-query">Select an image...</div>
         <button class="btn-copy" id="copy-gql-btn">Copy Query</button>
       </div>
+      
+      <div class="output-url">
+        <h4>Responsive srcset</h4>
+        <div class="srcset-sizes" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
+          <label style="font-size:10px;color:var(--text-muted);"><input type="checkbox" class="srcset-size" data-size="320" checked> 320w</label>
+          <label style="font-size:10px;color:var(--text-muted);"><input type="checkbox" class="srcset-size" data-size="640" checked> 640w</label>
+          <label style="font-size:10px;color:var(--text-muted);"><input type="checkbox" class="srcset-size" data-size="768" checked> 768w</label>
+          <label style="font-size:10px;color:var(--text-muted);"><input type="checkbox" class="srcset-size" data-size="1024" checked> 1024w</label>
+          <label style="font-size:10px;color:var(--text-muted);"><input type="checkbox" class="srcset-size" data-size="1280"> 1280w</label>
+          <label style="font-size:10px;color:var(--text-muted);"><input type="checkbox" class="srcset-size" data-size="1920"> 1920w</label>
+        </div>
+        <div class="url-box" id="srcset-output" style="max-height:100px;">Select an image...</div>
+        <button class="btn-copy" id="copy-srcset-btn">Copy srcset</button>
+      </div>
     </div>
   </div>
 
@@ -434,75 +509,659 @@
     const $ = s => document.querySelector(s);
     const $$ = s => document.querySelectorAll(s);
     
-    const PAT_KEY = 'hygraph_tools_pat';
-    const ENDPOINT_KEY = 'hygraph_tools_endpoint';
+    // No localStorage - credentials come from Hygraph SDK only
     
     let endpoint = '';
     let token = '';
     let assets = [];
-    let filteredAssets = [];
     let selectedAsset = null;
     let currentPage = 1;
-    let currentView = 'compare';
-    let currentOutput = 'srcset';
     let focalPoint = { x: 0.5, y: 0.5 };
     let cropData = null;
+    let pendingFile = null; // File waiting for upload confirmation
     let cropper = null;
     let isCropMode = false;
     let lastTransformedUrl = '';
-    const ASSETS_PER_PAGE = 12;
+    let currentFolder = ''; // Current folder filter
+    let currentTypeFilter = ''; // Current type filter
+    let currentSearch = ''; // Current search term
+    let allFolders = []; // List of all unique folders
+    let folderCounts = {}; // Asset counts per folder
+    let totalAssetCount = 0; // Total matching assets
+    let endCursor = null; // For pagination
+    let hasNextPage = false;
+    let isLoading = false;
+    let searchDebounceTimer = null;
+    const ASSETS_PER_PAGE = 50; // Fetch more per page for efficiency
     
     async function gql(query, variables = {}) {
+      const body = { query };
+      if (Object.keys(variables).length > 0) {
+        body.variables = variables;
+      }
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ query, variables })
+        body: JSON.stringify(body)
       });
       const json = await res.json();
       if (json.errors) throw new Error(json.errors[0].message);
       return json.data;
     }
     
-    async function fetchAssets() {
+    // Build GraphQL where clause from current filters
+    function buildWhereClause() {
+      const conditions = ['mimeType_starts_with: "image/"'];
+      
+      // Folder filter (enum)
+      if (currentFolder && currentFolder !== '__uncategorized__') {
+        conditions.push(`folder: ${currentFolder}`);
+      } else if (currentFolder === '__uncategorized__') {
+        conditions.push('folder: null');
+      }
+      
+      // Type filter
+      if (currentTypeFilter) {
+        conditions.push(`mimeType_contains: "${currentTypeFilter}"`);
+      }
+      
+      // Search filter
+      if (currentSearch) {
+        conditions.push(`fileName_contains: "${currentSearch}"`);
+      }
+      
+      return conditions.join(', ');
+    }
+    
+    // Fetch assets with server-side pagination and filtering
+    async function fetchAssets(append = false) {
+      if (isLoading) return;
+      isLoading = true;
+      showLoading(true);
+      
       try {
-        const data = await gql(`{
-          assets(first: 500, stage: DRAFT, where: { mimeType_starts_with: "image/" }) {
-            id handle fileName url width height size mimeType
+        const whereClause = buildWhereClause();
+        const afterClause = append && endCursor ? `, after: "${endCursor}"` : '';
+        
+        // Try with all fields first, fall back if needed
+        let data;
+        const queries = [
+          `{ 
+            assetsConnection(first: ${ASSETS_PER_PAGE}${afterClause}, stage: DRAFT, where: { ${whereClause} }) {
+              pageInfo { hasNextPage endCursor }
+              aggregate { count }
+              edges { node { id handle fileName url width height size mimeType transformConfigs folder } }
+            }
+          }`,
+          `{ 
+            assetsConnection(first: ${ASSETS_PER_PAGE}${afterClause}, stage: DRAFT, where: { ${whereClause} }) {
+              pageInfo { hasNextPage endCursor }
+              aggregate { count }
+              edges { node { id handle fileName url width height size mimeType folder } }
+            }
+          }`,
+          `{ 
+            assetsConnection(first: ${ASSETS_PER_PAGE}${afterClause}, stage: DRAFT, where: { ${whereClause} }) {
+              pageInfo { hasNextPage endCursor }
+              aggregate { count }
+              edges { node { id handle fileName url width height size mimeType } }
+            }
+          }`
+        ];
+        
+        for (const query of queries) {
+          try {
+            data = await gql(query);
+            break;
+          } catch (e) {
+            console.warn('Query failed, trying simpler version:', e.message);
           }
-        }`);
-        assets = data.assets || [];
-        filteredAssets = [...assets];
-        $('#asset-count').textContent = assets.length + ' images';
+        }
+        
+        if (!data?.assetsConnection) {
+          throw new Error('Could not fetch assets');
+        }
+        
+        const connection = data.assetsConnection;
+        const newAssets = connection.edges.map(e => e.node);
+        
+        if (append) {
+          assets = [...assets, ...newAssets];
+        } else {
+          assets = newAssets;
+          totalAssetCount = connection.aggregate?.count || assets.length;
+        }
+        
+        endCursor = connection.pageInfo?.endCursor;
+        hasNextPage = connection.pageInfo?.hasNextPage || false;
+        
+        $('#asset-count').textContent = totalAssetCount + ' images';
         renderAssets();
+        
+        // Fetch folder enum and counts in background (don't block)
+        if (!append) {
+          fetchFolderEnum().then(() => fetchFolderCounts());
+        }
       } catch (e) {
         console.error(e);
         $('#asset-grid').innerHTML = `<div style="padding:20px;color:#ef4444;">Error: ${e.message}</div>`;
+      } finally {
+        isLoading = false;
+        showLoading(false);
       }
     }
     
-    function renderAssets() {
-      const start = (currentPage - 1) * ASSETS_PER_PAGE;
-      const end = start + ASSETS_PER_PAGE;
-      const pageAssets = filteredAssets.slice(start, end);
-      const totalPages = Math.ceil(filteredAssets.length / ASSETS_PER_PAGE) || 1;
+    // Show/hide loading state
+    function showLoading(show) {
+      const grid = $('#asset-grid');
+      if (show && assets.length === 0) {
+        grid.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);grid-column:1/-1;">
+          <div style="font-size:24px;margin-bottom:8px;">⏳</div>
+          Loading assets...
+        </div>`;
+      }
+      // Disable/enable controls during load
+      $('#search-input').disabled = show;
+      $('#type-filter').disabled = show;
+      $('#prev-btn').disabled = show || currentPage <= 1;
+      $('#next-btn').disabled = show || !hasNextPage;
+    }
+    
+    // Fetch folder enum values from Hygraph schema
+    async function fetchFolderEnum() {
+      try {
+        // First, find what enum type the 'folder' field uses on Asset
+        const schemaData = await gql(`{
+          __type(name: "Asset") {
+            fields {
+              name
+              type {
+                name
+                kind
+                ofType { name kind }
+                enumValues { name }
+              }
+            }
+          }
+        }`);
+        
+        // Find the folder field
+        const folderField = schemaData.__type?.fields?.find(f => f.name === 'folder');
+        
+        if (folderField) {
+          // Get enum values - could be directly on type or in ofType (if wrapped)
+          let enumValues = folderField.type?.enumValues;
+          const enumTypeName = folderField.type?.name || folderField.type?.ofType?.name;
+          
+          if (!enumValues && enumTypeName) {
+            // Fetch enum values by type name
+            const enumData = await gql(`{
+              __type(name: "${enumTypeName}") {
+                enumValues { name }
+              }
+            }`);
+            enumValues = enumData.__type?.enumValues;
+          }
+          
+          if (enumValues) {
+            allFolders = enumValues.map(v => v.name).sort();
+            console.log('Loaded folder enum values:', allFolders);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch folder enum:', e.message);
+      }
+    }
+    
+    // Fetch folder counts - lazy loaded in background
+    async function fetchFolderCounts() {
+      // Show initial tree immediately with "?" counts
+      folderCounts = { all: '...' };
+      allFolders.forEach(f => folderCounts[f] = '...');
+      folderCounts['__uncategorized__'] = '...';
+      buildFolderTree();
       
-      $('#asset-grid').innerHTML = pageAssets.map(a => `
+      // Then fetch actual counts in background
+      try {
+        // Build single batched query for all counts
+        let countQuery = `{
+          all: assetsConnection(where: { mimeType_starts_with: "image/" }) { aggregate { count } }
+          uncategorized: assetsConnection(where: { mimeType_starts_with: "image/", folder: null }) { aggregate { count } }
+        `;
+        
+        allFolders.forEach(folder => {
+          countQuery += `${folder}: assetsConnection(where: { mimeType_starts_with: "image/", folder: ${folder} }) { aggregate { count } }\n`;
+        });
+        
+        countQuery += '}';
+        
+        const data = await gql(countQuery);
+        
+        folderCounts = { all: data.all?.aggregate?.count || 0 };
+        folderCounts['__uncategorized__'] = data.uncategorized?.aggregate?.count || 0;
+        allFolders.forEach(folder => {
+          folderCounts[folder] = data[folder]?.aggregate?.count || 0;
+        });
+        
+        buildFolderTree(); // Update with real counts
+      } catch (e) {
+        console.warn('Could not fetch folder counts:', e.message);
+        folderCounts = { all: totalAssetCount };
+        buildFolderTree();
+      }
+    }
+    
+    // Build folder tree from enum values
+    function buildFolderTree() {
+      const folderTree = $('#folder-tree');
+      const allCount = folderCounts.all ?? '?';
+      const uncategorizedCount = folderCounts['__uncategorized__'] ?? '?';
+      
+      let html = `
+        <li class="folder-item ${currentFolder === '' ? 'active' : ''}" data-folder="">
+          <span class="folder-icon">📁</span>
+          <span>All</span>
+          <span class="folder-count">${allCount}</span>
+        </li>
+        <li class="folder-divider"></li>
+      `;
+      
+      // Add each folder from enum
+      allFolders.forEach(folder => {
+        const isActive = currentFolder === folder;
+        const count = folderCounts[folder] ?? '?';
+        html += `
+          <li class="folder-item ${isActive ? 'active' : ''}" data-folder="${folder}">
+            <span class="folder-icon">📁</span>
+            <span>${folder}</span>
+            <span class="folder-count">${count}</span>
+          </li>
+        `;
+      });
+      
+      // Add uncategorized
+      html += `<li class="folder-divider"></li>`;
+      html += `
+        <li class="folder-item ${currentFolder === '__uncategorized__' ? 'active' : ''}" data-folder="__uncategorized__">
+          <span class="folder-icon">📋</span>
+          <span>Uncategorized</span>
+          <span class="folder-count">${uncategorizedCount}</span>
+        </li>
+      `;
+      
+      folderTree.innerHTML = html;
+      
+      // Add click handlers - trigger server-side filter on click
+      $$('.folder-item').forEach(item => {
+        item.addEventListener('click', () => {
+          currentFolder = item.dataset.folder;
+          $$('.folder-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          currentPage = 1;
+          endCursor = null; // Reset pagination
+          fetchAssets(); // Re-fetch with new filter
+        });
+      });
+      
+      // Update upload folder dropdown
+      updateUploadFolderDropdown();
+    }
+    
+    // Update upload folder dropdown
+    function updateUploadFolderDropdown() {
+      const select = $('#upload-folder-select');
+      select.innerHTML = '<option value="">(none)</option>' +
+        allFolders.map(f => `<option value="${f}">${f}</option>`).join('');
+      
+      // Set to current folder if one is selected
+      if (currentFolder && currentFolder !== '__uncategorized__') {
+        select.value = currentFolder;
+      }
+    }
+    
+    // Render assets (server already filtered)
+    function renderAssets() {
+      if (assets.length === 0 && !isLoading) {
+        $('#asset-grid').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);grid-column:1/-1;">No images found</div>';
+        $('#page-info').textContent = 'No results';
+        $('#prev-btn').disabled = true;
+        $('#next-btn').disabled = true;
+        return;
+      }
+      
+      $('#asset-grid').innerHTML = assets.map(a => `
         <div class="asset-card ${selectedAsset?.id === a.id ? 'selected' : ''}" data-id="${a.id}">
+          ${a.folder ? `<span class="asset-folder-badge">${a.folder}</span>` : ''}
           <img src="${a.url}" alt="${a.fileName}" loading="lazy">
           <div class="asset-info">
             <strong>${a.fileName || 'Untitled'}</strong>
-            ${a.width}×${a.height}
+            ${a.width && a.height ? `${a.width}×${a.height}` : a.mimeType?.split('/')[1]?.toUpperCase() || '—'}
           </div>
         </div>
-      `).join('') || '<div style="padding:20px;color:#64748b;">No images found</div>';
+      `).join('');
       
-      $('#page-info').textContent = `Page ${currentPage} of ${totalPages}`;
-      $('#prev-btn').disabled = currentPage <= 1;
-      $('#next-btn').disabled = currentPage >= totalPages;
+      // Update pagination info
+      const showing = assets.length;
+      const total = totalAssetCount;
+      $('#page-info').textContent = `Showing ${showing} of ${total}`;
+      $('#prev-btn').disabled = true; // No previous with cursor pagination
+      $('#next-btn').disabled = !hasNextPage;
+      $('#next-btn').textContent = hasNextPage ? 'Load More →' : 'No more';
       
       $$('.asset-card').forEach(el => {
         el.addEventListener('click', () => selectAsset(assets.find(a => a.id === el.dataset.id)));
       });
+    }
+    
+    // Debounced search function
+    function debouncedSearch() {
+      const searchValue = $('#search-input').value.trim();
+      
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
+      
+      searchDebounceTimer = setTimeout(() => {
+        if (searchValue !== currentSearch) {
+          currentSearch = searchValue;
+          endCursor = null; // Reset pagination
+          fetchAssets();
+        }
+      }, 500);
+    }
+    
+    // ========== UPLOAD FUNCTIONALITY ==========
+    
+    function toggleUploadDropzone() {
+      const dropzone = $('#upload-dropzone');
+      dropzone.classList.toggle('visible');
+    }
+    
+    // Show upload preview modal
+    function showUploadModal(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      pendingFile = file;
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Show preview
+          $('#modal-preview-img').src = e.target.result;
+          $('#modal-filename').innerHTML = `<span>File</span><strong>${file.name}</strong>`;
+          $('#modal-filesize').innerHTML = `<span>Size</span><strong>${formatBytes(file.size)}</strong>`;
+          $('#modal-dimensions').innerHTML = `<span>Dimensions</span><strong>${img.width} × ${img.height}</strong>`;
+          
+          // Generate warnings
+          const warnings = [];
+          if (file.size > 10 * 1024 * 1024) {
+            warnings.push({ type: 'orange', text: '⚠️ Very large file (' + formatBytes(file.size) + ') - consider compressing' });
+          } else if (file.size > 5 * 1024 * 1024) {
+            warnings.push({ type: 'yellow', text: '⚠️ Large file (' + formatBytes(file.size) + ') - upload may take longer' });
+          }
+          if (img.width > 4000 || img.height > 4000) {
+            warnings.push({ type: 'yellow', text: '⚠️ High resolution (' + img.width + '×' + img.height + ') - consider resizing for web' });
+          }
+          
+          $('#modal-warnings').innerHTML = warnings.map(w => 
+            `<div class="modal-warning warning-${w.type}">${w.text}</div>`
+          ).join('');
+          
+          // Populate folder dropdown
+          const modalFolderSelect = $('#modal-folder-select');
+          modalFolderSelect.innerHTML = '<option value="">(none)</option>' + 
+            allFolders.map(f => `<option value="${f}">${f}</option>`).join('');
+          
+          // Clear alt text
+          $('#modal-alt-text').value = '';
+          
+          // Show modal
+          $('#upload-modal').classList.remove('hidden');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    // Hide upload modal
+    function hideUploadModal() {
+      $('#upload-modal').classList.add('hidden');
+      pendingFile = null;
+      $('#modal-alt-text').value = '';
+    }
+    
+    // Upload single file with folder and alt-text
+    async function uploadSingleFile(file, folder, altText) {
+      if (!file || !file.type.startsWith('image/')) {
+        throw new Error('Invalid image file');
+      }
+      
+      // Step 1: Create asset and get upload URL
+      const createData = await gql(`
+        mutation CreateAssetUpload {
+          createAsset(data: {}) {
+            id
+            upload {
+              requestPostData {
+                url
+                date
+                key
+                signature
+                algorithm
+                policy
+                credential
+                securityToken
+              }
+            }
+          }
+        }
+      `);
+      
+      const assetId = createData.createAsset.id;
+      const uploadData = createData.createAsset.upload.requestPostData;
+      
+      // Step 2: Upload file to the signed URL
+      const formData = new FormData();
+      formData.append('key', uploadData.key);
+      formData.append('X-Amz-Date', uploadData.date);
+      formData.append('X-Amz-Signature', uploadData.signature);
+      formData.append('X-Amz-Algorithm', uploadData.algorithm);
+      formData.append('policy', uploadData.policy);
+      formData.append('X-Amz-Credential', uploadData.credential);
+      if (uploadData.securityToken) {
+        formData.append('X-Amz-Security-Token', uploadData.securityToken);
+      }
+      formData.append('file', file);
+      
+      const uploadRes = await fetch(uploadData.url, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadRes.ok) {
+        throw new Error(`Upload failed: ${uploadRes.status}`);
+      }
+      
+      // Step 3: Update asset with folder and alt-text if specified
+      const updateParts = [];
+      if (folder) {
+        updateParts.push(`folder: ${folder}`); // Enum value
+      }
+      if (altText) {
+        updateParts.push(`altText: "${altText.replace(/"/g, '\\"')}"`);
+      }
+      
+      if (updateParts.length > 0) {
+        try {
+          await gql(`
+            mutation UpdateAsset($id: ID!) {
+              updateAsset(where: { id: $id }, data: { ${updateParts.join(', ')} }) { id }
+            }
+          `, { id: assetId });
+        } catch (e) {
+          console.warn('Could not update asset metadata:', e.message);
+        }
+      }
+      
+      return assetId;
+    }
+    
+    async function uploadFiles(files, altText = '') {
+      if (!files || files.length === 0) return;
+      
+      const dropzone = $('#upload-dropzone');
+      const progress = $('#upload-progress');
+      const progressFill = $('#upload-progress-fill');
+      const progressText = $('#upload-progress-text');
+      const targetFolder = $('#upload-folder-select').value;
+      
+      dropzone.classList.add('uploading');
+      progress.classList.add('active');
+      
+      let uploaded = 0;
+      const total = files.length;
+      
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          console.warn('Skipping non-image:', file.name);
+          continue;
+        }
+        
+        progressText.textContent = `Uploading ${file.name} (${uploaded + 1}/${total})...`;
+        progressFill.style.width = `${(uploaded / total) * 100}%`;
+        
+        try {
+          // Step 1: Create asset and get upload URL
+          const createData = await gql(`
+            mutation CreateAssetUpload {
+              createAsset(data: {}) {
+                id
+                upload {
+                  requestPostData {
+                    url
+                    date
+                    key
+                    signature
+                    algorithm
+                    policy
+                    credential
+                    securityToken
+                  }
+                }
+              }
+            }
+          `);
+          
+          const assetId = createData.createAsset.id;
+          const uploadData = createData.createAsset.upload.requestPostData;
+          
+          // Step 2: Upload file to the signed URL
+          const formData = new FormData();
+          formData.append('key', uploadData.key);
+          formData.append('X-Amz-Date', uploadData.date);
+          formData.append('X-Amz-Signature', uploadData.signature);
+          formData.append('X-Amz-Algorithm', uploadData.algorithm);
+          formData.append('policy', uploadData.policy);
+          formData.append('X-Amz-Credential', uploadData.credential);
+          if (uploadData.securityToken) {
+            formData.append('X-Amz-Security-Token', uploadData.securityToken);
+          }
+          formData.append('file', file);
+          
+          const uploadRes = await fetch(uploadData.url, {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!uploadRes.ok) {
+            throw new Error(`Upload failed: ${uploadRes.status}`);
+          }
+          
+          // Step 3: Update asset with folder if specified (enum value, not string)
+          if (targetFolder) {
+            try {
+              // Folder is an enum, so we pass it directly without quotes
+              await gql(`
+                mutation SetFolder($id: ID!) {
+                  updateAsset(where: { id: $id }, data: { folder: ${targetFolder} }) { id }
+                }
+              `, { id: assetId });
+            } catch (e) {
+              console.warn('Could not set folder:', e.message);
+            }
+          }
+          
+          // Note: Asset is left in DRAFT stage (not published)
+          
+          uploaded++;
+          progressFill.style.width = `${(uploaded / total) * 100}%`;
+          
+        } catch (e) {
+          console.error('Upload error:', e);
+          progressText.textContent = `Error: ${e.message}`;
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+      
+      progressText.textContent = `Done! ${uploaded} file(s) uploaded.`;
+      progressFill.style.width = '100%';
+      
+      // Reset and refresh after a moment
+      setTimeout(() => {
+        dropzone.classList.remove('uploading');
+        progress.classList.remove('active');
+        progressFill.style.width = '0%';
+        fetchAssets(); // Refresh asset list
+      }, 1500);
+    }
+    
+    // Setup upload event listeners
+    function setupUpload() {
+      const dropzone = $('#upload-dropzone');
+      const fileInput = $('#file-input');
+      
+      // Toggle upload dropzone
+      $('#toggle-upload-btn').addEventListener('click', toggleUploadDropzone);
+      
+      // Click to browse
+      dropzone.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON' && !dropzone.classList.contains('uploading')) {
+          fileInput.click();
+        }
+      });
+      
+      // File input change - show preview modal instead of immediate upload
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          showUploadModal(e.target.files[0]);
+        }
+        fileInput.value = ''; // Reset
+      });
+      
+      // Drag & drop
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+      });
+      
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        // Show modal for first file (one at a time)
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          showUploadModal(e.dataTransfer.files[0]);
+        }
+      });
+      
     }
     
     function selectAsset(asset) {
@@ -517,22 +1176,55 @@
       cropData = null;
       isCropMode = false;
       
+      // Reset controls to defaults
+      $('#blur').value = 0;
+      $('#blur-val').textContent = '0';
+      $('#sharpen').value = 0;
+      $('#sharpen-val').textContent = '0';
+      $('#quality').value = 80;
+      $('#quality-val').textContent = '80%';
+      $('#format').value = 'auto';
+      
       $$('.asset-card').forEach(t => t.classList.remove('selected'));
       $(`.asset-card[data-id="${asset.id}"]`)?.classList.add('selected');
-      
-      // Update preview
-      $('#preview-img').src = asset.url;
-      $('#preview-dims').textContent = `${asset.width || '?'} × ${asset.height || '?'}`;
-      $('#preview-size').textContent = formatBytes(asset.size);
-      $('#preview-format').textContent = asset.mimeType?.split('/')[1]?.toUpperCase() || '?';
       
       // Show compare content
       $('#compare-placeholder').classList.add('hidden');
       $('#compare-content').classList.remove('hidden');
+      
       // Set crossOrigin for canvas export to work
-      $('#orig-img').crossOrigin = 'anonymous';
-      $('#orig-img').src = asset.url;
-      $('#orig-dims').textContent = `${asset.width || '?'} × ${asset.height || '?'}`;
+      const origImg = $('#orig-img');
+      if (origImg) {
+        origImg.crossOrigin = 'anonymous';
+        
+        // For AVIF and other formats where Hygraph might not return dimensions,
+        // detect dimensions client-side after image loads
+        origImg.onload = () => {
+          const w = asset.width || origImg.naturalWidth || '?';
+          const h = asset.height || origImg.naturalHeight || '?';
+          $('#orig-dims').textContent = `${w} × ${h}`;
+          
+          // Also update selectedAsset with detected dimensions for cropping
+          if (!selectedAsset.width && origImg.naturalWidth) {
+            selectedAsset.width = origImg.naturalWidth;
+          }
+          if (!selectedAsset.height && origImg.naturalHeight) {
+            selectedAsset.height = origImg.naturalHeight;
+          }
+        };
+        
+        origImg.onerror = () => {
+          console.warn('Failed to load image:', asset.url);
+          $('#orig-dims').textContent = 'Load error';
+        };
+        
+        origImg.src = asset.url;
+      }
+      
+      // Show initial dimensions (may be updated after load for AVIF)
+      $('#orig-dims').textContent = asset.width && asset.height 
+        ? `${asset.width} × ${asset.height}` 
+        : 'Loading...';
       $('#orig-size').textContent = formatBytes(asset.size);
       $('#orig-format').textContent = asset.mimeType?.split('/')[1]?.toUpperCase() || '?';
       
@@ -543,12 +1235,10 @@
       $('#original-panel').classList.add('focal-mode');
       updateInfoBar();
       
-      // Show variants content
-      $('#variants-placeholder').classList.add('hidden');
-      $('#variants-content').classList.remove('hidden');
+      // Load asset's saved configs
+      renderAssetConfigs();
       
       updateTransform();
-      updateVariants();
     }
     
     // Toggle crop mode
@@ -558,6 +1248,7 @@
       if (isCropMode) {
         $('#crop-btn').classList.add('active');
         $('#aspect-ratio').classList.remove('hidden');
+        $('#download-crop-btn').classList.remove('hidden');
         $('#original-panel').classList.add('crop-mode');
         $('#original-panel').classList.remove('focal-mode');
         $('#info-hint').textContent = 'Drag to select crop region';
@@ -567,6 +1258,7 @@
       } else {
         $('#crop-btn').classList.remove('active');
         $('#aspect-ratio').classList.add('hidden');
+        $('#download-crop-btn').classList.add('hidden');
         $('#original-panel').classList.remove('crop-mode');
         $('#original-panel').classList.add('focal-mode');
         $('#info-hint').textContent = 'Click image to set focal point';
@@ -576,6 +1268,9 @@
           cropper.destroy();
           cropper = null;
         }
+        
+        // Refresh transformed image from API
+        updateTransform();
       }
       
       updateInfoBar();
@@ -714,86 +1409,230 @@
       transformTimeout = setTimeout(updateTransform, 300);
     }
     
-    // Update cropped preview using Cropper.js canvas
+    // Update cropped preview using Cropper.js canvas with blur/sharpen effects
+    let lastBlobUrl = null;
     function updateCropPreview() {
       if (!cropper || !isCropMode) return;
       
       try {
         // Get the cropped canvas
-        const canvas = cropper.getCroppedCanvas({
+        const croppedCanvas = cropper.getCroppedCanvas({
           maxWidth: 1200,
           maxHeight: 1200,
           imageSmoothingEnabled: true,
           imageSmoothingQuality: 'high'
         });
         
-        if (canvas) {
-          // Convert canvas to blob URL for better performance
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const blobUrl = URL.createObjectURL(blob);
-              $('#trans-img').src = blobUrl;
-              $('#trans-img').style.opacity = '1';
-              lastTransformedUrl = blobUrl;
-            }
-          }, 'image/jpeg', 0.9);
+        if (croppedCanvas) {
+          // Apply blur/sharpen effects
+          const blurAmount = parseInt($('#blur').value) || 0;
+          const sharpenAmount = parseInt($('#sharpen').value) || 0;
           
-          // Update dimensions display
-          if (cropData && cropData.width > 0 && cropData.height > 0) {
-            const cropW = Math.round(cropData.width);
-            const cropH = Math.round(cropData.height);
-            $('#trans-dims').textContent = `${cropW} × ${cropH}`;
+          let finalCanvas = croppedCanvas;
+          
+          // Apply blur using CSS filter on a new canvas
+          if (blurAmount > 0 || sharpenAmount > 0) {
+            finalCanvas = document.createElement('canvas');
+            finalCanvas.width = croppedCanvas.width;
+            finalCanvas.height = croppedCanvas.height;
+            const ctx = finalCanvas.getContext('2d');
             
-            // Estimate file size
-            const origSize = selectedAsset.size || 500000;
-            const pixelRatio = (cropW * cropH) / (selectedAsset.width * selectedAsset.height);
-            const estSize = Math.max(1000, origSize * pixelRatio * 0.6);
-            $('#trans-size').textContent = '~' + formatBytes(estSize);
-            $('#trans-format').textContent = 'JPEG';
-            
-            // Calculate savings
-            const savings = Math.round(((origSize - estSize) / origSize) * 100);
-            if (savings > 5) {
-              $('#savings-badge').style.display = 'inline-block';
-              $('#savings-badge').textContent = `${savings}% smaller`;
+            // Apply blur filter
+            if (blurAmount > 0) {
+              ctx.filter = `blur(${blurAmount}px)`;
             }
             
-            // Update URL display (note: Hygraph crop may not work due to EXIF rotation)
-            $('#transform-url').textContent = `Crop preview (local) - ${cropW}×${cropH}`;
+            // Apply contrast for pseudo-sharpen effect
+            if (sharpenAmount > 0) {
+              const existingFilter = ctx.filter === 'none' ? '' : ctx.filter + ' ';
+              ctx.filter = existingFilter + `contrast(${1 + sharpenAmount * 0.05})`;
+            }
+            
+            ctx.drawImage(croppedCanvas, 0, 0);
           }
+          
+          // Convert canvas to blob URL for better performance
+          const quality = parseInt($('#quality').value) / 100 || 0.9;
+          finalCanvas.toBlob((blob) => {
+            if (blob) {
+              // Revoke previous blob URL to prevent memory leak
+              if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+              
+              const blobUrl = URL.createObjectURL(blob);
+              lastBlobUrl = blobUrl;
+              const transImg = $('#trans-img');
+              transImg.src = blobUrl;
+              transImg.style.opacity = '1';
+              lastTransformedUrl = blobUrl;
+              
+              // Calculate scale indicator after image loads
+              transImg.onload = () => {
+                const displayedWidth = transImg.clientWidth;
+                const actualWidth = cropData?.width || selectedAsset.width;
+                if (displayedWidth && actualWidth) {
+                  const scale = Math.round((displayedWidth / actualWidth) * 100);
+                  $('#scale-indicator').textContent = `@ ${scale}%`;
+                }
+              };
+              
+              // Update dimensions display (local preview)
+              if (cropData && cropData.width > 0 && cropData.height > 0) {
+                const cropW = Math.round(cropData.width);
+                const cropH = Math.round(cropData.height);
+                $('#trans-dims').textContent = `${cropW} × ${cropH}`;
+                $('#trans-size').textContent = formatBytes(blob.size) + ' (local)';
+                $('#trans-format').textContent = $('#format').value === 'auto' ? 'WebP' : $('#format').value.toUpperCase();
+                
+                // Calculate savings based on local blob
+                const origSize = selectedAsset.size || 500000;
+                const savings = Math.round(((origSize - blob.size) / origSize) * 100);
+                if (savings > 0) {
+                  $('#savings-badge').style.display = 'inline-block';
+                  $('#savings-badge').textContent = `${savings}% smaller`;
+                }
+                
+                // Update URL display - will be replaced with real URL shortly
+                $('#transform-url').textContent = `Loading transform URL...`;
+              }
+              
+              // Update GraphQL query and srcset
+              $('#graphql-query').textContent = buildGraphQLQuery();
+              updateSrcset();
+              
+              // Fetch real Hygraph preview after a delay
+              debouncedFetchRealPreview();
+            }
+          }, 'image/jpeg', quality);
         }
       } catch (e) {
         console.error('Crop preview error:', e);
-        // Fallback: if canvas export fails due to CORS, show message
         $('#trans-img').src = '';
-        $('#transform-url').textContent = 'CORS blocked - cannot preview (try downloading image first)';
+        $('#transform-url').textContent = 'CORS error - upload image locally to crop';
+      }
+    }
+    
+    // Debounced fetch of real Hygraph preview
+    let realPreviewTimeout = null;
+    async function debouncedFetchRealPreview() {
+      if (realPreviewTimeout) clearTimeout(realPreviewTimeout);
+      realPreviewTimeout = setTimeout(fetchRealPreview, 800);
+    }
+    
+    async function fetchRealPreview() {
+      if (!selectedAsset || !isCropMode || !cropData) return;
+      
+      try {
+        $('#transform-url').textContent = 'Loading real preview...';
+        const { url, size } = await fetchTransformedUrl();
+        
+        if (url && isCropMode) {
+          // Update the transformed image with real Hygraph URL
+          const transImg = $('#trans-img');
+          const newImg = new Image();
+          newImg.onload = () => {
+            transImg.src = url;
+            lastTransformedUrl = url;
+            
+            // Update with real size and actual URL
+            const cropW = Math.round(cropData.width);
+            const cropH = Math.round(cropData.height);
+            const format = $('#format').value === 'auto' ? 'WebP' : $('#format').value.toUpperCase();
+            
+            // Show the actual Hygraph URL
+            $('#transform-url').textContent = url;
+            
+            if (size > 0) {
+              $('#trans-size').textContent = formatBytes(size);
+              
+              // Recalculate savings with real size
+              const origSize = selectedAsset.size || 500000;
+              const savings = Math.round(((origSize - size) / origSize) * 100);
+              if (savings > 0) {
+                $('#savings-badge').textContent = `${savings}% smaller`;
+              }
+            }
+            
+            // Update scale indicator
+            transImg.onload = () => {
+              const displayedWidth = transImg.clientWidth;
+              const actualWidth = cropW;
+              if (displayedWidth && actualWidth) {
+                const scale = Math.round((displayedWidth / actualWidth) * 100);
+                $('#scale-indicator').textContent = `@ ${scale}%`;
+              }
+            };
+          };
+          newImg.onerror = () => {
+            console.warn('Real preview failed to load');
+            $('#transform-url').textContent = url || 'Preview unavailable';
+          };
+          newImg.src = url;
+        }
+      } catch (e) {
+        console.warn('Real preview fetch failed:', e);
+      }
+    }
+    
+    // Download cropped image
+    function downloadCroppedImage() {
+      if (!cropper || !isCropMode) return;
+      
+      try {
+        const canvas = cropper.getCroppedCanvas({
+          maxWidth: 4096,
+          maxHeight: 4096,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high'
+        });
+        
+        if (canvas) {
+          const quality = parseInt($('#quality').value) / 100 || 0.9;
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              const baseName = selectedAsset?.fileName?.replace(/\.[^.]+$/, '') || 'image';
+              a.download = `${baseName}-cropped.jpg`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }
+          }, 'image/jpeg', quality);
+        }
+      } catch (e) {
+        console.error('Download error:', e);
+        alert('Could not download: ' + e.message);
       }
     }
     
     // Fetch transformed URL from GraphQL API
     async function fetchTransformedUrl(options = {}) {
-      if (!selectedAsset) return selectedAsset?.url || '';
+      if (!selectedAsset) return { url: selectedAsset?.url || '', size: 0 };
       
-      const w = options.width ?? $('#width').value;
-      const h = options.height ?? $('#height').value;
-      const fit = options.fit ?? $('#fit').value;
+      const width = options.width;
       const quality = options.quality ?? $('#quality').value;
       const format = options.format ?? $('#format').value;
       const blur = options.blur ?? $('#blur').value;
       const sharpen = options.sharpen ?? $('#sharpen').value;
-      const useCrop = options.useCrop !== false && cropData && isCropMode;
+      const useCrop = options.useCrop !== false; // default true
       
       // Build image transformation parts
       const imageParts = [];
       
-      // Note: Crop is handled locally via Cropper.js canvas (Hygraph crop has EXIF issues)
-      // Resize
-      if (w || h) {
-        const resizeParts = [];
-        if (w) resizeParts.push(`width: ${w}`);
-        if (h) resizeParts.push(`height: ${h}`);
-        resizeParts.push(`fit: ${fit}`);
-        imageParts.push(`resize: { ${resizeParts.join(', ')} }`);
+      // Crop (if in crop mode with valid crop data)
+      if (useCrop && isCropMode && cropData && cropData.width > 0 && cropData.height > 0) {
+        const x = Math.max(0, Math.round(cropData.x));
+        const y = Math.max(0, Math.round(cropData.y));
+        const w = Math.round(cropData.width);
+        const h = Math.round(cropData.height);
+        imageParts.push(`crop: { x: ${x}, y: ${y}, width: ${w}, height: ${h} }`);
+      }
+      
+      // Resize (only for responsive variants)
+      if (width) {
+        imageParts.push(`resize: { width: ${width}, fit: clip }`);
       }
       
       // Quality
@@ -834,19 +1673,25 @@
             url(${transformation})
           }
         }`);
-        return data.asset?.url || selectedAsset.url;
+        const url = data.asset?.url || selectedAsset.url;
+        
+        // Try to get actual file size from Hygraph URL
+        let size = 0;
+        try {
+          const response = await fetch(url, { method: 'HEAD' });
+          size = parseInt(response.headers.get('content-length') || '0');
+        } catch (e) { /* ignore */ }
+        
+        return { url, size };
       } catch (e) {
         console.error('Transform error:', e);
-        return selectedAsset.url;
+        return { url: selectedAsset.url, size: 0 };
       }
     }
     
     function buildGraphQLQuery() {
       if (!selectedAsset) return '';
       
-      const w = $('#width').value;
-      const h = $('#height').value;
-      const fit = $('#fit').value;
       const quality = $('#quality').value;
       const format = $('#format').value;
       const blur = $('#blur').value;
@@ -857,13 +1702,11 @@
       // Build image transformation parts
       const imageParts = [];
       
-      // Crop first (extract region from original)
+      // Crop (extract region from original)
       if (hasCrop && cropData) {
-        // Use actual image dimensions
         const imgW = selectedAsset.width;
         const imgH = selectedAsset.height;
         
-        // Double-check and clamp
         let cropX = Math.max(0, Math.min(cropData.x, imgW - 1));
         let cropY = Math.max(0, Math.min(cropData.y, imgH - 1));
         let cropW = Math.min(cropData.width, imgW - cropX);
@@ -877,15 +1720,6 @@
         if (cropW > 10 && cropH > 10 && cropX + cropW <= imgW && cropY + cropH <= imgH) {
           imageParts.push(`crop: { x: ${cropX}, y: ${cropY}, width: ${cropW}, height: ${cropH} }`);
         }
-      }
-      
-      // Resize (after crop)
-      if (w || h) {
-        const resizeParts = [];
-        if (w) resizeParts.push(`width: ${w}`);
-        if (h) resizeParts.push(`height: ${h}`);
-        resizeParts.push(`fit: ${fit}`);
-        imageParts.push(`resize: { ${resizeParts.join(', ')} }`);
       }
       
       // Quality
@@ -922,7 +1756,7 @@
       
       // Add comments
       if (hasCrop && cropData) {
-        query = `# Crop region: ${Math.round(cropData.width)}×${Math.round(cropData.height)} from (${Math.round(cropData.x)}, ${Math.round(cropData.y)})\n` + query;
+        query = `# Crop: ${Math.round(cropData.width)}×${Math.round(cropData.height)} from (${Math.round(cropData.x)}, ${Math.round(cropData.y)})\n` + query;
       }
       if (hasFocal) {
         query = `# Focal point: ${focalPoint.x.toFixed(2)}, ${focalPoint.y.toFixed(2)}\n` + query;
@@ -940,7 +1774,6 @@
       // If in crop mode, use local canvas preview instead of API
       if (isCropMode && cropper) {
         updateCropPreview();
-        $('#graphql-query').textContent = buildGraphQLQuery();
         return;
       }
       
@@ -952,7 +1785,7 @@
       $('#transform-url').textContent = 'Loading...';
       
       try {
-        const url = await fetchTransformedUrl();
+        const { url, size } = await fetchTransformedUrl();
         lastTransformedUrl = url;
         
         transImg.onerror = () => {
@@ -960,11 +1793,30 @@
         };
         transImg.onload = () => {
           transImg.style.opacity = '1';
+          // Calculate scale indicator
+          const displayedWidth = transImg.clientWidth;
+          const actualWidth = selectedAsset.width;
+          if (displayedWidth && actualWidth) {
+            const scale = Math.round((displayedWidth / actualWidth) * 100);
+            $('#scale-indicator').textContent = `@ ${scale}%`;
+          }
         };
         transImg.src = url;
         
         $('#transform-url').textContent = url;
         $('#graphql-query').textContent = buildGraphQLQuery();
+        updateSrcset();
+        
+        // Show actual size if available
+        if (size > 0) {
+          $('#trans-size').textContent = formatBytes(size);
+          const origSize = selectedAsset.size || 500000;
+          const savings = Math.round(((origSize - size) / origSize) * 100);
+          if (savings > 0) {
+            $('#savings-badge').style.display = 'inline-block';
+            $('#savings-badge').textContent = `${savings}% smaller`;
+          }
+        }
       } catch (e) {
         console.error('Transform error:', e);
         transImg.src = selectedAsset.url;
@@ -974,34 +1826,20 @@
       
       updatePending = false;
       
-      // Calculate estimates - use crop dimensions if cropping (clamped to image bounds)
-      const hasCrop = cropData && isCropMode && cropData.width > 0 && cropData.height > 0;
-      let w, h;
-      if (hasCrop) {
-        const imgW = selectedAsset.width || 4032;
-        const imgH = selectedAsset.height || 3024;
-        let cropX = Math.max(0, Math.round(cropData.x));
-        let cropY = Math.max(0, Math.round(cropData.y));
-        w = Math.round(cropData.width);
-        h = Math.round(cropData.height);
-        if (cropX + w > imgW) w = imgW - cropX;
-        if (cropY + h > imgH) h = imgH - cropY;
-      } else {
-        w = parseInt($('#width').value) || selectedAsset.width;
-        h = parseInt($('#height').value) || selectedAsset.height;
-      }
+      // Show original dimensions (no resize)
+      const w = selectedAsset.width;
+      const h = selectedAsset.height;
       const quality = parseInt($('#quality').value);
       const format = $('#format').value;
       
       $('#trans-dims').textContent = `${w} × ${h}`;
       $('#trans-format').textContent = format === 'auto' ? 'WebP' : format.toUpperCase();
       
-      // Estimate size
+      // Estimate size only if we didn't get real size
       const origSize = selectedAsset.size || 500000;
-      const pixelRatio = Math.min((w * h) / ((selectedAsset.width || 1920) * (selectedAsset.height || 1080)), 1);
       const qualityRatio = quality / 100;
       const formatRatio = (format === 'webp' || format === 'auto') ? 0.6 : 1;
-      const estSize = Math.max(1000, origSize * pixelRatio * qualityRatio * formatRatio);
+      const estSize = Math.max(1000, origSize * qualityRatio * formatRatio);
       const savings = Math.round(((origSize - estSize) / origSize) * 100);
       
       $('#trans-size').textContent = '~' + formatBytes(estSize);
@@ -1014,74 +1852,6 @@
       }
     }
     
-    async function updateVariants() {
-      if (!selectedAsset) return;
-      
-      const sizes = Array.from($$('.variant-size.active')).map(el => parseInt(el.dataset.size)).sort((a,b) => a - b);
-      
-      $('#variants-preview').innerHTML = sizes.map(size => {
-        const estSize = Math.max(1000, (selectedAsset.size || 500000) * (size / (selectedAsset.width || 1920)) * 0.6 * 0.8);
-        return `
-          <div class="variant-card">
-            <div style="height:80px;background:#1e293b;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:11px;">Loading...</div>
-            <div class="variant-width">${size}w</div>
-            <div class="variant-est">~${formatBytes(estSize)}</div>
-          </div>
-        `;
-      }).join('');
-      
-      const variantUrls = await Promise.all(sizes.map(size => fetchTransformedUrl({ width: size, quality: 80, format: 'webp', useCrop: false })));
-      
-      $('#variants-preview').innerHTML = sizes.map((size, i) => {
-        const estSize = Math.max(1000, (selectedAsset.size || 500000) * (size / (selectedAsset.width || 1920)) * 0.6 * 0.8);
-        return `
-          <div class="variant-card">
-            <img src="${variantUrls[i]}" alt="${size}w">
-            <div class="variant-width">${size}w</div>
-            <div class="variant-est">~${formatBytes(estSize)}</div>
-          </div>
-        `;
-      }).join('');
-      
-      selectedAsset._variantUrls = {};
-      sizes.forEach((size, i) => {
-        selectedAsset._variantUrls[size] = variantUrls[i];
-      });
-      
-      updateVariantOutput();
-    }
-    
-    function updateVariantOutput() {
-      if (!selectedAsset) return;
-      
-      const sizes = Array.from($$('.variant-size.active')).map(el => parseInt(el.dataset.size)).sort((a,b) => a - b);
-      const urls = selectedAsset._variantUrls || {};
-      let output = '';
-      
-      if (currentOutput === 'srcset') {
-        output = `// GraphQL query to get responsive URLs:\n{\n  asset(where: { id: "${selectedAsset.id}" }) {\n`;
-        output += sizes.map(s => `    url${s}w: url(transformation: { image: { resize: { width: ${s} } } })`).join('\n');
-        output += `\n  }\n}\n\n// Result srcset:\n`;
-        output += sizes.map(s => `${urls[s] || '[URL]'} ${s}w`).join(',\n');
-      } else if (currentOutput === 'picture') {
-        output = `<picture>
-  <source type="image/webp" srcset="${sizes.map(s => `${urls[s] || '[URL]'} ${s}w`).join(', ')}" sizes="(max-width: 768px) 100vw, 50vw" />
-  <img srcset="${sizes.map(s => `${urls[s] || '[URL]'} ${s}w`).join(', ')}" sizes="(max-width: 768px) 100vw, 50vw" alt="" loading="lazy" />
-</picture>`;
-      } else if (currentOutput === 'css') {
-        output = `.hero {
-  background-image: url('${urls[sizes[0]] || '[URL]'}');
-}
-@media (min-width: 640px) {
-  .hero { background-image: url('${urls[sizes[1]] || urls[sizes[0]] || '[URL]'}'); }
-}
-@media (min-width: 1024px) {
-  .hero { background-image: url('${urls[sizes[sizes.length-1]] || '[URL]'}'); }
-}`;
-      }
-      
-      $('#variant-output').textContent = output;
-    }
     
     function formatBytes(bytes) {
       if (!bytes) return '0 B';
@@ -1090,29 +1860,35 @@
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
     
-    // Simple Lightbox - just the image
+    // Lightbox - real size with scroll
     function showLightbox(imgSrc) {
+      const lightbox = $('#lightbox');
       $('#lightbox-img').src = imgSrc;
-      $('#lightbox').classList.add('active');
+      lightbox.classList.add('active');
+      lightbox.scrollTop = 0;
+      lightbox.scrollLeft = 0;
+      document.body.style.overflow = 'hidden';
     }
     
     function hideLightbox() {
       $('#lightbox').classList.remove('active');
+      document.body.style.overflow = '';
     }
     
-    // Event Listeners
-    $$('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentView = tab.dataset.view;
-        $$('.tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        $('#compare-view').classList.toggle('hidden', currentView !== 'compare');
-        $('#responsive-view').classList.toggle('hidden', currentView !== 'responsive');
-      });
+    // ESC key to close lightbox
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && $('#lightbox').classList.contains('active')) {
+        hideLightbox();
+      }
     });
+    
+    // Event Listeners
     
     // Crop button toggle
     $('#crop-btn').addEventListener('click', toggleCropMode);
+    
+    // Download cropped image button
+    $('#download-crop-btn').addEventListener('click', downloadCroppedImage);
     
     // Aspect ratio change
     $('#aspect-ratio').addEventListener('change', () => {
@@ -1135,57 +1911,61 @@
       updateTransform();
     });
     
-    $$('.variant-size').forEach(btn => {
-      btn.addEventListener('click', () => { btn.classList.toggle('active'); updateVariants(); });
-    });
     
-    $$('.output-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentOutput = tab.dataset.output;
-        $$('.output-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        updateVariantOutput();
+    // Controls - blur/sharpen trigger crop preview update
+    ['#blur', '#sharpen'].forEach(s => {
+      $(s)?.addEventListener('input', () => {
+        if (isCropMode && cropper) {
+          updateCropPreview();
+        } else {
+          debouncedUpdateTransform();
+        }
       });
     });
-    
-    // Presets
-    $$('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.dataset.preset;
-        if (preset === 'thumbnail') { $('#width').value = 150; $('#height').value = 150; $('#fit').value = 'crop'; }
-        else if (preset === 'medium') { $('#width').value = 600; $('#height').value = ''; $('#fit').value = 'clip'; }
-        else if (preset === 'large') { $('#width').value = 1200; $('#height').value = ''; $('#fit').value = 'clip'; }
-        else if (preset === 'fullhd') { $('#width').value = 1920; $('#height').value = ''; $('#fit').value = 'clip'; }
-        else if (preset === 'square') { $('#width').value = 500; $('#height').value = 500; $('#fit').value = 'crop'; }
+    $('#format')?.addEventListener('change', () => {
+      // Update format label immediately
+      const format = $('#format').value;
+      $('#trans-format').textContent = format === 'auto' ? 'WebP' : format.toUpperCase();
+      
+      // Fetch real preview with new format
+      if (isCropMode && cropper) {
+        debouncedFetchRealPreview();
+      } else {
         updateTransform();
-      });
+      }
     });
     
-    // Controls
-    ['#width', '#height', '#blur', '#sharpen'].forEach(s => {
-      $(s)?.addEventListener('input', debouncedUpdateTransform);
+    $('#quality').addEventListener('input', () => { 
+      $('#quality-val').textContent = $('#quality').value + '%'; 
+      if (isCropMode && cropper) {
+        debouncedFetchRealPreview();
+      } else {
+        debouncedUpdateTransform(); 
+      }
     });
-    ['#fit', '#format'].forEach(s => {
-      $(s)?.addEventListener('change', updateTransform);
-    });
-    
-    $('#quality').addEventListener('input', () => { $('#quality-val').textContent = $('#quality').value + '%'; debouncedUpdateTransform(); });
     $('#blur').addEventListener('input', () => { $('#blur-val').textContent = $('#blur').value; });
     $('#sharpen').addEventListener('input', () => { $('#sharpen-val').textContent = $('#sharpen').value; });
     
-    // Search
-    $('#search-input').addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase();
-      filteredAssets = q ? assets.filter(a => a.fileName?.toLowerCase().includes(q)) : [...assets];
-      currentPage = 1;
-      renderAssets();
+    // Search with debounce (server-side)
+    $('#search-input').addEventListener('input', debouncedSearch);
+    
+    // Type filter (server-side)
+    $('#type-filter').addEventListener('change', (e) => {
+      currentTypeFilter = e.target.value;
+      endCursor = null; // Reset pagination
+      fetchAssets();
     });
     
-    // Pagination
-    $('#prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderAssets(); } });
+    // Pagination - Load More button
+    $('#prev-btn').addEventListener('click', () => {
+      // Reset and reload from beginning
+      endCursor = null;
+      fetchAssets();
+    });
     $('#next-btn').addEventListener('click', () => {
-      const totalPages = Math.ceil(filteredAssets.length / ASSETS_PER_PAGE);
-      if (currentPage < totalPages) { currentPage++; renderAssets(); }
+      if (hasNextPage && !isLoading) {
+        fetchAssets(true); // Append more assets
+      }
     });
     
     // Lightbox - click transformed image
@@ -1234,31 +2014,401 @@
     
     $('#copy-url-btn').addEventListener('click', () => copyAndFeedback($('#copy-url-btn'), $('#transform-url').textContent));
     $('#copy-gql-btn').addEventListener('click', () => copyAndFeedback($('#copy-gql-btn'), $('#graphql-query').textContent));
-    $('#copy-variant-btn').addEventListener('click', () => copyAndFeedback($('#copy-variant-btn'), $('#variant-output').textContent));
+    $('#copy-srcset-btn').addEventListener('click', () => copyAndFeedback($('#copy-srcset-btn'), $('#srcset-output').textContent));
     
-    // Connect
-    $('#connect-btn').addEventListener('click', async () => {
-      const t = $('#token-input').value.trim();
-      if (t) { token = t; localStorage.setItem(PAT_KEY, t); }
-      if (!endpoint || !token) { $('#error-msg').textContent = 'Missing credentials'; return; }
-      try {
-        await gql('{ __typename }');
-        $('#setup-view').style.display = 'none';
-        $('#main-view').style.display = 'grid';
-        fetchAssets();
-      } catch (e) { $('#error-msg').textContent = 'Error: ' + e.message; }
+    // Srcset generation based on current parameters
+    function buildSrcsetQuery() {
+      if (!selectedAsset) return '';
+      
+      const sizes = Array.from($$('.srcset-size:checked')).map(el => parseInt(el.dataset.size)).sort((a, b) => a - b);
+      if (sizes.length === 0) return 'Select at least one size';
+      
+      const quality = $('#quality').value;
+      const format = $('#format').value;
+      const blur = $('#blur').value;
+      const sharpen = $('#sharpen').value;
+      const hasCrop = cropData && isCropMode && cropData.width > 0 && cropData.height > 0;
+      
+      // Build transformation parts (without resize - that's per-size)
+      const baseParts = [];
+      
+      // Crop
+      if (hasCrop) {
+        const imgW = selectedAsset.width;
+        const imgH = selectedAsset.height;
+        let cropX = Math.max(0, Math.min(Math.round(cropData.x), imgW - 1));
+        let cropY = Math.max(0, Math.min(Math.round(cropData.y), imgH - 1));
+        let cropW = Math.min(Math.round(cropData.width), imgW - cropX);
+        let cropH = Math.min(Math.round(cropData.height), imgH - cropY);
+        baseParts.push(`crop: { x: ${cropX}, y: ${cropY}, width: ${cropW}, height: ${cropH} }`);
+      }
+      
+      // Quality
+      if (quality && parseInt(quality) < 100) {
+        baseParts.push(`quality: { value: ${quality} }`);
+      }
+      
+      // Blur
+      if (blur && parseInt(blur) > 0) {
+        baseParts.push(`blur: { amount: ${blur} }`);
+      }
+      
+      // Sharpen
+      if (sharpen && parseInt(sharpen) > 0) {
+        baseParts.push(`sharpen: { amount: ${sharpen} }`);
+      }
+      
+      // Format
+      const formatStr = format === 'auto' ? 'webp' : format;
+      
+      // Build GraphQL query for srcset
+      let query = `{\n  asset(where: { id: "${selectedAsset.id}" }) {\n`;
+      
+      sizes.forEach(size => {
+        const imageParts = [...baseParts, `resize: { width: ${size}, fit: clip }`];
+        const transform = `transformation: { image: { ${imageParts.join(', ')} }, document: { output: { format: ${formatStr} } } }`;
+        query += `    url${size}w: url(${transform})\n`;
+      });
+      
+      query += `  }\n}`;
+      
+      // Add srcset usage example
+      query += `\n\n/* Usage:\n<img\n  srcset="{url320w} 320w, {url640w} 640w, ..."\n  sizes="(max-width: 768px) 100vw, 50vw"\n  alt="..."\n/>\n*/`;
+      
+      return query;
+    }
+    
+    function updateSrcset() {
+      $('#srcset-output').textContent = buildSrcsetQuery();
+    }
+    
+    // Update srcset when sizes change
+    $$('.srcset-size').forEach(cb => {
+      cb.addEventListener('change', updateSrcset);
     });
+    
+    // ========== ASSET CONFIGS (stored on Hygraph) ==========
+    
+    function getAssetConfigs() {
+      if (!selectedAsset) return [];
+      return selectedAsset.transformConfigs || [];
+    }
+    
+    function renderAssetConfigs() {
+      const configs = getAssetConfigs();
+      const select = $('#saved-configs');
+      select.innerHTML = '<option value="">-- Select config --</option>' +
+        configs.map((c, i) => `<option value="${i}">${c.name}</option>`).join('');
+      
+      // Update status and auto-collapse if empty
+      const status = $('#config-status');
+      const content = $('#configs-content');
+      const toggle = $('#configs-toggle');
+      
+      if (!selectedAsset) {
+        status.textContent = 'Select an image first';
+        content.style.display = 'none';
+        toggle.textContent = '▶';
+      } else if (configs.length === 0) {
+        status.textContent = 'No configs saved';
+        content.style.display = 'none';
+        toggle.textContent = '▶';
+      } else {
+        status.textContent = `${configs.length} config(s)`;
+        content.style.display = 'block';
+        toggle.textContent = '▼';
+      }
+    }
+    
+    function getCurrentConfig() {
+      return {
+        name: $('#config-name').value || 'Untitled',
+        width: $('#width').value,
+        height: $('#height').value,
+        quality: $('#quality').value,
+        format: $('#format').value,
+        fit: $('#fit').value,
+        blur: $('#blur').value,
+        sharpen: $('#sharpen').value,
+        aspectRatio: $('#aspect-ratio').value,
+        focalPoint: { ...focalPoint },
+        cropData: cropData ? { ...cropData } : null
+      };
+    }
+    
+    async function applyConfig(config) {
+      if (!config || !selectedAsset) return;
+      
+      // Apply basic settings
+      if (config.quality) { $('#quality').value = config.quality; $('#quality-val').textContent = config.quality + '%'; }
+      if (config.format) $('#format').value = config.format;
+      $('#blur').value = config.blur || '0'; $('#blur-val').textContent = config.blur || '0';
+      $('#sharpen').value = config.sharpen || '0'; $('#sharpen-val').textContent = config.sharpen || '0';
+      if (config.aspectRatio) $('#aspect-ratio').value = config.aspectRatio;
+      
+      // Apply focal point
+      if (config.focalPoint) {
+        focalPoint = { ...config.focalPoint };
+      } else {
+        focalPoint = { x: 0.5, y: 0.5 };
+      }
+      
+      // Apply crop data - enter crop mode if cropData exists
+      if (config.cropData && config.cropData.width > 0 && config.cropData.height > 0) {
+        cropData = { ...config.cropData };
+        
+        // Enter crop mode if not already
+        if (!isCropMode) {
+          isCropMode = true;
+          $('#crop-btn').classList.add('active');
+          $('#aspect-ratio').classList.remove('hidden');
+          $('#download-crop-btn').classList.remove('hidden');
+          $('#original-panel').classList.add('crop-mode');
+          $('#original-panel').classList.remove('focal-mode');
+          $('#info-hint').textContent = 'Drag to select crop region';
+        }
+        
+        // Initialize cropper with saved crop data
+        if (cropper) {
+          cropper.destroy();
+          cropper = null;
+        }
+        
+        // Wait for image to be ready then set crop
+        const img = $('#orig-img');
+        const initCropperWithData = () => {
+          initCropper();
+          // Set the crop box after cropper is ready and trigger preview
+          setTimeout(() => {
+            if (cropper && cropData) {
+              cropper.setData({
+                x: cropData.x,
+                y: cropData.y,
+                width: cropData.width,
+                height: cropData.height
+              });
+              // Force update preview after setting crop data
+              setTimeout(() => {
+                updateInfoBar();
+                updateCropPreview();
+              }, 150);
+            }
+          }, 100);
+        };
+        
+        if (img.complete) {
+          initCropperWithData();
+        } else {
+          img.onload = initCropperWithData;
+        }
+      } else {
+        cropData = null;
+        // Exit crop mode if in it
+        if (isCropMode) {
+          isCropMode = false;
+          $('#crop-btn').classList.remove('active');
+          $('#aspect-ratio').classList.add('hidden');
+          $('#download-crop-btn').classList.add('hidden');
+          $('#original-panel').classList.remove('crop-mode');
+          $('#original-panel').classList.add('focal-mode');
+          $('#info-hint').textContent = 'Click image to set focal point';
+          if (cropper) {
+            cropper.destroy();
+            cropper = null;
+          }
+        }
+        updateTransform();
+      }
+      
+      updateFocalMarker();
+      updateInfoBar();
+    }
+    
+    // Save config to asset via GraphQL mutation
+    async function saveConfigToAsset(configName) {
+      if (!selectedAsset) {
+        alert('Please select an image first');
+        return;
+      }
+      
+      const status = $('#config-status');
+      status.textContent = 'Saving...';
+      
+      try {
+        // Get existing configs
+        const configs = [...getAssetConfigs()];
+        
+        // Create new config
+        const newConfig = getCurrentConfig();
+        newConfig.name = configName;
+        
+        // Add/update config
+        const existingIdx = configs.findIndex(c => c.name === configName);
+        if (existingIdx >= 0) {
+          configs[existingIdx] = newConfig;
+        } else {
+          configs.push(newConfig);
+        }
+        
+        // Save via mutation using variables (no publish)
+        await gql(`
+          mutation UpdateAssetConfigs($id: ID!, $configs: Json) {
+            updateAsset(where: { id: $id }, data: { transformConfigs: $configs }) {
+              id
+            }
+          }
+        `, { id: selectedAsset.id, configs: configs });
+        
+        // Update local cache
+        selectedAsset.transformConfigs = configs;
+        
+        // Update in assets array too
+        const assetIdx = assets.findIndex(a => a.id === selectedAsset.id);
+        if (assetIdx >= 0) {
+          assets[assetIdx].transformConfigs = configs;
+        }
+        
+        renderAssetConfigs();
+        $('#config-name').value = '';
+        status.textContent = `Saved "${configName}" to asset!`;
+        setTimeout(() => renderAssetConfigs(), 2000);
+        
+      } catch (e) {
+        console.error('Save config error:', e);
+        status.textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    // Delete config from asset
+    async function deleteConfigFromAsset(configIdx) {
+      if (!selectedAsset) return;
+      
+      const configs = [...getAssetConfigs()];
+      const configName = configs[configIdx]?.name;
+      if (!confirm(`Delete "${configName}" from this asset?`)) return;
+      
+      const status = $('#config-status');
+      status.textContent = 'Deleting...';
+      
+      try {
+        configs.splice(configIdx, 1);
+        
+        // Use variables for proper JSON handling (no publish)
+        await gql(`
+          mutation UpdateAssetConfigs($id: ID!, $configs: Json) {
+            updateAsset(where: { id: $id }, data: { transformConfigs: $configs }) {
+              id
+            }
+          }
+        `, { id: selectedAsset.id, configs: configs.length > 0 ? configs : null });
+        
+        // Update local cache
+        selectedAsset.transformConfigs = configs;
+        const assetIdx = assets.findIndex(a => a.id === selectedAsset.id);
+        if (assetIdx >= 0) {
+          assets[assetIdx].transformConfigs = configs;
+        }
+        
+        renderAssetConfigs();
+        status.textContent = `Deleted "${configName}"`;
+        setTimeout(() => renderAssetConfigs(), 2000);
+        
+      } catch (e) {
+        console.error('Delete config error:', e);
+        status.textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    // Upload modal buttons
+    $('#modal-cancel').addEventListener('click', hideUploadModal);
+    
+    $('#modal-upload').addEventListener('click', async () => {
+      if (!pendingFile) return;
+      
+      const altText = $('#modal-alt-text').value.trim();
+      const folder = $('#modal-folder-select').value;
+      
+      // Disable button during upload
+      const btn = $('#modal-upload');
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+      
+      try {
+        await uploadSingleFile(pendingFile, folder, altText);
+        hideUploadModal();
+        toggleUploadDropzone(); // Hide dropzone
+        fetchAssets(); // Refresh list
+      } catch (e) {
+        alert('Upload failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Upload';
+      }
+    });
+    
+    // Save config button
+    $('#save-config-btn').addEventListener('click', () => {
+      const name = $('#config-name').value.trim();
+      if (!name) { alert('Please enter a config name'); return; }
+      if (!selectedAsset) { alert('Please select an image first'); return; }
+      
+      const configs = getAssetConfigs();
+      const existing = configs.findIndex(c => c.name === name);
+      if (existing >= 0) {
+        if (!confirm(`Overwrite "${name}"?`)) return;
+      }
+      
+      saveConfigToAsset(name);
+    });
+    
+    // Load config on select
+    $('#saved-configs').addEventListener('change', (e) => {
+      const idx = e.target.value;
+      if (idx === '') return;
+      const configs = getAssetConfigs();
+      const config = configs[parseInt(idx)];
+      if (config) {
+        applyConfig(config);
+        $('#config-name').value = config.name;
+      }
+    });
+    
+    // Delete config button
+    $('#delete-config-btn').addEventListener('click', () => {
+      const idx = $('#saved-configs').value;
+      if (idx === '') { alert('Select a config to delete'); return; }
+      deleteConfigFromAsset(parseInt(idx));
+    });
+    
+    // Initialize
+    renderAssetConfigs();
+    
+    // Toggle configs section
+    window.toggleConfigsSection = function() {
+      const content = $('#configs-content');
+      const toggle = $('#configs-toggle');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.textContent = '▼';
+      } else {
+        content.style.display = 'none';
+        toggle.textContent = '▶';
+      }
+    };
     
     // Initialize focal point click handler
     setupFocalPoint();
     
-    // Init SDK
-    sdk.init({ debug: true }).then(async ({ props }) => {
-      endpoint = props?.context?.environment?.endpoint || localStorage.getItem(ENDPOINT_KEY);
-      const sdkToken = props?.context?.environment?.authToken;
-      token = sdkToken || localStorage.getItem(PAT_KEY);
-      if (endpoint) localStorage.setItem(ENDPOINT_KEY, endpoint);
-      if (sdkToken) localStorage.setItem(PAT_KEY, sdkToken);
+    // Initialize upload
+    setupUpload();
+    
+    // Init SDK - credentials come from Hygraph only (no localStorage)
+    sdk.init({ debug: false }).then(async ({ status, props }) => {
+      if (status === 'ok' && props) {
+        endpoint = props.context?.environment?.endpoint || '';
+        token = props.context?.environment?.authToken || '';
+        
+        console.log('SDK init:', { endpoint, hasToken: !!token });
       
       if (endpoint && token) {
         try {
@@ -1266,19 +2416,46 @@
           $('#setup-view').style.display = 'none';
           $('#main-view').style.display = 'grid';
           fetchAssets();
-        } catch { $('#token-group').style.display = 'block'; }
-      } else { $('#token-group').style.display = 'block'; }
-    }).catch(() => {
-      endpoint = localStorage.getItem(ENDPOINT_KEY);
-      token = localStorage.getItem(PAT_KEY);
-      if (endpoint && token) {
-        gql('{ __typename }').then(() => {
-          $('#setup-view').style.display = 'none';
-          $('#main-view').style.display = 'grid';
-          fetchAssets();
-        }).catch(() => $('#token-group').style.display = 'block');
-      } else { $('#token-group').style.display = 'block'; }
+          } catch (e) {
+            $('#error-msg').textContent = 'Connection failed: ' + e.message;
+          }
+        } else {
+          $('#error-msg').textContent = 'Missing endpoint or token from Hygraph';
+        }
+      } else {
+        $('#error-msg').textContent = 'This app must be run inside Hygraph';
+      }
+    }).catch((e) => {
+      console.error('SDK init error:', e);
+      $('#error-msg').textContent = 'This app must be run inside Hygraph as an embedded app';
     });
   </script>
+
+  <!-- Upload Preview Modal (must be at body level for fixed positioning) -->
+  <div id="upload-modal" class="hidden">
+    <div class="modal-content">
+      <h3>📤 Upload Image</h3>
+      <img id="modal-preview-img" class="modal-preview-img">
+      <div class="modal-details">
+        <div id="modal-filename" class="modal-detail-row"></div>
+        <div id="modal-filesize" class="modal-detail-row"></div>
+        <div id="modal-dimensions" class="modal-detail-row"></div>
+      </div>
+      <div id="modal-warnings"></div>
+      <div class="modal-field">
+        <label for="modal-alt-text">Alt text (optional)</label>
+        <input type="text" id="modal-alt-text" placeholder="Describe this image...">
+      </div>
+      <div class="modal-field">
+        <label for="modal-folder-select">Folder</label>
+        <select id="modal-folder-select"><option value="">(none)</option></select>
+      </div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="modal-btn modal-btn-cancel">Cancel</button>
+        <button id="modal-upload" class="modal-btn modal-btn-upload">Upload</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
+

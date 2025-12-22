@@ -23,7 +23,9 @@
     { "source": "/test", "destination": "/pages/test.html" },
     { "source": "/test.html", "destination": "/pages/test.html" },
     { "source": "/analytics", "destination": "/pages/analytics.html" },
-    { "source": "/analytics.html", "destination": "/pages/analytics.html" }
+    { "source": "/analytics.html", "destination": "/pages/analytics.html" },
+    { "source": "/crop-test", "destination": "/pages/crop-test.html" },
+    { "source": "/crop-test.html", "destination": "/pages/crop-test.html" }
   ],
   "headers": [
     {

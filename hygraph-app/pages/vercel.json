@@ -1,16 +1,19 @@
 {
-  "outputDirectory": ".",
-  "rewrites": [
-    { "source": "/", "destination": "/index.html" }
-  ],
   "headers": [
     {
-      "source": "/(.*).html",
+      "source": "/transform.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "X-Frame-Options", "value": "ALLOWALL" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.hygraph.com https://app.hygraph.com" }
+        { "key": "X-Frame-Options", "value": "" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors *" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors *" }
       ]
     }
   ]
 }
+
