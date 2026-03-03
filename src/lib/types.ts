@@ -116,6 +116,12 @@ export interface EditorialAnalysis {
     fieldCount: number;
     requiredFields: number;
     relationCount: number;
+    multiRelationCount: number;  // Relations with "Allow multiple values"
+    richTextCount: number;
+    enumCount: number;
+    componentCount: number;
+    multiComponentCount: number; // Components with "Allow multiple values"
+    assetCount: number;
     complexityScore: number;
   }[];
   averageFieldsPerModel: number;
@@ -1010,39 +1016,18 @@ export interface EmptyFieldAnalysis {
 }
 
 // ============================================
-// NEW: Content Freshness Analysis
+// NEW: Content Activity Analysis (Simple Last Updated)
 // ============================================
-export interface FreshnessThresholds {
-  fresh: number;      // days (default 30)
-  aging: number;      // days (default 90)
-  stale: number;      // days (default 180)
-  dormant: number;    // days (default 365)
-}
-
-export interface ModelFreshness {
+export interface ModelActivity {
   model: string;
   totalEntries: number;
-  fresh: number;      // updated within fresh threshold
-  aging: number;      // updated within aging threshold
-  stale: number;      // updated within stale threshold
-  dormant: number;    // older than dormant threshold
-  avgAgeDays: number;
-  newestEntry: Date | null;
-  oldestEntry: Date | null;
+  lastUpdated: Date | null;
+  daysSinceUpdate: number;
 }
 
 export interface ContentFreshnessAnalysis {
-  thresholds: FreshnessThresholds;
-  modelFreshness: ModelFreshness[];
-  overallFreshness: {
-    score: number;           // 0-100
-    totalEntries: number;
-    freshPercentage: number;
-    stalePercentage: number;
-    dormantPercentage: number;
-  };
-  staleContentAlert: { model: string; staleCount: number; percentage: number }[];
-  recommendations: string[];
+  models: ModelActivity[];
+  analyzedAt: Date;
 }
 
 // ============================================
@@ -1070,6 +1055,57 @@ export interface EnhancedPerformanceAnalysis {
 }
 
 // Combined Insights
+// ============================================
+// Business Value Analysis Types
+// ============================================
+
+export interface ModelEditorExperienceData {
+  modelName: string;
+  timeMinutes: number;
+  clicks: number;
+  cognitiveLoad: number;
+  overallScore: number;
+  complexity: 'simple' | 'moderate' | 'complex' | 'very-complex';
+  // Additional editor experience metrics
+  hasVisualAnchor: boolean;
+  namingClarity: number; // 0-100%
+  descriptionsPercent: number; // 0-100%
+}
+
+export interface EditorExperienceData {
+  models: ModelEditorExperienceData[];
+  averageTimeMinutes: number;
+  averageClicks: number;
+  averageCognitiveLoad: number;
+  worstModels: string[];
+  recommendations: string[];
+}
+
+export interface ModelCostData {
+  modelName: string;
+  entryCount: number;
+  timePerEntryMinutes: number;
+  costPerEntry: number;
+  totalCost: number;
+  complexity: 'simple' | 'moderate' | 'complex' | 'very-complex';
+}
+
+export interface ContentCostData {
+  hourlyRate: number;
+  totalModels: number;
+  totalEntries: number;
+  estimatedTotalCost: number;
+  costPerModel: ModelCostData[];
+  recommendations: string[];
+}
+
+export interface BusinessValueData {
+  editorExperience: EditorExperienceData;
+  contentCost: ContentCostData;
+  overallScore: number;
+  recommendations: string[];
+}
+
 export interface InsightsAnalysis {
   payloadEfficiency: PayloadEfficiencyAnalysis;
   contentAdoption: ContentAdoptionAnalysis;
@@ -1078,6 +1114,7 @@ export interface InsightsAnalysis {
   emptyFields?: EmptyFieldAnalysis;
   contentFreshness?: ContentFreshnessAnalysis;
   enhancedPerformance?: EnhancedPerformanceAnalysis;
+  businessValue?: BusinessValueData;
 }
 
 export interface AuditResult {

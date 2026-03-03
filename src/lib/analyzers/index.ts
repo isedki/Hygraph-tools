@@ -37,7 +37,7 @@ import { analyzeContentAdoption } from './contentAdoption';
 // NEW: Content health analyzers
 import { analyzeRichTextUsage } from './richTextAnalysis';
 import { analyzeEmptyFields } from './emptyFieldAnalysis';
-import { analyzeContentFreshness, DEFAULT_FRESHNESS_THRESHOLDS } from './contentFreshness';
+import { analyzeContentFreshness } from './contentFreshness';
 import { analyzeEnhancedPerformance } from './enhancedPerformance';
 import type {
   RichTextUsageAnalysis,
@@ -72,17 +72,8 @@ function getDefaultEmptyFields(): EmptyFieldAnalysis {
 
 function getDefaultContentFreshness(): ContentFreshnessAnalysis {
   return {
-    thresholds: DEFAULT_FRESHNESS_THRESHOLDS,
-    modelFreshness: [],
-    overallFreshness: {
-      score: 100,
-      totalEntries: 0,
-      freshPercentage: 0,
-      stalePercentage: 0,
-      dormantPercentage: 0,
-    },
-    staleContentAlert: [],
-    recommendations: ['Content freshness analysis skipped due to an error.'],
+    models: [],
+    analyzedAt: new Date(),
   };
 }
 

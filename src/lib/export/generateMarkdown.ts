@@ -197,33 +197,26 @@ export function generateMarkdown(result: AuditResult): string {
     lines.push(``);
   }
   
-  // Content Freshness
-  if (contentFreshness) {
-    lines.push(`### Content Freshness`);
+  // Content Activity
+  if (contentFreshness && contentFreshness.models?.length > 0) {
+    lines.push(`### Content Activity`);
     lines.push(``);
-    lines.push(`**Freshness Score:** ${contentFreshness.overallFreshness.score}%`);
-    lines.push(`**Total Entries Analyzed:** ${contentFreshness.overallFreshness.totalEntries}`);
+    lines.push(`**Models Analyzed:** ${contentFreshness.models.length}`);
     lines.push(``);
-    lines.push(`| Category | Percentage |`);
-    lines.push(`|----------|------------|`);
-    lines.push(`| Fresh (<${contentFreshness.thresholds.fresh} days) | ${contentFreshness.overallFreshness.freshPercentage}% |`);
-    lines.push(`| Stale (${contentFreshness.thresholds.aging}-${contentFreshness.thresholds.stale} days) | ${contentFreshness.overallFreshness.stalePercentage}% |`);
-    lines.push(`| Dormant (>${contentFreshness.thresholds.dormant} days) | ${contentFreshness.overallFreshness.dormantPercentage}% |`);
+    lines.push(`| Model | Entries | Last Updated | Days Ago |`);
+    lines.push(`|-------|---------|--------------|----------|`);
+    contentFreshness.models.slice(0, 15).forEach(m => {
+      const lastUpdated = m.lastUpdated 
+        ? new Date(m.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—';
+      const daysAgo = m.daysSinceUpdate >= 0 ? `${m.daysSinceUpdate} days` : 'Unknown';
+      lines.push(`| ${m.model} | ${m.totalEntries} | ${lastUpdated} | ${daysAgo} |`);
+    });
     lines.push(``);
     
-    if (contentFreshness.staleContentAlert.length > 0) {
-      lines.push(`**⚠️ Stale Content Alerts:**`);
-      contentFreshness.staleContentAlert.slice(0, 5).forEach(a => {
-        lines.push(`- **${a.model}** - ${a.percentage}% stale (${a.staleCount} entries)`);
-      });
-      lines.push(``);
-    }
-    
-    if (contentFreshness.recommendations.length > 0) {
-      lines.push(`**Recommendations:**`);
-      contentFreshness.recommendations.forEach(r => {
-        lines.push(`- ${r}`);
-      });
+    const agingModels = contentFreshness.models.filter(m => m.daysSinceUpdate > 90);
+    if (agingModels.length > 0) {
+      lines.push(`**⚠️ Models not updated in 90+ days:** ${agingModels.length}`);
       lines.push(``);
     }
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { AuditResult, ModelFreshness } from '@/lib/types';
+import type { AuditResult } from '@/lib/types';
 import { CheckpointCard } from '../CheckpointCard';
 import { SubTabs } from '../SubTabs';
 
@@ -24,9 +24,13 @@ export function InsightsTab({ result, showAll = false }: InsightsTabProps) {
   };
 
   const getFreshnessStatus = (): 'good' | 'warning' | 'issue' => {
-    if (!contentFreshness) return 'good';
-    if (contentFreshness.overallFreshness.score < 40) return 'issue';
-    if (contentFreshness.overallFreshness.score < 70) return 'warning';
+    if (!contentFreshness || !contentFreshness.models?.length) return 'good';
+    // Calculate average days since update
+    const avgDays = contentFreshness.models
+      .filter(m => m.daysSinceUpdate >= 0)
+      .reduce((sum, m, _, arr) => sum + m.daysSinceUpdate / arr.length, 0) || 0;
+    if (avgDays > 180) return 'issue';
+    if (avgDays > 90) return 'warning';
     return 'good';
   };
 
@@ -60,9 +64,9 @@ export function InsightsTab({ result, showAll = false }: InsightsTabProps) {
     {
       id: 'freshness' as InsightsSubTab,
       label: 'Content Freshness',
-      description: 'How old is your content? Stale alerts',
+      description: 'When was each model last updated?',
       status: getFreshnessStatus(),
-      count: contentFreshness?.staleContentAlert.length || 0,
+      count: contentFreshness?.models?.filter(m => m.daysSinceUpdate > 90).length || 0,
     },
     {
       id: 'richtext' as InsightsSubTab,
@@ -239,158 +243,100 @@ function ContentAdoptionSection({ result }: { result: AuditResult }) {
   );
 }
 
-// Content Freshness Section
+// Content Activity Section (simplified from Content Freshness)
 function ContentFreshnessSection({ result }: { result: AuditResult }) {
   const freshness = result.insights.contentFreshness;
-  const [showAllModels, setShowAllModels] = useState(false);
-
-  if (!freshness) {
+  if (!freshness || !freshness.models?.length) {
     return (
       <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
-        No content freshness data available. Run audit with content to see results.
+        No content activity data available. Run audit with content to see results.
       </div>
     );
   }
 
   const formatDate = (date: Date | null) => {
-    if (!date) return 'N/A';
+    if (!date) return '—';
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const displayedModels = showAllModels ? freshness.modelFreshness : freshness.modelFreshness.slice(0, 8);
+  const getDaysAgoColor = (days: number) => {
+    if (days < 0) return 'text-gray-400';
+    if (days <= 7) return 'text-green-600';
+    if (days <= 30) return 'text-yellow-600';
+    if (days <= 90) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getDaysAgoLabel = (days: number) => {
+    if (days < 0) return 'Unknown';
+    if (days === 0) return 'Today';
+    if (days === 1) return '1 day ago';
+    return `${days} days ago`;
+  };
+
+  // Calculate summary stats
+  const modelsWithActivity = freshness.models.filter(m => m.daysSinceUpdate >= 0);
+  const recentModels = modelsWithActivity.filter(m => m.daysSinceUpdate <= 7).length;
+  const agingModels = modelsWithActivity.filter(m => m.daysSinceUpdate > 90).length;
 
   return (
     <div className="space-y-6">
-      {/* Score Card */}
-      <div className="bg-white rounded-lg border p-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-gray-900">Freshness Score</h3>
-          <p className="text-sm text-gray-500">{freshness.overallFreshness.totalEntries.toLocaleString()} entries analyzed</p>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
+          <div className="text-2xl font-bold text-blue-600">{freshness.models.length}</div>
+          <div className="text-xs text-blue-700">Models Analyzed</div>
         </div>
-        <div className={`px-4 py-2 rounded-full text-lg font-bold ${
-          freshness.overallFreshness.score >= 80 ? 'text-green-600 bg-green-50' :
-          freshness.overallFreshness.score >= 60 ? 'text-yellow-600 bg-yellow-50' : 'text-red-600 bg-red-50'
-        }`}>
-          {freshness.overallFreshness.score}%
-        </div>
-      </div>
-
-      {/* Distribution */}
-      <div className="grid grid-cols-4 gap-3">
         <div className="bg-green-50 rounded-lg p-3 text-center border border-green-100">
-          <div className="text-2xl font-bold text-green-600">{freshness.overallFreshness.freshPercentage}%</div>
-          <div className="text-xs text-green-700">Fresh (&lt;{freshness.thresholds.fresh}d)</div>
-        </div>
-        <div className="bg-yellow-50 rounded-lg p-3 text-center border border-yellow-100">
-          <div className="text-2xl font-bold text-yellow-600">
-            {100 - freshness.overallFreshness.freshPercentage - freshness.overallFreshness.stalePercentage - freshness.overallFreshness.dormantPercentage}%
-          </div>
-          <div className="text-xs text-yellow-700">Aging</div>
+          <div className="text-2xl font-bold text-green-600">{recentModels}</div>
+          <div className="text-xs text-green-700">Updated This Week</div>
         </div>
         <div className="bg-orange-50 rounded-lg p-3 text-center border border-orange-100">
-          <div className="text-2xl font-bold text-orange-600">{freshness.overallFreshness.stalePercentage}%</div>
-          <div className="text-xs text-orange-700">Stale</div>
-        </div>
-        <div className="bg-red-50 rounded-lg p-3 text-center border border-red-100">
-          <div className="text-2xl font-bold text-red-600">{freshness.overallFreshness.dormantPercentage}%</div>
-          <div className="text-xs text-red-700">Dormant (&gt;{freshness.thresholds.dormant}d)</div>
+          <div className="text-2xl font-bold text-orange-600">{agingModels}</div>
+          <div className="text-xs text-orange-700">Not Updated in 90+ Days</div>
         </div>
       </div>
 
-      {/* Stale Content Alerts */}
-      {freshness.staleContentAlert.length > 0 && (
-        <div className="bg-white rounded-lg border border-orange-200 p-4">
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <span className="text-orange-500">⚠️</span>
-            Stale Content Alerts ({freshness.staleContentAlert.length})
-          </h3>
-          <div className="space-y-2">
-            {freshness.staleContentAlert.map((alert, i) => (
-              <div key={i} className="flex items-center justify-between text-sm p-2 bg-orange-50 rounded">
-                <span className="font-medium text-gray-900">{alert.model}</span>
-                <div className="text-right">
-                  <span className="text-orange-600 font-medium">{alert.percentage}% stale</span>
-                  <span className="text-gray-500 text-xs ml-2">({alert.staleCount} entries)</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Per-Model Freshness Table */}
+      {/* Last Updated Table */}
       <div className="bg-white rounded-lg border p-4">
-        <h3 className="font-semibold text-gray-900 mb-3">Freshness by Model</h3>
+        <h3 className="font-semibold text-gray-900 mb-3">Content Activity by Model</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
                 <th className="text-left py-2 px-2 text-gray-600 font-medium">Model</th>
                 <th className="text-right py-2 px-2 text-gray-600 font-medium">Entries</th>
-                <th className="text-right py-2 px-2 text-gray-600 font-medium">Avg Age</th>
-                <th className="text-center py-2 px-2 text-gray-600 font-medium">Distribution</th>
-                <th className="text-right py-2 px-2 text-gray-600 font-medium">Last Update</th>
+                <th className="text-right py-2 px-2 text-gray-600 font-medium">Last Updated</th>
+                <th className="text-right py-2 px-2 text-gray-600 font-medium">Days Ago</th>
               </tr>
             </thead>
             <tbody>
-              {displayedModels.map((model: ModelFreshness, i: number) => {
-                const total = model.totalEntries;
-                const freshPct = total > 0 ? Math.round((model.fresh / total) * 100) : 0;
-                const agingPct = total > 0 ? Math.round((model.aging / total) * 100) : 0;
-                const stalePct = total > 0 ? Math.round((model.stale / total) * 100) : 0;
-                const dormantPct = total > 0 ? Math.round((model.dormant / total) * 100) : 0;
-
-                return (
-                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-2 px-2 font-medium text-gray-900">{model.model}</td>
-                    <td className="py-2 px-2 text-right text-gray-600">{model.totalEntries.toLocaleString()}</td>
-                    <td className="py-2 px-2 text-right">
-                      <span className={
-                        model.avgAgeDays > 180 ? 'text-red-600' :
-                        model.avgAgeDays > 90 ? 'text-orange-600' :
-                        model.avgAgeDays > 30 ? 'text-yellow-600' : 'text-green-600'
-                      }>
-                        {model.avgAgeDays}d
-                      </span>
-                    </td>
-                    <td className="py-2 px-2">
-                      <div className="flex h-3 rounded overflow-hidden bg-gray-200 min-w-[80px]">
-                        {freshPct > 0 && <div className="bg-green-500" style={{ width: `${freshPct}%` }} />}
-                        {agingPct > 0 && <div className="bg-yellow-500" style={{ width: `${agingPct}%` }} />}
-                        {stalePct > 0 && <div className="bg-orange-500" style={{ width: `${stalePct}%` }} />}
-                        {dormantPct > 0 && <div className="bg-red-500" style={{ width: `${dormantPct}%` }} />}
-                      </div>
-                    </td>
-                    <td className="py-2 px-2 text-right text-gray-500 text-xs">{formatDate(model.newestEntry)}</td>
-                  </tr>
-                );
-              })}
+              {freshness.models.map((model, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="py-2 px-2 font-medium text-gray-900">{model.model}</td>
+                  <td className="py-2 px-2 text-right text-gray-600">{model.totalEntries.toLocaleString()}</td>
+                  <td className="py-2 px-2 text-right text-gray-500">{formatDate(model.lastUpdated)}</td>
+                  <td className="py-2 px-2 text-right">
+                    <span className={`font-medium ${getDaysAgoColor(model.daysSinceUpdate)}`}>
+                      {getDaysAgoLabel(model.daysSinceUpdate)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
 
-          {freshness.modelFreshness.length > 8 && (
-            <button
-              onClick={() => setShowAllModels(!showAllModels)}
-              className="mt-3 text-sm text-blue-600 hover:text-blue-800"
-            >
-              {showAllModels ? 'Show less' : `Show all ${freshness.modelFreshness.length} models`}
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Recommendations */}
-      {freshness.recommendations.length > 0 && (
-        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-          <h4 className="text-sm font-medium text-blue-700 mb-2">💡 Recommendations</h4>
-          <ul className="space-y-1">
-            {freshness.recommendations.map((rec, i) => (
-              <li key={i} className="text-sm text-blue-900 flex items-start gap-2">
-                <span className="text-blue-400">•</span>
-                {rec}
-              </li>
-            ))}
-          </ul>
+      {/* Note about aging content */}
+      {agingModels > 0 && (
+        <div className="bg-orange-50 rounded-lg border border-orange-200 p-4">
+          <h4 className="text-sm font-medium text-orange-700 mb-2">⚠️ Content Review Suggested</h4>
+          <p className="text-sm text-orange-900">
+            {agingModels} model{agingModels !== 1 ? 's have' : ' has'} not been updated in over 90 days. 
+            Consider reviewing this content for accuracy and relevance.
+          </p>
         </div>
       )}
     </div>

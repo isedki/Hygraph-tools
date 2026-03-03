@@ -500,4 +500,3 @@ cd hygraph-app && vercel --prod --force --yes
 
 *Last Updated: December 2024 - v2.0*
 
-

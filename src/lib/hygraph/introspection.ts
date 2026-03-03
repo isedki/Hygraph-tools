@@ -220,7 +220,7 @@ export async function fetchSchema(client: GraphQLClient): Promise<HygraphSchema>
     // Handle object types (models and components)
     if (type.kind === 'OBJECT' && type.fields) {
       const fields = type.fields
-        .filter(f => !['__typename', 'stage', 'documentInStages', 'history', 'publishedAt', 'createdAt', 'updatedAt', 'publishedBy', 'createdBy', 'updatedBy', 'scheduledIn'].includes(f.name))
+        .filter(f => !['__typename', 'id', 'stage', 'documentInStages', 'history', 'publishedAt', 'createdAt', 'updatedAt', 'publishedBy', 'createdBy', 'updatedBy', 'scheduledIn', 'localizations', 'locale'].includes(f.name))
         .map(mapToHygraphField);
       
       // Skip if no meaningful fields after filtering

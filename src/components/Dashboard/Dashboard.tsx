@@ -12,7 +12,8 @@ import {
   PerformanceTab,
   RoadmapTab,
   InsightsTab,
-  DuplicatesTab
+  DuplicatesTab,
+  BusinessValueTab
 } from './tabs';
 
 interface DashboardProps {
@@ -22,7 +23,7 @@ interface DashboardProps {
   token: string;
 }
 
-type TabType = 'summary' | 'structure' | 'architecture' | 'reusability' | 'performance' | 'insights' | 'duplicates' | 'roadmap';
+type TabType = 'summary' | 'structure' | 'architecture' | 'reusability' | 'performance' | 'insights' | 'duplicates' | 'business' | 'roadmap';
 
 const tabs = [
   { id: 'summary' as TabType, label: 'Summary', icon: '📊' },
@@ -32,6 +33,7 @@ const tabs = [
   { id: 'performance' as TabType, label: 'Performance', icon: '⚡' },
   { id: 'insights' as TabType, label: 'Insights', icon: '💡' },
   { id: 'duplicates' as TabType, label: 'Duplicates', icon: '🔍' },
+  { id: 'business' as TabType, label: 'Business', icon: '💰' },
   { id: 'roadmap' as TabType, label: 'Roadmap', icon: '🗺️' },
 ];
 
@@ -104,6 +106,7 @@ export default function Dashboard({ result, onDisconnect, endpoint, token }: Das
           {activeTab === 'performance' && <PerformanceTab result={result} showAll={showAll} />}
           {activeTab === 'insights' && <InsightsTab result={result} showAll={showAll} />}
           {activeTab === 'duplicates' && <DuplicatesTab result={result} endpoint={endpoint} token={token} />}
+          {activeTab === 'business' && <BusinessValueTab result={result} endpoint={endpoint} token={token} />}
           {activeTab === 'roadmap' && <RoadmapTab result={result} />}
           </div>
       </main>

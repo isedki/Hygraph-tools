@@ -5,23 +5,131 @@ interface ModelComplexity {
   fieldCount: number;
   requiredFields: number;
   relationCount: number;
+  multiRelationCount: number;  // Relations with "Allow multiple values"
+  richTextCount: number;
+  enumCount: number;
+  componentCount: number;
+  multiComponentCount: number; // Components with "Allow multiple values"
+  assetCount: number;
   complexityScore: number;
 }
 
 function calculateModelComplexity(schema: HygraphSchema): ModelComplexity[] {
+  // Build a set of component names for quick lookup
+  const componentNames = new Set(schema.components?.map(c => c.name) || []);
+  // Build a set of enum names for quick lookup
+  const enumNames = new Set(schema.enums?.map(e => e.name) || []);
+  // Build a set of model names for identifying true relations
+  const modelNames = new Set(schema.models?.map(m => m.name) || []);
+  
+  // System/non-relation types that should not be counted as relations
+  const nonRelationTypes = new Set([
+    'String', 'Int', 'Float', 'Boolean', 'ID', 'DateTime', 'Date', 'Json', 'Long',
+    'RichText', 'RichTextAST', 'Location', 'Color', 'RGBA', 'Hex',
+    'RGBAHue', 'RGBATransparency', 'Geometry', 'Json'
+  ]);
+  
   return schema.models.map(model => {
     const fieldCount = model.fields.length;
-    const requiredFields = model.fields.filter(f => f.isRequired).length;
-    const relationCount = model.fields.filter(f => f.relatedModel).length;
     
-    // Complexity formula: fields + (required * 0.5) + (relations * 1.5)
-    const complexityScore = fieldCount + (requiredFields * 0.5) + (relationCount * 1.5);
+    // Count ONLY truly required fields from editor perspective:
+    // - Must be marked required (NON_NULL in GraphQL)
+    // - Must NOT be a list (lists can be empty, so not truly "required" to fill)
+    // - Must NOT be a relation to other models (relations can often be empty or auto-populated)
+    // - Must NOT be a reverse relation or connection field
+    const requiredFields = model.fields.filter(f => {
+      if (!f.isRequired) return false;
+      
+      // Skip list fields - they're NON_NULL as empty arrays, not requiring input
+      if (f.isList) return false;
+      
+      // Skip relation fields (they can be optional/empty in editor)
+      if (f.relatedModel && modelNames.has(f.relatedModel)) return false;
+      
+      // Skip Asset relations
+      if (f.relatedModel === 'Asset' || f.type === 'Asset') return false;
+      
+      // Skip component fields (often optional in UI even if NON_NULL)
+      if (componentNames.has(f.type) || f.type === 'Component') return false;
+      
+      // This is a truly required scalar/value field
+      return true;
+    }).length;
+    
+    // Count RichText fields (type contains 'RichText' or 'richtext')
+    const richTextCount = model.fields.filter(f => 
+      f.type.toLowerCase().includes('richtext')
+    ).length;
+    
+    // Count Enum fields (type matches an enum name or type is 'Enumeration')
+    const enumCount = model.fields.filter(f => 
+      enumNames.has(f.type) || f.enumValues !== undefined
+    ).length;
+    
+    // Count Component fields (type matches a component name or is a union containing components)
+    const componentCount = model.fields.filter(f => 
+      componentNames.has(f.type) || f.type === 'Component'
+    ).length;
+    
+    // Count Asset fields separately
+    const assetCount = model.fields.filter(f => 
+      f.relatedModel === 'Asset' || f.type === 'Asset'
+    ).length;
+    
+    // Count ONLY true relations: fields pointing to other models (not components, enums, assets, or system types)
+    // A relation is a field with relatedModel that:
+    // 1. Points to another model (in modelNames)
+    // 2. Does NOT point to a component
+    // 3. Does NOT point to an enum
+    // 4. Does NOT point to Asset (counted separately)
+    // 5. Does NOT point to a system/non-relation type
+    const relationFields = model.fields.filter(f => {
+      if (!f.relatedModel) return false;
+      const targetType = f.relatedModel;
+      
+      // Skip if it's Asset (counted separately)
+      if (targetType === 'Asset') return false;
+      
+      // Skip if it's a component
+      if (componentNames.has(targetType)) return false;
+      
+      // Skip if it's an enum
+      if (enumNames.has(targetType)) return false;
+      
+      // Skip if it's a non-relation type (RichText, etc.)
+      if (nonRelationTypes.has(targetType)) return false;
+      
+      // Skip if the type name contains common non-relation patterns
+      if (targetType.toLowerCase().includes('richtext')) return false;
+      
+      // It's a relation if it points to another model
+      return modelNames.has(targetType);
+    });
+    const relationCount = relationFields.length;
+    
+    // Count multi-relations (relations with "Allow multiple values" / isList: true)
+    const multiRelationCount = relationFields.filter(f => f.isList).length;
+    
+    // Count multi-components (components with "Allow multiple values" / isList: true)
+    const componentFields = model.fields.filter(f => 
+      componentNames.has(f.type) || f.type === 'Component'
+    );
+    const multiComponentCount = componentFields.filter(f => f.isList).length;
+    
+    // Complexity formula: fields + (required * 0.5) + (relations * 1.5) + (multi-fields * 1)
+    const complexityScore = fieldCount + (requiredFields * 0.5) + (relationCount * 1.5) + (multiRelationCount * 1) + (multiComponentCount * 1);
     
     return {
       model: model.name,
       fieldCount,
       requiredFields,
       relationCount,
+      multiRelationCount,
+      richTextCount,
+      enumCount,
+      componentCount,
+      multiComponentCount,
+      assetCount,
       complexityScore: Math.round(complexityScore * 10) / 10,
     };
   }).sort((a, b) => b.complexityScore - a.complexityScore);
