@@ -723,14 +723,14 @@
       
       // Then fetch actual counts in background
       try {
-        // Build single batched query for all counts
+        // Build single batched query for all counts (must use stage: DRAFT to match asset grid)
         let countQuery = `{
-          all: assetsConnection(where: { mimeType_starts_with: "image/" }) { aggregate { count } }
-          uncategorized: assetsConnection(where: { mimeType_starts_with: "image/", folder: null }) { aggregate { count } }
+          all: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/" }) { aggregate { count } }
+          uncategorized: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/", folder: null }) { aggregate { count } }
         `;
         
         allFolders.forEach(folder => {
-          countQuery += `${folder}: assetsConnection(where: { mimeType_starts_with: "image/", folder: ${folder} }) { aggregate { count } }\n`;
+          countQuery += `${folder}: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/", folder: ${folder} }) { aggregate { count } }\n`;
         });
         
         countQuery += '}';
@@ -1112,11 +1112,13 @@
       progressFill.style.width = '100%';
       
       // Reset and refresh after a moment
-      setTimeout(() => {
+      setTimeout(async () => {
         dropzone.classList.remove('uploading');
         progress.classList.remove('active');
         progressFill.style.width = '0%';
-        fetchAssets(); // Refresh asset list
+        await fetchAssets(); // Refresh asset list
+        // Retry counts after a delay for Hygraph indexing
+        setTimeout(() => fetchFolderCounts(), 2000);
       }, 1500);
     }
     
@@ -2337,7 +2339,9 @@
         await uploadSingleFile(pendingFile, folder, altText);
         hideUploadModal();
         toggleUploadDropzone(); // Hide dropzone
-        fetchAssets(); // Refresh list
+        await fetchAssets(); // Refresh list
+        // Hygraph may not have indexed the new asset yet; retry counts after a delay
+        setTimeout(() => fetchFolderCounts(), 2000);
       } catch (e) {
         alert('Upload failed: ' + e.message);
       } finally {
