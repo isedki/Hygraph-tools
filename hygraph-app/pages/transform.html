@@ -532,7 +532,9 @@
     let hasNextPage = false;
     let isLoading = false;
     let searchDebounceTimer = null;
+    let recentUploads = new Map(); // id → { asset, addedAt }
     const ASSETS_PER_PAGE = 50; // Fetch more per page for efficiency
+    const RECENT_UPLOAD_TTL = 30000; // Keep optimistic assets for up to 30s
     
     async function gql(query, variables = {}) {
       const body = { query };
@@ -625,11 +627,32 @@
         const connection = data.assetsConnection;
         const newAssets = connection.edges.map(e => e.node);
         
+        // Reconcile recent uploads: remove from tracking if server now returns them
+        const serverIds = new Set(newAssets.map(a => a.id));
+        const now = Date.now();
+        for (const [id, entry] of recentUploads) {
+          if (serverIds.has(id) || now - entry.addedAt > RECENT_UPLOAD_TTL) {
+            recentUploads.delete(id);
+          }
+        }
+        
         if (append) {
           assets = [...assets, ...newAssets];
         } else {
-          assets = newAssets;
-          totalAssetCount = connection.aggregate?.count || assets.length;
+          // Preserve recent uploads the server hasn't indexed yet
+          const missing = [];
+          for (const [id, entry] of recentUploads) {
+            if (!serverIds.has(id)) {
+              const matchesFilter =
+                currentFolder === '' ||
+                (currentFolder === '__uncategorized__' && !entry.asset.folder) ||
+                entry.asset.folder === currentFolder;
+              if (matchesFilter) missing.push(entry.asset);
+            }
+          }
+          assets = [...missing, ...newAssets];
+          totalAssetCount = connection.aggregate?.count || 0;
+          if (missing.length > 0) totalAssetCount += missing.length;
         }
         
         endCursor = connection.pageInfo?.endCursor;
@@ -714,23 +737,23 @@
     }
     
     // Fetch folder counts - lazy loaded in background
-    async function fetchFolderCounts() {
-      // Show initial tree immediately with "?" counts
-      folderCounts = { all: '...' };
-      allFolders.forEach(f => folderCounts[f] = '...');
-      folderCounts['__uncategorized__'] = '...';
-      buildFolderTree();
+    async function fetchFolderCounts(skipLoadingState = false) {
+      if (!skipLoadingState) {
+        folderCounts = { all: '...' };
+        allFolders.forEach(f => folderCounts[f] = '...');
+        folderCounts['__uncategorized__'] = '...';
+        buildFolderTree();
+      }
       
-      // Then fetch actual counts in background
       try {
-        // Build single batched query for all counts (must use stage: DRAFT to match asset grid)
         let countQuery = `{
           all: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/" }) { aggregate { count } }
           uncategorized: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/", folder: null }) { aggregate { count } }
         `;
         
-        allFolders.forEach(folder => {
-          countQuery += `${folder}: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/", folder: ${folder} }) { aggregate { count } }\n`;
+        allFolders.forEach((folder, i) => {
+          const alias = `folder_${i}`;
+          countQuery += `${alias}: assetsConnection(stage: DRAFT, where: { mimeType_starts_with: "image/", folder: ${folder} }) { aggregate { count } }\n`;
         });
         
         countQuery += '}';
@@ -739,11 +762,11 @@
         
         folderCounts = { all: data.all?.aggregate?.count || 0 };
         folderCounts['__uncategorized__'] = data.uncategorized?.aggregate?.count || 0;
-        allFolders.forEach(folder => {
-          folderCounts[folder] = data[folder]?.aggregate?.count || 0;
+        allFolders.forEach((folder, i) => {
+          folderCounts[folder] = data[`folder_${i}`]?.aggregate?.count || 0;
         });
         
-        buildFolderTree(); // Update with real counts
+        buildFolderTree();
       } catch (e) {
         console.warn('Could not fetch folder counts:', e.message);
         folderCounts = { all: totalAssetCount };
@@ -912,10 +935,13 @@
             `<div class="modal-warning warning-${w.type}">${w.text}</div>`
           ).join('');
           
-          // Populate folder dropdown
+          // Populate folder dropdown and pre-select the active folder
           const modalFolderSelect = $('#modal-folder-select');
           modalFolderSelect.innerHTML = '<option value="">(none)</option>' + 
             allFolders.map(f => `<option value="${f}">${f}</option>`).join('');
+          if (currentFolder && currentFolder !== '__uncategorized__') {
+            modalFolderSelect.value = currentFolder;
+          }
           
           // Clear alt text
           $('#modal-alt-text').value = '';
@@ -990,7 +1016,7 @@
       // Step 3: Update asset with folder and alt-text if specified
       const updateParts = [];
       if (folder) {
-        updateParts.push(`folder: ${folder}`); // Enum value
+        updateParts.push(`folder: ${folder}`);
       }
       if (altText) {
         updateParts.push(`altText: "${altText.replace(/"/g, '\\"')}"`);
@@ -1008,7 +1034,70 @@
         }
       }
       
-      return assetId;
+      // Build local asset object for optimistic UI update
+      const localUrl = URL.createObjectURL(file);
+      return {
+        id: assetId,
+        fileName: file.name,
+        url: localUrl,
+        mimeType: file.type,
+        size: file.size,
+        folder: folder || null,
+        width: null,
+        height: null,
+        handle: null,
+        transformConfigs: null
+      };
+    }
+    
+    // Optimistically add uploaded assets to local state and refresh UI
+    function optimisticInsert(uploadedAssets, targetFolder) {
+      const now = Date.now();
+      uploadedAssets.forEach(a => {
+        recentUploads.set(a.id, { asset: a, addedAt: now });
+      });
+      
+      const visible = uploadedAssets.filter(a => {
+        if (currentFolder === '') return true;
+        if (currentFolder === '__uncategorized__') return !a.folder;
+        return a.folder === currentFolder;
+      });
+      
+      if (visible.length > 0) {
+        assets = [...visible, ...assets];
+        totalAssetCount += visible.length;
+      }
+      renderAssets();
+      
+      // Optimistically update folder counts
+      uploadedAssets.forEach(a => {
+        const key = a.folder || '__uncategorized__';
+        if (typeof folderCounts.all === 'number') folderCounts.all += 1;
+        if (typeof folderCounts[key] === 'number') folderCounts[key] += 1;
+      });
+      buildFolderTree();
+      
+      // Background refresh to converge with server state
+      scheduleServerRefresh();
+    }
+    
+    let _refreshTimer = null;
+    let _refreshAttempt = 0;
+    function scheduleServerRefresh() {
+      if (_refreshTimer) clearTimeout(_refreshTimer);
+      const delay = _refreshAttempt === 0 ? 3500 : 5000;
+      _refreshTimer = setTimeout(async () => {
+        _refreshTimer = null;
+        endCursor = null;
+        await fetchAssets();
+        await fetchFolderCounts(true);
+        _refreshAttempt++;
+        if (recentUploads.size > 0 && _refreshAttempt < 4) {
+          scheduleServerRefresh();
+        } else {
+          _refreshAttempt = 0;
+        }
+      }, delay);
     }
     
     async function uploadFiles(files, altText = '') {
@@ -1025,6 +1114,7 @@
       
       let uploaded = 0;
       const total = files.length;
+      const uploadedAssets = [];
       
       for (const file of files) {
         if (!file.type.startsWith('image/')) {
@@ -1036,71 +1126,10 @@
         progressFill.style.width = `${(uploaded / total) * 100}%`;
         
         try {
-          // Step 1: Create asset and get upload URL
-          const createData = await gql(`
-            mutation CreateAssetUpload {
-              createAsset(data: {}) {
-                id
-                upload {
-                  requestPostData {
-                    url
-                    date
-                    key
-                    signature
-                    algorithm
-                    policy
-                    credential
-                    securityToken
-                  }
-                }
-              }
-            }
-          `);
-          
-          const assetId = createData.createAsset.id;
-          const uploadData = createData.createAsset.upload.requestPostData;
-          
-          // Step 2: Upload file to the signed URL
-          const formData = new FormData();
-          formData.append('key', uploadData.key);
-          formData.append('X-Amz-Date', uploadData.date);
-          formData.append('X-Amz-Signature', uploadData.signature);
-          formData.append('X-Amz-Algorithm', uploadData.algorithm);
-          formData.append('policy', uploadData.policy);
-          formData.append('X-Amz-Credential', uploadData.credential);
-          if (uploadData.securityToken) {
-            formData.append('X-Amz-Security-Token', uploadData.securityToken);
-          }
-          formData.append('file', file);
-          
-          const uploadRes = await fetch(uploadData.url, {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!uploadRes.ok) {
-            throw new Error(`Upload failed: ${uploadRes.status}`);
-          }
-          
-          // Step 3: Update asset with folder if specified (enum value, not string)
-          if (targetFolder) {
-            try {
-              // Folder is an enum, so we pass it directly without quotes
-              await gql(`
-                mutation SetFolder($id: ID!) {
-                  updateAsset(where: { id: $id }, data: { folder: ${targetFolder} }) { id }
-                }
-              `, { id: assetId });
-            } catch (e) {
-              console.warn('Could not set folder:', e.message);
-            }
-          }
-          
-          // Note: Asset is left in DRAFT stage (not published)
-          
+          const asset = await uploadSingleFile(file, targetFolder, altText);
+          uploadedAssets.push(asset);
           uploaded++;
           progressFill.style.width = `${(uploaded / total) * 100}%`;
-          
         } catch (e) {
           console.error('Upload error:', e);
           progressText.textContent = `Error: ${e.message}`;
@@ -1111,15 +1140,15 @@
       progressText.textContent = `Done! ${uploaded} file(s) uploaded.`;
       progressFill.style.width = '100%';
       
-      // Reset and refresh after a moment
-      setTimeout(async () => {
+      setTimeout(() => {
         dropzone.classList.remove('uploading');
         progress.classList.remove('active');
         progressFill.style.width = '0%';
-        await fetchAssets(); // Refresh asset list
-        // Retry counts after a delay for Hygraph indexing
-        setTimeout(() => fetchFolderCounts(), 2000);
       }, 1500);
+      
+      if (uploadedAssets.length > 0) {
+        optimisticInsert(uploadedAssets, targetFolder);
+      }
     }
     
     // Setup upload event listeners
@@ -2330,18 +2359,15 @@
       const altText = $('#modal-alt-text').value.trim();
       const folder = $('#modal-folder-select').value;
       
-      // Disable button during upload
       const btn = $('#modal-upload');
       btn.disabled = true;
       btn.textContent = 'Uploading...';
       
       try {
-        await uploadSingleFile(pendingFile, folder, altText);
+        const asset = await uploadSingleFile(pendingFile, folder, altText);
         hideUploadModal();
-        toggleUploadDropzone(); // Hide dropzone
-        await fetchAssets(); // Refresh list
-        // Hygraph may not have indexed the new asset yet; retry counts after a delay
-        setTimeout(() => fetchFolderCounts(), 2000);
+        toggleUploadDropzone();
+        optimisticInsert([asset], folder);
       } catch (e) {
         alert('Upload failed: ' + e.message);
       } finally {

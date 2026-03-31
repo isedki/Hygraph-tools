@@ -2594,49 +2594,86 @@ async function runUnifiedSearch() {
     return;
   }
   
-  showSearchLoading();
+  // Batch queries to avoid rate limiting (4 models per batch)
+  const BATCH_SIZE = 4;
+  const BATCH_DELAY = 800; // ms between batches
   
-  const combinedQuery = `query GlobalUnifiedSearch {\n  ${queryParts.map(q => q.query).join('\n  ')}\n}`;
-  lastSearchQuery = combinedQuery;
+  const batches = [];
+  for (let i = 0; i < queryParts.length; i += BATCH_SIZE) {
+    batches.push(queryParts.slice(i, i + BATCH_SIZE));
+  }
   
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ query: combinedQuery })
-    });
+  // Store all queries for display
+  lastSearchQuery = `# Querying ${queryParts.length} models in ${batches.length} batches\n\n`;
+  
+  // Show loading with progress
+  const updateProgress = (current, total) => {
+    $('#search-results').innerHTML = `
+      <div class="search-loading">
+        <div class="loading-spinner"></div>
+        <p>Searching... (batch ${current}/${total})</p>
+      </div>
+    `;
+  };
+  
+  updateProgress(1, batches.length);
+  
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
     
-    const data = await res.json();
+    // Update progress
+    if (batchIndex > 0) {
+      updateProgress(batchIndex + 1, batches.length);
+      // Delay between batches to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+    }
     
-    if (data.data) {
-      for (const q of queryParts) {
-        let entries = data.data[q.pluralId];
-        if (entries && entries.length > 0) {
-          // If component filter is active, filter out entries with empty/null component
-          if (q.componentField) {
-            entries = entries.filter(entry => {
-              const compValue = entry[q.componentField];
-              if (q.componentIsList) {
-                return Array.isArray(compValue) && compValue.length > 0;
-              } else {
-                return compValue !== null && compValue !== undefined;
-              }
-            });
-          }
-          
-          if (entries.length > 0) {
-            results.push({
-              model: q.model,
-              pluralId: q.pluralId,
-              displayField: q.displayField,
-              entries
-            });
+    const batchQuery = `query GlobalSearch_Batch${batchIndex + 1} {\n  ${batch.map(q => q.query).join('\n  ')}\n}`;
+    lastSearchQuery += batchQuery + '\n\n';
+    
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ query: batchQuery })
+      });
+      
+      const data = await res.json();
+      
+      if (data.data) {
+        for (const q of batch) {
+          let entries = data.data[q.pluralId];
+          if (entries && entries.length > 0) {
+            // If component filter is active, filter out entries with empty/null component
+            if (q.componentField) {
+              entries = entries.filter(entry => {
+                const compValue = entry[q.componentField];
+                if (q.componentIsList) {
+                  return Array.isArray(compValue) && compValue.length > 0;
+                } else {
+                  return compValue !== null && compValue !== undefined;
+                }
+              });
+            }
+            
+            if (entries.length > 0) {
+              results.push({
+                model: q.model,
+                pluralId: q.pluralId,
+                displayField: q.displayField,
+                entries
+              });
+            }
           }
         }
       }
+      
+      if (data.errors) {
+        console.warn('Batch query warnings:', data.errors);
+      }
+    } catch (e) {
+      console.error(`Batch ${batchIndex + 1} error:`, e);
     }
-  } catch (e) {
-    console.error('Unified search error:', e);
   }
   
   renderSearchResults(results, 'unified');

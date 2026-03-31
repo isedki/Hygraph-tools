@@ -24,7 +24,18 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
       
       setLoadingMessage('Running comprehensive audit...');
-      const result = await runFullAudit(client, endpoint);
+      
+      // Run audit with stack overflow protection
+      let result;
+      try {
+        result = await runFullAudit(client, endpoint);
+      } catch (auditError) {
+        // Check for stack overflow
+        if (auditError instanceof RangeError && auditError.message.includes('call stack')) {
+          throw new Error('Schema is too complex to analyze. This may be due to circular references or a very large schema. Please contact support.');
+        }
+        throw auditError;
+      }
       
       setLoadingMessage('Generating report...');
       await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
